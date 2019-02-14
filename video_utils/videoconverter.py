@@ -4,23 +4,16 @@ import os, sys, re, time, subprocess, threading;
 from datetime import datetime;
 
 # Try python3 import, else do python2 import
-try:
-  from .utils import test_dependencies as dependencies;
-except:
-  from utils  import test_dependencies as dependencies;
+from .utils import test_dependencies as dependencies;
 
-try:
-  from .mediainfo import mediainfo, video_info_parse, audio_info_parse, text_info_parse;
-  from .subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
-  from .utils     import limitCPUusage;
-except:
-  from mediainfo import mediainfo, video_info_parse, audio_info_parse, text_info_parse;
-  from subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
-  from utils     import limitCPUusage;
+
+from .mediainfo import mediainfo, video_info_parse, audio_info_parse, text_info_parse;
+from .subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
+from .utils     import limitCPUusage;
 
 if dependencies.MP4Tags:
-  from videotagger.metadata.getMetaData import getMetaData;
-  from videotagger.mp4Tags import mp4Tags;
+  from .videotagger.metadata.getMetaData import getMetaData;
+  from .videotagger.mp4Tags import mp4Tags;
     
 class videoconverter( object ):
   '''
