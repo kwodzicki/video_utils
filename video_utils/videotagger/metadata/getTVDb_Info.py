@@ -1,7 +1,7 @@
 import logging
 
 try:
-	from videotagger.metadata import api_keys;
+	from video_utils import api_keys;
 except:
 	raise Exception("API key could NOT be imported!");
 if not hasattr(api_keys, 'tvdb'):

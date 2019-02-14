@@ -5,11 +5,9 @@
 ## Main features
 
 * Compatible with Python3
-* Platform-independent (?)
 * Will try to download SRT subtitles from opensubtitles.org if no subtitles in input file
-* Can tag movies and TV shows:
-	- Requires the [videotagger][videotagger] Python package
-* Can extract VOBSUB subtitles from input file and convert to SRT files (dependencies required)
+* Can tag movies and TV shows
+* Can extract closed captions and VOBSUB subtitles from input file and convert to SRT files (dependencies required)
 * Can be set to use a certain percentage of CPU available (dependency required)
 
 ## File Naming
@@ -22,7 +20,7 @@ ensure that metadata is properly downloaded.
 Whenever it's possible, please always use the latest version from the repository.
 To install it using `pip`:
 
-    pip install git+https://github.com/kwodzicki/makemkv_to_mp4
+    pip install git+https://github.com/kwodzicki/video_utils
 
 ## Dependencies
 
@@ -31,24 +29,27 @@ There are separated below into required and optional utilities below:
 
 ### Required
 * [HandBrakeCLI][handbrake] - Performs the transcoding
+* [ffmpeg][ffmpeg]          - Used for cutting comercials, audio downmixing, etc.
 * [MediaInfo][mediainfo]    - Used to get stream information for transcode settings
 
 ### Optional
-* [MKVToolNix][mkv]    - Used to extract VobSub subtitles from MKV files
-* [VobSub2SRT][vobsub] - Used to convert VobSub subtitles to SRT subtitles
-* [cpulimit][cpu]      - Used to prevent HandBrakeCLI from using 100% of CPU
+* [comskip][comskip]       - Used to locate commercials in DVRed TV files
+* [ccextractor][ccextract] - Used to extract captions from DVRed TV files to SRT
+* [MKVToolNix][mkv]        - Used to extract VobSub subtitles from MKV files
+* [VobSub2SRT][vobsub]     - Used to convert VobSub subtitles to SRT subtitles
+* [cpulimit][cpu]          - Used to prevent processes from using 100% of CPU
 
 ## Code example
 
-    # create and instance of the makemkv_to_mp4 class
-    from makemkv_to_mp4 import makemkv_to_mp4
-    mkv = makemkv_to_mp4()
+    # create and instance of videoconverter class
+    from video_utils import videoconverter
+    converter = videoconverter()
 
     # set path to file to convert
     file = '/path/to/file/Forgetting Sarah Marshall..2008.tt0800039.mkv'
 
     # transcode the file
-    mkv.transcode( file )
+    converter.transcode( file )
 
 ## Automated converting
 
@@ -62,12 +63,13 @@ care of the rest.
 
 ## License
 
-makemkv_to_mp4 is released under the terms of the GNU GPL v3 license.
+video_utils is released under the terms of the GNU GPL v3 license.
 
 [handbrake]: https://handbrake.fr/downloads2.php
+[ffmpeg]: https://www.ffmpeg.org/
 [mediainfo]: https://mediaarea.net/en/MediaInfo
-[tagger]: https://github.com/kwodzicki/videotagger
 [cpu]: https://github.com/opsengine/cpulimit
 [mkv]: https://mkvtoolnix.download/
 [vobsub]: https://github.com/ruediger/VobSub2SRT
-[videotagger]: https://github.com/kwodzicki/videotagger
+[comskip]: https://github.com/erikkaashoek/Comskip
+[ccextract]: https://github.com/CCExtractor/ccextractor
