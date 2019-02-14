@@ -34,8 +34,8 @@ There are separated below into required and optional utilities below:
 
 ### Optional
 * [comskip][comskip]       - Used to locate commercials in DVRed TV files
-* [ccextractor][ccextract] - Used to extract captions from DVRed TV files to SRT
 * [MKVToolNix][mkv]        - Used to extract VobSub subtitles from MKV files
+* [ccextractor][ccextract] - Used to extract captions from DVRed TV files to SRT
 * [VobSub2SRT][vobsub]     - Used to convert VobSub subtitles to SRT subtitles
 * [cpulimit][cpu]          - Used to prevent processes from using 100% of CPU
 
