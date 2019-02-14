@@ -1,0 +1,308 @@
+#!/usr/bin/env python
+#+
+# Name:
+#   MKV_Cron_Convert
+# Purpose:
+#   A python script to be run in a cron job to convert movie and TV Shows
+#   in a given directory.
+# Inputs:
+#   None.
+# Outputs:
+#   Some converted movies
+# Keywords:
+#   None.
+# Author and History:
+#   Kyle R. Wodzicki
+# Notes:
+#   Built to run on OS X and Linux
+#      Not tested on windows but might work?
+#-
+import os, sys, setproctitle;
+sys.path = sys.path[1:];                                                        # Remove parent directory of this file from sys_path so that makemkv_to_mp4 imports correctly
+
+import time;
+from threading import Thread;
+from datetime import datetime;
+from subprocess import Popen, PIPE;
+from makemkv_to_mp4 import makemkv_to_mp4;
+
+##########################################
+def convert(src, dst):
+	dst = type(dst);
+	if src == 'True':
+		return True;
+	elif src == 'False':
+		return False;
+	else:
+		try:
+			return int(src);
+		except:
+			pass;
+	if dst is not bool:
+		return dst( src );
+	return src
+
+##########################################
+def userInterface( classToEdit ):
+	'''
+	A function that will allow users to interact with the cron job, if
+	they can bring it to the forground.
+	'''
+	headFMT = '{:5}   {:^15}   {:^10}';                                           # Header format for table
+	ans     = None;
+	opts = ['threads', 'cpulimit', 'language', 'vobsub', 'srt', 'vobsub_delete'];
+	def getOptions():
+		vals = [];                                                                  # Initialize empty list
+		print( headFMT.format('Option','Description','Current Value') );            # Print table header
+		print( '-'*36 );                                                            # Print bar
+		for i in range( len(opts) ):                                                # Iterate over options
+			val = getattr(classToEdit, opts[i]);                                      # Get the value from the class
+			if val is None: val = 'Disabled';                                         # If the value is None, set to None
+			vals.append( val );                                                       # Append the value to the vals list
+			print( '{:5d}   {:^15}   {}'.format(i, opts[i], vals[i]) );               # Print out the option number, description, and current value
+		return vals;                                                                # Return current values
+
+	print( 'Current options for conversions:' );
+	vals = getOptions();
+	while ans != "STOP":                                                          # While ans is NOT equal to STOP
+		ans = input("Type 'STOP' to halt program or 'options' to change options: ");# Prompt for something to do
+		if ans == "STOP":                                                           # If ans is STOP
+			print('Program will stop after current transcode is finished');           # Inform user that program will stop
+			classToEdit.halt = True;                                                  # Set halt to True
+		elif ans == "options":                                                      # Else, if options is entered
+			os.system('cls||clear');                                                  # Clear the terminal screen
+			print( 'Select option to change' );                                       # Print information
+			vals = getOptions();                                                      # Get the options
+			ans = input( 'Option: ' );                                                # Prompt user for option to adjust
+			if ans == '': continue;                                                   # If nothing entered, just continue while loop
+			try:
+				opt = int( ans );                                                       # Convert input to an integer
+			except:
+				continue;
+			if opt >= 0 and opt < len(opts):                                          # If the integer is in the correct range
+				if vals[opt] is None:                                                   # If the value is None
+					print('Options is disabled, CANNOT change!!!');                       # Option is disabled and cannot be changed
+					continue;                                                             # Continue
+				if opts[opt] == 'language':                                             # If user changing language
+					prompt = 'Enter comma separated values for {} (current value {}): ';  # Message for new language(s) prompt
+				else:                                                                   # Else
+					prompt = 'Enter new value for {} (current value {}): ';               # Message for new value prompt
+				new    = input( prompt.format(opts[opt], vals[opt]) );                  # Prompt for new value
+				if new == '': continue;                                                 # If nothing is entered, just continue while loop
+				prompt = 'Are you sure you want to set {} to {} (y/n): ';               # Message fro conformation prompt
+				conf   = input( prompt.format( opts[opt], new ) );                      # Prompt for confirmation
+				if conf == 'y':                                                         # If y is entered, then adjust value
+					if opts[opt] == 'language': new = new.split(',');                     # If on language, split on comma
+					setattr( classToEdit, opts[opt], convert(new, vals[opt]) );           # Adjust the value
+					os.system('cls||clear');                                              # Clear the terminal screen
+					print( 'New values for options' );                                    # Print information
+					vals = getOptions();                                                  # Print table again to show new value
+
+##########################################
+class MKV_Cron_Convert( makemkv_to_mp4 ):
+	def __init__(self, in_dir, out_dir = None, log_dir = None, threads = None,
+    cpulimit = None, language = None, verbose = False, remove = False,
+    vobsub = False, srt = False, vobsub_delete = False):
+
+
+		self.in_dir        = in_dir;
+		self.status        = 0;	
+		self.home          = os.path.expanduser("~");                               # Get users home directory path
+		self.pid_Name      = 'MakeMKV_Cron';
+		self.pid_lock_file = '/tmp/' + self.pid_Name + '.pid';                      # Set up the pid_lock_file name
+		self.halt          = False;
+		self.logFile       = os.path.join(self.home, 'MKV_Convert.log');            # Path to the log directory
+		self.logID         = None;                                                  # File id for the log file
+
+		makemkv_to_mp4.__init__(self, threads = threads, cpulimit = cpulimit,     
+        language = language, verbose = verbose, remove = remove,
+        vobsub = vobsub, srt = srt, vobsub_delete = vobsub_delete);
+
+		self.__out_dir = out_dir
+		self.__log_dir = log_dir
+# 		
+# 		out_dir = self.in_dir if out_dir is None else out_dir;
+# 		log_dir = os.path.join(out_dir, 'logs') if log_dir is None else log_dir;
+# 		self.out_dir  = self.in_dir  if out_dir is None else out_dir;
+# 		if log_dir is None:
+# 			self.log_dir = os.path.join(self.out_dir, 'logs');
+# 		else:
+# 			self.log_dir = log_dir;
+  ##############################################################################
+	def run(self):
+		'''Function to iterate over files in a directory and convert them.'''
+		if os.path.isfile( self.pid_lock_file ):            	                      # Check if the pid_lock file exists
+			with open(self.pid_lock_file, 'r') as f: pid = f.readline( );	            # Write the pid to the file
+			ps = Popen( ['ps', '-o', 'comm=', '-p', pid], stdout=PIPE );              # Run a ps command to determine the name of the process running under the PID of the previous call the MKV_Cron_Convert
+			ps_output = ps.stdout.read(); ps.stdout.close(); ps.wait();               # Get the output from the command, close the pipe, and wait for the subprocess to finish cleanly
+			if self.pid_Name in str(ps_output):                                       # If there is an instance of this script running, then exit the script
+				if self._printlog( 'Instance already running' ): return;                # Print message that an instance is running
+				self.status = 1; return;                                                # Set status to one (1) and return
+
+		# If the script makes it to here that means either the pid_lock file did NOT
+		# exist OR the name of the process running under the PID in the file did NOT
+		# match that of this script
+		with open(self.pid_lock_file, 'w') as f: f.write( str( os.getpid() ) );     # Write the pid to the file
+		setproctitle.setproctitle( self.pid_Name );                                 # Set the process name to pid_Name
+		if self._printlog( 'Started' ): return;                                     # Write date of the conversion start to the log file file_num = 1;			
+		
+		fmt = "{:4d} of {:4d}: {}";                                                 # Set up a formatting string, file number being worked on, and a halt variable
+		allFiles     = 0;                                                           # Total number of files processed in all directories
+		allStartTime = datetime.now();                                              # Start time for all directories
+		for dir in self.in_dir:                                                     # Iterate over all input directories
+			if self._printlog( 'Looking for files in: {}'.format( dir ) ): return;    # Print a logging message
+			self.out_dir = dir if self.__out_dir is None else self.__out_dir;         # Set output directory to current input directory if the private output directory was NOT set else, use private output directory
+			if self.__log_dir is None:                                                # if the private log directory is None
+				self.log_dir = os.path.join(self.out_dir, 'logs');                      # Set log directory to current output directory with 'log' appended
+			else:                                                                     # Else, the private log directory was set
+				self.log_dir = self.__log_dir;                                          # Use the private log directory
+			
+			file_list = self.get_file_list(dir);                                      # Generate a list of all files in the input directory with a mkv extension
+			while len(file_list) > 0 and self.halt is False:                          # While there are files in the file_list and the halt variable is False
+				startTime = datetime.now();                                             # Get start time of directory run
+				file_num, totFiles = 0, 0;                                              # Initialize file number to zero (0) and totFiles in the directory that have been processed to zero
+				for file_path in file_list:                                             # Iterate over each file in file_list variable
+					file_base = os.path.basename( file_path );                            # Get base name of the file
+					file_num += 1;                                                        # Increment the file number
+					file = os.path.basename( file_path );                                 # Get the base name from the file path
+					if not os.path.isfile( file_path ):                                   # If the file does NOT exist
+						if self._printlog('File not exist: ' + file_base): return;          # Print message that the file does NOT exist
+						continue;                                                           # Skip to the next file
+					info1 = os.stat( file_path );                                         # Get information about the file,
+					time.sleep(10);                                                       # Sleep for 10 seconds
+					info2 = os.stat( file_path );                                         # Get information again
+					if info1.st_size != info2.st_size:                                    # If the file sizes do NOT match
+						msg = 'File size changed (still transferring?): ' + file_base;      # Message to be printed to the log
+						if self._printlog( msg ): return;                                   # Print message that the file may be still transferring to the directory
+						continue;                                                           # Skip to the next file	
+					if self._printlog( fmt.format(file_num, len(file_list), file_base) ): # Write basic information about the file being transcoded to the log file
+						return;                                                             # Return
+					log_file = os.path.join(self.log_dir, file[:-4] + '.log');            # Set log file based on log_dir and file name
+					self._init_logger(log_file);                                          # Initialize the logger
+					self.transcode(file_path);                                            # Transcode the file
+					if self.transcode_status != 0 and \
+					   self.transcode_status is not None:                                 # If the transcode_status is NOT zero (0)
+						if self._printlog('      There was an error during the transcode!'):# Write error message to log
+							return;                                                           # Return
+						self.halt = True; break;                                            # Set halt to true and break out of the for loop
+					elif self.transcode_status is None:                                   # If the transcode status is None, then output file exists already
+						if self._printlog('      Output file exists, skipping!'): return;   # Log a message
+					else:                                                                 # Else, the transcode was a success!
+						totFiles += 1;                                                      # Increment the total number of files processed in the directory by one
+						allFiles += 1;                                                      # Increment the total number of files processed in all directories by one					
+					if self.halt:                                                         # If transcode finished but halt has been changed to True
+						msg = ['User halted excecution!!!',
+						       'Remaining {} file(s) will be transcoded on next run!'];     # List containing messages to log
+						msg[-1] = msg[-1].format( len(file_list) - file_num );              # Add number of files into message
+						if self._printlog( msg ): return;                                   # Write error message to log
+						break;                                                              # Break the while loop
+
+				exTime = datetime.now() - startTime;                                    # Compute execution time
+				msg = [ 'Execution time: {}'.format( exTime ) ];                        # Initialize list containing message to print
+				if totFiles > 0:                                                        # If at least one (1) file has been processed
+					msg.append( 'Averge time per file: {}'.format(exTime / totFiles) );   # Append average execution time per file to message
+				msg.append( 'Processed {} file(s) in: {}'.format(file_num, dir) );      # Append more information to message
+				if self._printlog( msg ): return;                                       # If message fails to write to file, return
+				if not self.halt:                                                       # If halt as not been set to True
+					if self._printlog( 'Scanning for new files in: {}'.format( dir ) ):   # Write message that directory is being rescanned;			
+						return;
+					file_list = self.get_file_list(dir) if self.remove else [];           # Regenerate a list of all files in the input directory with a mkv extension IF the remove key IS set, else, do NOT regenerate file list
+
+			if self.halt: break;                                                      # If halt is True, then break the for loop
+		exTime = datetime.now() - allStartTime;                                     # Compute execution time
+		msg = [ 'Total execution time: {}'.format( exTime ) ];
+		if allFiles > 0: 
+			msg += ['Average time per file: {}'.format(exTime / allFiles)];
+		msg += [ 'Finished' ];                                                      # List containing messages to log
+		if self._printlog( msg ): return;                                           # If the logging fails, return
+		try:                                                                        # Try to
+			os.remove( self.pid_lock_file );                                          # Delete the pid lock file
+		except:                                                                     # On exception
+			pass;                                                                     # Do nothing
+
+  ##############################################################################
+	def get_file_list(self, dir):
+		''' Function to get files from all input directories'''
+		file_list = [];                                                             # Initialize all_files variable as a list
+		if not os.path.isdir( dir ):                                                # If the input directory is NOT a directory
+			msg = [ 'Requested input directory does NOT exist!', dir ];               # Message to print
+			if self._printlog( msg ): return;                                         # Print a message
+		else:                                                                       # If the input directory IS a directory
+			for file in os.listdir( dir ):                                            # Iterate over file list from given input directory
+				if file.endswith('.mkv'):                                               # If the file ends with '.mkv' extension
+					file_list.append( os.path.join( dir, file ) );                        # Append the full file path to the file_list variable
+			file_list.sort( key = lambda str: str.lower() );                          # Sort the file_list
+		return file_list;                                                           # Return the all_files
+
+  ##############################################################################
+	def _printlog(self, text):
+		'''
+		Function to print to a log file. If the leaveOpen
+		key is set to True, file is NOT closed when
+		function returns
+		'''
+		stopConvert = False;                                                        # variable to determine if should be stopped
+		if type(text) is not list: text = [text];                                   # Make sure text is of type list
+		try:                                                                        # Try to...
+			self.logID = open(self.logFile, 'a');                                     # Open the log file
+		except:                                                                     # On exception...
+			self.logID = None;                                                        # Force logID to None;
+			print( '\nFailed to open log file for writing! Halting program!' );       # Print message to screen
+			print( 'Below is information to be logged:' );                            # Print message to screen
+			self.status = 2;                                                          # Set status to 2
+			stopConvert = True;                                                       # Set stop convert to True
+		date = datetime.now().strftime('%Y-%m-%d %H:%M:%S');                        # Get current date
+		for i in text:                                                              # Iterate over all strings in text list
+			msg  = '{} - {}'.format( date, i );                                       # Message to be printed
+			try:                                                                      # Try to...
+				self.logID.write( msg + '\n' );                                         # Write information to the log file
+			except:                                                                   # On exception...
+				print( msg );                                                           # Print message to the screen
+				self.status = 2;                                                        # Set status to 2
+				stopConvert = True;                                                     # Set stop convert to True
+		try:                                                                        # Try to...
+			self.logID.close();                                                       # Close the file
+		except:                                                                     # On exception...
+			print( '\nFailed to close log file, halting!' );                          # Print a message
+			self.status = 2;                                                          # Set status to 2
+			stopConvert = True;                                                       # Set stopConvert to True
+		return stopConvert;                                                         # Return the stop message
+
+################################################################################
+# Set up command line arguments for the function
+if __name__ == "__main__":
+	import argparse;                                                              # Import library for parsing
+	parser = argparse.ArgumentParser(description="MKV Cron Converter");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+	parser.add_argument("indir",                 type   = str, nargs='+', help = "Input directory(s) where all files to be converted are found"); 
+	parser.add_argument("-o", "--outdir",        type   = str,            help = "Output directory for transcoded files. Default: Same as input"); 
+	parser.add_argument("-l", "--logdir",        type   = str,            help = "Log file directory. Default: Same as input file"); 
+	parser.add_argument("-T", "--threads",       type   = int,            help = "Set number of threads to use. Default: Half the number of threads available");	
+	parser.add_argument("-c", "--cpulimit",      type   = int,            help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
+	parser.add_argument("--language",            type   = str,            help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using commas. Default: eng for English");
+	parser.add_argument("-v", "--verbose",       action = "store_true",   help = "Increase verbosity");
+	parser.add_argument("-r", "--remove",        action = "store_true",   help = "Set to remove input file after transcode");
+	parser.add_argument("-V", "--vobsub",        action = "store_true",   help = "Set to extract VobSub(s)");
+	parser.add_argument("-s", "--srt",           action = "store_true",   help = "Set to convert VobSub(s) to SRT");
+	parser.add_argument("-d", "--delete-vobsub", action = "store_true",   help = "Set to delete VobSub(s). Usually used with the --srt option.");
+	args = parser.parse_args();                                                   # Parse the arguments
+	inst = MKV_Cron_Convert( args.indir, 
+		out_dir       = args.outdir,
+	  log_dir       = args.logdir,
+	  threads       = args.threads,
+	  cpulimit      = args.cpulimit,
+ 	  language      = args.language,
+	  verbose       = args.verbose,
+	  remove        = args.remove,
+	  vobsub        = args.vobsub,
+	  srt           = args.srt,
+    vobsub_delete = args.delete_vobsub ); 
+
+	threadMain  = Thread( target = inst.run );                                    # Initialize a thread that will run the MKV_Cron_Convert instance
+	threadInput = Thread( target = userInterface, args = (inst, ), daemon=True ); # Initialize a thread that will allow user to halt transcode through input
+
+	threadMain.start();                                                           # Start the transcode thread
+	threadInput.start();                                                          # Start the input thread
+	threadMain.join();                                                            # Join the transcode thread, i.e., wait for it to finish
+	if not inst.halt: print( "" );                                                # Print empty string if halt is False
+	
+	exit( inst.status );  

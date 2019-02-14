@@ -1,0 +1,688 @@
+import logging;
+
+import os, sys, re, time, subprocess, threading;
+from datetime import datetime;
+
+# Try python3 import, else do python2 import
+try:
+  from .utils import test_dependencies as dependencies;
+except:
+  from utils  import test_dependencies as dependencies;
+
+try:
+  from .mediainfo import mediainfo, video_info_parse, audio_info_parse, text_info_parse;
+  from .subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
+  from .utils     import limitCPUusage;
+except:
+  from mediainfo import mediainfo, video_info_parse, audio_info_parse, text_info_parse;
+  from subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
+  from utils     import limitCPUusage;
+
+if dependencies.MP4Tags:
+  from videotagger.metadata.getMetaData import getMetaData;
+  from videotagger.mp4Tags import mp4Tags;
+    
+class videoconverter( object ):
+  '''
+  Name:
+     videoconverter
+  Purpose:
+     A python class for converting video files h264 encoded files
+         in either the MKV or MP4 container. Video files must be
+         decodeable by the handbrake video software. All
+     audio tracks that will be passed through and AAC format stereo
+     downmixes of any mulit-channel audio tracks will be created for
+     better compatability. The H264 video code will be used for all
+     files with resolutions of 1080P and lower, while H265 will be
+     used for all videos with resolution greater than 1080P. 
+     The H265 codec can be enabled for lower resolution videos.
+  Dependencies:
+     os, sys, re, urllib2, time, subprocess, IMDbPY
+     HandBrakeCLI, mkvextract, vobsub2srt, mp4tags, cpulimit
+  Author and History:
+     Kyle R. Wodzicki     Created 24 Jul. 2017
+     
+     Modified 29 Jul. 2017 by Kyle R. Wodzicki
+       Fixed some issues with the file_info function that caused 
+       weird things to happen when a TV Show was input. The issue
+       was the result of how the IMDbPY class returns data; 
+       i.e., I had to use the .keys function to get the keys as
+       opposed to an x in y statement with a dictionary. This was
+       a simple coding error. Also added some code in the 
+       audio_info_parse function to remove duplicate downmixed 
+       audio streams that have the same language.
+     Modified 02 Sep. 2017 by Kyle R. Wodzicki
+       Added the get_mediainfo funcation which switches from multiple
+       subprocess calls of the mediainfo CLI to one call with all
+       information returned in XML format. XML tree is then parsed
+       in the video, audio, and text parsing functions.
+     Modified 12 Sep. 2017 by Kyle R. Wodzicki
+       Added opensubtitles integration where subtitles are
+       downloaded from opensubtitles.org if NONE are present
+       in the input file AND/OR download missing languages.
+       Furture development could include more robust handling
+       of forced (i.e., foreign) subtitles.
+       Also added better logging through the logging module.
+  '''
+  log      = logging.getLogger();                                               # Set log to root logger for all instances
+  log.setLevel(logging.DEBUG);                                                  # Set root logger level to debug
+  handlers = {'screen' : { 
+                'level'     : logging.CRITICAL,
+                'formatter' : logging.Formatter(
+                    '%(levelname)-8s - %(asctime)s - %(name)s - %(message)s',
+                    '%Y-%m-%d %H:%M:%S'
+                  )
+                },
+              'file' : {
+                'level'     : logging.INFO,
+                'formatter' : logging.Formatter( 
+                    '%(levelname)-.4s - %(funcName)-15.15s - %(message)s',
+                    '%Y-%m-%d %H:%M:%S'
+                  )
+                }
+              }
+  def __init__(self,
+               out_dir       = None,
+               log_dir       = None, 
+               log_file      = None, 
+               language      = None, 
+               threads       = None, 
+               container     = 'mp4',
+               cpulimit      = 75, 
+               x265          = False,
+               verbose       = False, 
+               remove        = False, 
+               vobsub        = False, 
+               srt           = False,
+               vobsub_delete = False,
+               username      = None,
+               userpass      = None):
+    '''
+    Keywords:
+       out_dir       : Path to output directory. Optional input. 
+                        DEFAULT: Place output file(s) in source directory.
+       log_dir       : Path to log file directory. Optional input.
+                        DEFAULT: Place log file(s) in source directory.
+       log_file      : Set to a file path to write progress of this function
+                        to. If set, verbose is 'set' in that all logging
+                        information is written to the file.
+       language      : Comma separated string of ISO 639-2 codes for 
+                        subtitle and audio languages to use. 
+                        Default is english (eng).
+       threads       : Set number of threads to use. Default is to use half
+                        of total available.
+       cpulimit      : Set to percentage to limit cpu usage to. This value
+                        is multiplied by number of threads to use.
+                        DEFAULT: 75 per cent.
+                        TO DISABLE LIMITING - set to 0.
+       verbose       : Set to True to increase verbosity.
+       remove        : Set to True to remove mkv file after transcode
+       vobsub        : Set to extract VobSub file(s). If SRT is set, then
+                        this keyword is also set. Setting this will NOT
+                        enable downloading from opensubtitles.org as the
+                        subtitles for opensubtitles.org are SRT files.
+       srt           : Set to convert the extracted VobSub file(s) to SRT
+                        format. Also enables opensubtitles.org downloading 
+                        if no subtitles are found in the input file.
+       vobsub_delete : Set to delete VobSub file(s) after they have been 
+                        converted to SRT format. Used in conjunction with
+                        srt keyword.
+      username       : User name for opensubtitles.org
+      userpass       : Password for opensubtitles.org. Recommend that
+                        this be the md5 hash of the password and not
+                        the plain text of the password for slightly
+                        better security
+    '''
+    self.verbose = verbose;      
+    self._init_logger( log_file );
+
+    self.illegal      = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
+    self.legal        = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
+    self.dependencies = dependencies;
+    self.mp4tags      = self.dependencies.MP4Tags;
+    self.vobsub       = self.dependencies.vobsub;
+    self.srt          = self.dependencies.srt;
+    self.cpulimit     = self.dependencies.cpulimit;
+    self.container    = container.lower();
+    
+    if (self.container == 'mp4') and (self.mp4tags is not None): self.mp4tags  = True;
+    if self.vobsub   is not None: self.vobsub   = vobsub
+    if self.srt      is not None: self.srt      = srt;
+    if self.cpulimit is not None: self.cpulimit = cpulimit;
+
+
+    # Set up all the easy parameters first
+    self.out_dir       = out_dir;
+    self.log_dir       = log_dir;
+    self.language      = ['eng'] if language is None else language.split(',');  # Set default language to None, i.e., use all languages  
+    self.miss_lang     = [];
+    self.x265          = x265;      
+    self.remove        = remove;       
+    self.vobsub_delete = vobsub_delete;
+    self.username      = username;
+    self.userpass      = userpass;
+
+    
+    if type(threads) is int:
+      self.threads = threads;
+    else:                                                                       # Get number of cores on machine; set the number of threads to half of total
+      try:
+        from multiprocessing import cpu_count;                                  # Attempt to import the cpu_count function from the multiprocessing module
+        self.threads = int( cpu_count() );                                      # Get number of CPUs available
+      except:
+        self.threads = 1;                                                       # If could not get number of threads, set to 1
+      self.threads = self.threads / 2 if self.threads >= 4 else 1;              # Set threads to half of total threads IF 4 or more threads are avaiable
+    
+    self.handbrake        = None;
+    self.video_info       = None;                                               # Set video_info to None by default
+    self.audio_info       = None;                                               # Set audio_info to None by default
+    self.text_info        = None;                                               # Set text_info to None by default
+    self.subtitle_ltf     = None;                                               # Array to store subtitle language, track, forced (ltf) tuples
+    self.vobsub_status    = None;                                               # Set vobsub_status to None by default
+    self.srt_status       = None;                                               # Set srt_status to None by default
+    self.transcode_status = None;                                               # Set transcode_status to None by default
+    self.mp4tags_status   = None;                                               # Set mp4tags_status to None by default
+    self.oSubs            = None;                                               # Set attribute of opensubtitles to None
+    
+    self.IMDb_ID     = None;
+    self.metaData    = None;
+    self.metaKeys    = None;
+    self.HB_logTime  = None;
+    
+    self.v_preset  = 'slow';                                                    # Set self.handbrake preset to slow
+    self.cpuID     = [];                                                        # Empty list for storing cpulimit PIDs in
+    self.fmt       = 'utf-8';                                                   # Set encoding format
+    self.encode    = type( 'hello'.encode(self.fmt) ) is str;                   # Determine if text should be encoded; python2 vs python3
+    self.timeout   = 12 * 60 * 60;                                              # Set timeout to 12 hours
+
+################################################################################
+  def transcode( self, in_file ):
+    '''
+    Name:
+       transcode
+    Purpose:
+       A python function to get information about an MKV file produced
+       by the MakeMKV program and convert the file to a an MP4 with
+       x264 or x265 encoding. This function calls many functions to set
+       up options to be fed into the HandBrakeCLI command to transcode
+       the file. A non-exhaustive list of options chosen are:
+            - Set quality rate factor for x264/x265 based on video 
+               resolution and the recommended settings found here:
+                   https://self.handbrake.fr/docs/en/latest/workflow/
+                   adjust-quality.html
+            - Used variable frame rate, which 'preserves the source timing
+            - Uses x264 codec for all video 1080P or lower, uses x265 for
+               video greater than 1080P, i.e., 4K content.
+            - Copy any audio streams with more than two (2) channels 
+            - Generate an AAC encoded Dolby Pro Logic II downmix of
+               streams with more then two (2) channels channels.
+            - Generate an AAC encoded stream for any streams with two (2)
+               or fewer channels
+            - Extract VobSub subtitle file(s) from the mkv file.
+            - Convert VobSub subtitles to SRT files.
+       This program will accept both movies and TV episodes, however,
+       movies and TV episodes must follow specific naming conventions 
+       as specified under in the 'File Naming' section below.
+    Inputs:
+       in_file  : Full path to MKV file to covert. Make sure that the file names
+               follow the following formats for movies and TV shows:
+    Outputs:
+       Outputs a transcoded video file in the MP4 container and
+       subtitle files, based on keywords used. Also returns codes 
+       to signal any errors.
+    Return codes:
+        0 : Everything finished cleanly
+       10 : No video OR no audio streams
+    File Naming:
+       MOVIE:
+           Title.qualifier.year.imdbID.mkv
+              Title -     Title of the movie. Only special character  
+                                                 allowed is an apostrophe ('). 
+                                                 DO NOT USE PERIODS (.) IN TITLE!
+              qualifier - Used to specify if movie is unrated, 
+                                                 extended, edition, etc. 
+              year      - Year the movie was released.
+              imdbID    - The movie's IMDB index, which starts with 
+                                                 'tt', and can be found in the URL for the
+                                                 IMDB web page. Here is an example for the 
+                                                 movie '21' where the IMDB index is after 
+                                                 title/: http://www.imdb.com/title/tt0478087/
+           If there is no data for a given field, leave it blank. 
+           For example: A Movie....mkv would be used for a movie 
+           with no qualifier, year, or IMDB index
+       TV EPISODE
+           Title.imdbID.mkv
+              Title  - The title MUST starts with 'sXXeXX - '
+                        where sXX corresponds to the season number 
+                        and eXX is the episode number. For example,
+                        the first episode in a series is usually 
+                        named 'Pilot', so the file title would be 
+                        's01e01 - Pilot'. Only special character  
+                        allowed is an apostrophe (').
+                        DO NOT USE PERIODS (.) IN TITLE!
+              imdbID - The IMDB index of the episode. See imdbID under
+                        MOVIE for more information.
+           If there is no data for a given field, leave it blank. For
+           example: 'A Movie....mkv' would be used for a movie with
+           no qualifier, year, or IMDB index. The same follows for the
+           TV episodes. The only field required is the TITLE
+
+    Author and History:
+       Kyle R. Wodzicki     Created 29 Dec. 2016
+
+       Modified 01 Jan. 2017 by Kyle R. Wodzicki
+          Changed to a function and added check for multithreading when only 
+          half the number of cores are used for CPUs with 4 or more cores.
+       Modified 11 Jan. 2017 by Kyle R. Wodzicki
+          Added the srt and vobsub_delete keywords. If the srt keyword is set to
+          True, then srt files will be created. If the vobsub_delete keyword is 
+          ALSO set, then the VobSub files will be deleted after the conversion.
+          Setting delete without setting srt does NOTHING. These keys are passed
+          to the vobsub_extract function.
+       Modified 12 Jan. 2017 by Kyle R. Wodzicki:
+          Added the vobsub keyword and changed so that output files are placed
+          in their own directory if VobSub or SRT file(s) are to be created,
+          i.e., If not subtitle file(s) are created, the movie is output to the 
+          top level of the out_dir, else, a folder is created with out_dir that
+          matches the title name of the movie from the input file and then
+          subtitle file(s) and the MP4 file are saved to that directory.
+       Modified 14 Jan. 2017 by Kyle R. Wodzicki
+          Updated header information for better clarity.
+    '''
+    if not self.file_info( in_file ): return;                                   # If there was an issue with the file_info function, just return
+    if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
+      self.log.critical('No video or no audio, transcode cancelled!');          # Print log message
+      self.transcode_status = 10;                                               # Set transcode status
+      return;                                                                   # Return
+    if self.verbose:                                                            # IF verbose is true
+      try:
+        start_time = datetime.now();                                            # Set start date
+      except:
+        start_time = None;                                                      # If datetime CANNOT be imported, set start time to None
+    self.transcode_status = None;                                               # Reset transcode status to None
+    self.HB_logTime       = None;
+    self.get_subtitles( );                                                      # Extract subtitles
+
+    ############################################################################
+    ###    TRANSCODE     TRANSCODE     TRANSCODE     TRANSCODE               ###
+    ############################################################################
+    out_file = '{}.{}'.format( self.out_file, self.container );                 # Set the output file path
+    self.log.info( 'Output file: '.format( out_file ) );                        # Print the output file location
+    if os.path.exists( out_file ):                                              # IF the output file already exists
+      self.log.info('Output file Exists...Skipping!');                          # Print a message
+      if self.remove: os.remove( self.in_file );                                # If remove is set, remove the source file
+      return;                                                                   # Return to halt the function
+
+    self.hb_err_file  = self.hb_log_file + '.err';                              # Set up path self.handbrake error file
+    self.hb_log_file += '.log';                                                 # Set up path self.handbrake log file
+  
+    self.hb_cmd = ['HandBrakeCLI', '--optimize', '--markers', '--vfr',
+               '--aencoder', self.audio_info['a_codec'],
+               '--mixdown',  self.audio_info['a_mixdown'],
+               '--ab',       self.audio_info['a_bitrate'],
+               '--audio',    self.audio_info['a_track'],
+               '--aname',    self.audio_info['a_name'],
+               '--format',   self.container, 
+               '--encoder',  self.video_info['v_codec'],
+               '--quality',  self.video_info['quality'],
+               self.video_info['v_codec_preset'],  self.v_preset,
+               self.video_info['v_codec_level'],   self.video_info['v_level'], 
+               self.video_info['v_codec_profile'], self.video_info['v_profile']];
+    if 'aspect' in self.video_info: 
+      self.hb_cmd += ['--custom-anamorphic'];
+      self.hb_cmd += ['--pixel-aspect', self.video_info['aspect']];
+  # encopts = encopts + ':level='+video_info['v_level'];
+  # encopts = encopts + ':profile='+video_info['v_profile'];
+
+    if self.video_info['v_codec'] == 'x264':
+      encopts = 'threads=';
+    else:
+      encopts = 'pools=';                                                       # Initialize encoding options string
+    encopts += str(self.threads);                                               # Append number of threads to use to encoding options
+
+    self.hb_cmd.extend( ['--encopts', encopts] );                               # Append encoding options to the self.handbrake command
+    if self.video_info['scan_type'] == 'I':                                     # If scan type of video is 'I', then video is interlaced
+      self.hb_cmd.append('--deinterlace=slower');                               # Turn on deinterlace
+    self.hb_cmd.extend(['--input', self.in_file, '--output', out_file]);        # Append input and output file paths to the self.handbrake command
+
+    self.log.info( 'Transcoding file...' )
+    with open(self.hb_log_file, 'w') as log:                                    # With the handbrake log file open
+      with open(self.hb_err_file, 'w') as err:
+        self.handbrake = subprocess.Popen(self.hb_cmd, stdout=log, stderr=err); # Start the HandBrakeCLI command and direct all errors to a PIPE
+    if type(self.cpulimit) is int and self.cpulimit > 0:                        # If limiting of CPU usage is requested
+      CPU_id = limitCPUusage(self.handbrake.pid, self.cpulimit, self.threads);  # Run cpu limit command
+      
+    self.handbrake.communicate();                                               # Wait for self.handbrake to finish completely
+    try:                                                                        # Try to...
+      CPU_id.communicate();                                                     # Communicate with CPU_id to wait for it to exit cleanly
+      status = CPU_id.returncode;                                               # Get the return code
+    except:                                                                     # On exception
+      status = 0;                                                               # Set status to zero;
+    self.transcode_status = self.handbrake.returncode;                          # Set transcode_status      
+
+    if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
+      self.log.info( 'Transcode SUCCESSFUL!' );                                 # Print information
+    else:                                                                       # Else, there was an issue with the transcode
+      self.log.critical( 'All transcode attempts failed!!!' );                  # Log critical information
+      return False;                                                             # Return False from function, i.e., transcode failed
+
+    if self.metaKeys is None:                                                   # If the metaKeys attribute is None
+      self.log.warning('No metadata to write!!!');                              # Print message that not data to write
+    elif self.mp4tags:                                                          # If mp4tags attribute is True
+      self.mp4tags_status = mp4Tags( out_file, metaData = self.metaData );      # Write information to ONLY movie files
+      if self.mp4tags_status == 0:
+        self.log.info('MP4 Tags written.');                                     # Print message if status IS 0
+      else:
+        self.log.warning('MP4 Tags NOT written!!!');                            # Print message if status is NOT zero
+    else:
+      self.log.warning('MP4 Tagging disabled!!!');                              # If mp4tags attribute is False, print message
+
+    inSize  = os.stat(self.in_file).st_size;                                    # Size of in_file
+    outSize = os.stat(out_file).st_size;                                        # Size of out_file
+    difSize = inSize - outSize;                                                 # Difference in file size
+    change  = 'larger' if outSize > inSize else 'smaller';                      # Is out_file smaller or larger than in file
+    msg     = 'The new file is {:4.1f}% {} than the original!';                 # Set up message to be printed
+    self.log.info( msg.format(abs(difSize)/inSize*100, change) );               # Print the message about the size
+          
+    if self.remove:                                                             # If remove is set
+      self.log.info( 'Removing the input file...' );                            # Log some information
+      os.remove( self.in_file );                                                # Delete the input file if remove is true
+    if start_time is not None:                                                  # If the start_time is NOT none, then print the computation time
+      self.log.info('Duration: {}'.format(datetime.now()-start_time)+'');       # Print compute time
+    self.handbrake = None;
+    return True;                                                                # Return True from function, i.e., transcode was success
+  ##############################################################################
+  def file_info( self, in_file ):
+    '''
+    Function to extract some information from the input file name and set up
+    some output file variables.
+    '''
+    self.log.info('Setting up some file information...');
+
+    # Set mp4tags to the dependencies.MP4Tags value each time file_info is run, 
+    # this is because file_info adjusts this setting based on getMetaData() 
+    # output, which means it may get disable for a given run, but should be 
+    # re-enabled on the next run.
+    self.mp4tags = self.dependencies.MP4Tags;                                          
+    
+    # Set up file/directory information
+    self.in_file  = in_file if os.path.exists( in_file ) else None;             # Set the in_file attribute for the class to the file input IF it exists, else, set the in_file to None
+    if self.in_file is None:                                                    # IF the input file does NOT exist
+      self.log.info( 'File requested does NOT exist. Exitting...' );
+      self.log.info( '   ' + in_file );
+      return False;                                                             # Return, which stops the program
+    self.log.info( 'Input file: '   + self.in_file );                           # Print out the path to the input file
+    if self.out_dir is None: self.out_dir = os.path.dirname(in_file);           # Set the output directory based on input file OR on output directory IF input
+    if self.log_dir is None: self.log_dir = os.path.join(self.out_dir, 'logs'); # Set log_dir to input directory if NOT set on init, else set to log_dir value
+    self.tv_dir  = os.path.join( self.out_dir, 'TV Shows');                     # Generate output path for TV Shows
+    self.mov_dir = os.path.join( self.out_dir, 'Movies');                       # Generate output path for Movies
+
+    # Getting information from IMDb.com
+    self.IMDb_ID  = self.in_file.split('.')[-2];
+    self.metaData = None;                                                       # Default metaData to None;
+    self.metaKeys = None;                                                       # Default metaKeys to None;
+    if self.IMDb_ID[:2] == 'tt' and self.mp4tags:
+      self.metaData = getMetaData( self.IMDb_ID );
+      self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
+      if len(self.metaKeys) == 0:                                               # If no keys returned
+        self.log.warning('Failed to download metadata for file!!!');
+        self.log.warning( 'MP4 tagging is disabled!!!' );                       # Print message that the mp4 tagging is disabled                
+        self.mp4tags = False;                                                   # Disable mp4 tagging
+    elif self.mp4tags:
+      self.log.warning('IMDb ID not in file name!');
+    else:
+      self.log.info('MP4 tagging is disabled.');
+
+#   self.new_out_dir = self.out_dir;                                          # Reset output directory to original directory
+    self.file_base  = os.path.basename(self.in_file);                           # Get the base name of the file
+    file_split      = self.file_base.split('.')[:-1];                           # Split base name on period and ignore extension 
+    self.title      = file_split[0];                                            # Get title of movie or TV show
+    self.season_dir = None;
+    self.out_file   = None;
+    ### Determine if the file is an episode of a TV show, or a movie. TV episodes
+    ### files begin with the patter 'sXXeXX - ', where XX is a number for the
+    ### seasons and episode
+    re_test = re.match(re.compile(r's\d{2}e\d{2} - '), self.file_base);         # Test for if the file name starts with a specific pattern, then it is an episode
+    if self.metaKeys is None:                                                   # If the metaKeys attribute is None
+      se_test = False;                                                          # Then the se_test is False
+    else:                                                                       # Else, the metaKeys attribute is not None
+      se_test = ('series title' in self.metaKeys or \
+                  'seriesName'  in self.metaKeys) and \
+                  'season'      in self.metaKeys and \
+                  'episode'     in self.metaKeys;                               # Test if there is a series title AND season AND episode tag in the imdb information
+    if re_test or se_test:                                                      # If either the pattern test (re_test) OR the IMDb information test (se_test) is true, assume it's an episode
+      self.is_episode  = True;                                                  # Set is_episode to True
+      self.year        = None;
+      self.new_out_dir = self.tv_dir;                                           # Reset output directory to original directory
+      if file_split[-1][:2] == 'tt' or file_split[-1][:2] == '':                # If the first two characters of the last element of the split file name are 'tt' OR it is an empty string
+        self.file_name = '.'.join(file_split[:-1]);                             # Join file base name using periods EXCLUDING the IMDB id
+      else:                                                                     # If the first two characters of the last element of the split file name are NOT 'tt'
+        self.file_name = '.'.join(file_split);                                  # Join file base name using periods
+      if se_test:
+        try:                                                                    # Try to use the seriesName tag from the metaData
+          st = self.metaData['seriesName'];                                     # Set Series directory name
+        except:                                                                 # If this tag does NOT exist, use the series title tag
+          st = self.metaData['series title'];                                   # Set Series directory name
+        if self.encode: st = st.encode(self.fmt);                               # Encode if python2
+        for n in range( len(self.illegal) ):                                    # Iterate over all illegal characters
+          if self.illegal[n] in st:                                             # If an illegal character is found in the string
+              st = st.replace(self.illegal[n], self.legal[n]);                    # Replace the character with a legal character
+        self.new_out_dir = os.path.join(self.new_out_dir, st);                  # Set Series directory name
+        sn = 'Season {:02d}'.format(self.metaData['season']);                   # Set up name for Season Directory
+        self.new_out_dir = os.path.join(self.new_out_dir, sn);                  # Add the season directory to the output directory
+        if re_test is False:                                                    # If the re_test is False
+          ss = 's{:02d}'.format(self.metaData['season']);                       # Set up season prefix
+          ee = 'e{:02d}'.format(self.metaData['episode']);                      # Set up episode prefix
+          self.file_name = ss + ee + ' - ' + self.file_name;                    # Modify the file_name
+    else:                                                                       # Else the file is a movie
+      self.is_episode  = False;                                                 # Set is_episode to False
+      self.new_out_dir = self.mov_dir;                                          # Reset output directory to original directory
+      self.file_name   = '.'.join(file_split[:-2]);                             # Join file base name using periods EXCLUDING the year and IMDB id
+      self.year        = file_split[-2];                                        # Get movie year and IMDB id from the file name; the second last and last elements, respectively
+      if self.year != '': self.title += ' - ' + self.year;                      # Append movie year to title variable
+
+    self.log.info('Getting video, audio, information...');                      # If verbose is set, print some output
+    self.mediainfo = mediainfo( self.in_file );                                 # Get all video, audio, and text information
+    if self.mediainfo is None: return;
+
+    self.video_info = video_info_parse( self.mediainfo, self.x265 );            # Get and parse video information from the file
+    if self.video_info is None: return;                    
+    self.audio_info = audio_info_parse( self.mediainfo, self.language );        # Get and parse audio information from the file
+    if self.audio_info is None: return;               
+
+    ### Set up output file path and log file path. NO FILE EXTENSIONS USED HERE!!!
+    if self.is_episode:                                                         # If the file is an episode, set up file name with video info, and audio info
+        self.file_name += '.' + self.video_info['file_info'] + '.' + \
+                                            self.audio_info['file_info'];
+    else:                                                                       # Else, file is a movie, set up file name with year, video info, audio info, and IMDB ID
+        self.file_name += '.' + self.year + '.'  + \
+                                     self.video_info['file_info'] + '.' + \
+                                     self.audio_info['file_info'];
+    if self.IMDb_ID is not None: self.file_name += '.' + self.IMDb_ID;          # Append the IMDB ID to the file name if it is NOT None.
+    # Generate file paths for the output file and the self.handbrake log files
+    self.hb_log_file = os.path.join(self.log_dir, self.file_name);              # Set the self.handbrake log file path without extension
+#   self.out_file    = os.path.join(self.new_out_dir, self.file_name);        # Set the output file path without extension
+    self.out_file    = [self.new_out_dir, '', self.file_name];                  # Set the output file path without extension
+    return True;
+##############################################################################    
+  def get_subtitles( self ):
+    '''
+    Name:
+        get_subtitles
+    Purpose:
+        A python function to get subtitles for a movie/tv show via 
+        extracting VobSub(s) from the input file and converting them
+        to SRT file(s) OR downloadig them from opensubtitles.org.
+        If a file fails to convert, the VobSub files are 
+        removed and the program attempts to download if SRTs are 
+        requested. If some languages requested were not found in 
+        the input file, a download is attempted. If no subtitles
+        in input file, a download is attempted. 
+    Inputs:
+    one.
+    Outputs:
+        updates vobsub_status and creates/updates list of VobSubs that failed
+        vobsub2srt conversion.
+        Returns codes for success/failure of extraction. Codes are as follows:
+           0 - Completed successfully.
+           1 - VobSub(s) and SRT(s) already exist
+           2 - Error extracting VobSub(s).
+           3 - VobSub(s) are still being extracted.
+    Keywords:
+        None.
+    Dependencies:
+        mediainfo  - A CLI for getting information from a file
+        mkvextract - A CLI for extracting streams for an MKV file.
+        vobsub2srt - A CLI for converting VobSub images to SRT
+    Author and History:
+        Kyle R. Wodzicki     Created 30 Dec. 2016
+    '''
+
+    # Extract VobSub(s) and convert to SRT based on keywords
+    if not self.vobsub and not self.srt:                                        # If both vobsub AND srt are False
+      self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
+    else:
+      self.text_info = text_info_parse( self.mediainfo, self.language );        # Get and parse text information from the file
+      if self.text_info is None and self.srt:                                   # If text streams were found
+        self.log.info('Attempting opensubtitles.org search...');                # Logging information
+        self.oSubs = opensubtitles('', imdb = self.IMDb_ID, 
+                            lang     = ','.join(self.language), 
+                            username = self.username, 
+                            userpass = self.userpass);                          # Initialize opensubtitles instance
+        self.oSubs.login();                                                     # Login to the opensubtitles.org API
+        self.oSubs.searchSubs();                                                # Search for subtitles
+        if self.oSubs.subs is None:                                             # If no subtitles are found
+          self._join_out_file( );                                               # Combine out_file path list into single path with NO movie/episode directory and create directories
+        else:                                                                   # Else, some subtitles were found
+          found = 0;                                                            # Initialize found to zero (0)
+          for lang in self.oSubs.subs:                                          # Iterate over all languages in the sub titles dictionary
+            if self.oSubs.subs[lang] is not None: found+=1;                     # If one of the keys under that language is NOT None, then increment found
+          if found > 0:                                                         # If found is greater than zero (0), then subtitles were found
+            self._join_out_file( self.title );                                  # Combine out_file path list into single path with movie/episode directory and create directories
+            self.oSubs.file = self.out_file;                                    # Set movie/episode file path in opensubtitles class so that subtitles have same naming as movie/episode
+            self.oSubs.saveSRT();                                               # Download the subtitles
+          else:                                                                 # Else, no subtitles were found
+            self._join_out_file( );                                             # Combine out_file path list into single path with NO movie/episode directory and create directories
+        self.oSubs.logout();                                                    # Log out of the opensubtitles.org API
+      elif self.text_info is not None:
+        self._join_out_file( self.title );                                      # Combine out_file path list into single path with movie/episode directory and create directories
+        self.vobsub_status = vobsub_extract( 
+          self.in_file, self.out_file, self.text_info, 
+          vobsub = self.vobsub,
+          srt    = self.srt );                                                  # Extract VobSub(s) from the input file and convert to SRT file(s).
+        if self.vobsub_status < 2:
+          if self.srt: 
+            self.srt_status, self.text_info = vobsub_to_srt( 
+                  self.out_file, self.text_info, 
+                  vobsub_delete = self.vobsub_delete, 
+                  cpulimit      = self.cpulimit, 
+                  threads       = self.threads );                               # Convert vobsub to SRT files
+        if self.srt:                                                            # If srt is True
+          failed = [i for i in self.text_info if i['srt'] is False];            # Check for missing srt files
+          if len(failed) > 0:                                                   # If missing files found
+            self._join_out_file( self.title );                                  # Combine out_file path list into single path with movie/episode directory and create directories
+            self.log.info('Attempting opensubtitles.org search...');            # Logging information
+            self.oSubs = opensubtitles(self.out_file, 
+                            imdb     = self.IMDb_ID, 
+                            username = self.username, 
+                            userpass = self.userpass);                          # Initialize opensubtitles instance
+            self.oSubs.login();                                                 # Log into opensubtitles
+            for i in range(len(self.text_info)):                                # Iterate over all entries in text_info
+              if self.text_info[i]['srt']: continue;                            # If the srt file exists, skip
+              self.oSubs.lang       = self.text_info[i]['lang3'];               # Set the language for the subtitle search
+              self.oSubs.track_num  = self.text_info[i]['track'];               # Set the track number for the subtitle search
+              self.oSubs.get_forced = self.text_info[i]['forced'];              # Set the forced flag for the subtitle search
+              self.oSubs.searchSubs();                                          # Search for subtitles
+              self.oSubs.saveSRT();                                             # Save subtitles, note that this may not actually work if noting was found
+              tmpOut = self.out_file + self.text_info[i]['ext'] + '.srt';       # Temporary output file for check
+              if os.path.isfile(tmpOut): self.text_info[i]['srt'] = True;       # If the subtitle file exists, update the srt presence flag.
+            self.oSubs.logout();
+      else:                                                                     # Else, not subtitle candidates were returned
+        self.log.info('No subtitles found!');                                   # Log some information
+        self._join_out_file( );                                                 # Combine out_file path list into single path with NO movie/episode directory and create directories
+##############################################################################
+  def _join_out_file(self, title = None ):
+    '''
+    Name:
+       _join_out_file
+    Purpose:
+       A python function to join a three element list containing
+       file path elements for the output file. First element is 
+       the root directory, second is empty py default, but can
+       contain a directory name that is used when subtitles are
+       enabled/found, and third element of the file name.
+    Inputs:
+       out_file list.
+    Outputs:
+       None; Resest class attributes.
+    Keywords:
+       title : Title to place into the second element of the.
+                DEFAULT is no title.
+    '''
+    if isinstance(self.out_file, list):                                         # If the out_file is a list instance
+      if title is not None: self.out_file[1] = title;                           # If title is set, place in second element
+      self.new_out_dir = os.path.join(self.out_file[0], self.out_file[1]);      # Update the new_out_dir attribute
+      self.out_file = os.path.join(self.new_out_dir, self.out_file[2]);         # Join file_list input into full path
+#   self.out_file = file_list;                                                  # Update out_file attribute
+    self._create_dirs();                                                        # Create all output directories
+##############################################################################
+  def _create_dirs( self ):
+    if not os.path.isdir( self.out_dir     ): os.makedirs( self.out_dir );      # Check if the output directory exists, if it does NOT, create the directory
+    if not os.path.isdir( self.new_out_dir ): os.makedirs( self.new_out_dir );  # Check if the new output directory exists, if it does NOT, create the directory
+    if not os.path.isdir( self.log_dir     ): os.makedirs( self.log_dir );      # Create log directory if it does NOT exist
+##############################################################################
+  def _init_logger(self, log_file = None):
+    '''
+    Function to set up the logger for the package
+    '''
+    # Not sure why this is necessary, but to ensure that all files are closed
+    # the handler removal had to be placed in a while loop to make sure
+    # that all were removed
+    while len(self.log.handlers) > 0:                                           # While there are handlers
+      for handler in self.log.handlers:                                         # Iterate over the handlers in the logger
+        handler.flush();                                                        # Flush output to handler
+        handler.close();                                                        # Close the handler
+        self.log.removeHandler(handler);                                        # Remove all handlers
+        
+    screen_log = logging.StreamHandler();                                       # Get a stream handler for screen logs
+    screen_log.setFormatter( self.handlers['screen']['formatter'] );            # Set the format tot the screen format
+    self.log.addHandler( screen_log );                                          # Add the handler to the logger
+    if log_file is not None:                                                    # If the log file variable is Not None
+      if not os.path.isdir( os.path.dirname( log_file ) ):                      # If the directory the log_file is to be placed in does NOT exist
+        dir = os.path.dirname( log_file );                                      # Get directory log file is to be placed in
+        if dir != '': os.makedirs( dir );                                       # Create to directory for the log file
+      screen_log.setLevel( self.handlers['screen']['level'] );                  # Set the logging level for the screen
+      file_log   = logging.FileHandler(log_file, mode='w');                     # Get a file handler for the log file
+      file_log.setLevel( self.handlers['file']['level'] );                      # Set the logging level for the log file
+      file_log.setFormatter( self.handlers['file']['formatter'] );              # Set the log format for the log file
+      self.log.addHandler(file_log);                                            # Add the file log handler to the logger
+      self.verbose = True;                                                      # Set verbose to True
+    elif self.verbose:                                                          # Else if verbose is set
+      screen_log.setLevel( self.handlers['file']['level'] );                    # Change the screen logger level to that of the file log level
+      
+##############################################################################
+  def set_cpulimit(self, value):
+    self._cpulimit = value if self.dependencies.cpulimit else None;
+  def get_cpulimit(self):
+    return self._cpulimit;
+  ########
+  def set_vobsub(self, value):
+    self._vobsub = value if self.dependencies.vobsub else False;
+  def get_vobsub(self):
+    return self._vobsub;
+  ########
+  def set_srt(self, value):
+    self._srt = value if self.dependencies.srt else False;
+  def get_srt(self):
+    return self._srt;
+  ########
+  def set_mp4tags(self, value):
+    self._mp4tags = value if self.dependencies.MP4Tags else False;
+  def get_mp4tags(self):
+    return self._mp4tags;
+  ########
+  cpulimit = property(get_cpulimit, set_cpulimit);
+  vobsub   = property(get_vobsub, set_vobsub);
+  srt      = property(get_srt, set_srt);
+  mp4tags  = property(get_mp4tags, set_mp4tags);
+  ########
