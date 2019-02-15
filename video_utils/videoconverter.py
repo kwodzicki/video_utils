@@ -7,7 +7,7 @@ from datetime import datetime;
 from .utils import test_dependencies as dependencies;
 
 from ._logging import fileFMT;
-# from .mediainfo import mediainfo, video_info_parse, audio_info_parse, text_info_parse;
+from .mediainfo import mediainfo;#, video_info_parse, audio_info_parse, text_info_parse;
 from .subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
 from .utils     import limitCPUusage;
 
@@ -107,13 +107,12 @@ class videoconverter( object ):
     self.illegal      = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
     self.legal        = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
     self.dependencies = dependencies;
-    self.mp4tags      = self.dependencies.MP4Tags;
     self.vobsub       = self.dependencies.vobsub;
     self.srt          = self.dependencies.srt;
     self.cpulimit     = self.dependencies.cpulimit;
     self.container    = container.lower();
-    
-    if (self.container == 'mp4') and (self.mp4tags is not None): self.mp4tags  = True;
+    self.mp4tags      = (self.container == 'mp4');
+
     if self.vobsub   is not None: self.vobsub   = vobsub
     if self.srt      is not None: self.srt      = srt;
     if self.cpulimit is not None: self.cpulimit = cpulimit;
@@ -370,11 +369,7 @@ class videoconverter( object ):
     '''
     self.log.info('Setting up some file information...');
 
-    # Set mp4tags to the dependencies.MP4Tags value each time file_info is run, 
-    # this is because file_info adjusts this setting based on getMetaData() 
-    # output, which means it may get disable for a given run, but should be 
-    # re-enabled on the next run.
-    self.mp4tags = self.dependencies.MP4Tags;                                          
+    self.mp4tags = (self.container == 'mp4');
     
     # Set up file/directory information
     self.in_file  = in_file if os.path.exists( in_file ) else None;             # Set the in_file attribute for the class to the file input IF it exists, else, set the in_file to None
@@ -456,9 +451,9 @@ class videoconverter( object ):
     self.mediainfo = mediainfo( self.in_file );                                 # Get all video, audio, and text information
     if self.mediainfo is None: return;
 
-    self.video_info = video_info_parse( self.mediainfo, self.x265 );            # Get and parse video information from the file
+    self.video_info = self.mediainfo.video_info( x265 = self.x265 );      # Get and parse video information from the file
     if self.video_info is None: return;                    
-    self.audio_info = audio_info_parse( self.mediainfo, self.language );        # Get and parse audio information from the file
+    self.audio_info = self.mediainfo.audio_info( self.language );         # Get and parse audio information from the file
     if self.audio_info is None: return;               
 
     ### Set up output file path and log file path. NO FILE EXTENSIONS USED HERE!!!
@@ -513,7 +508,7 @@ class videoconverter( object ):
     if not self.vobsub and not self.srt:                                        # If both vobsub AND srt are False
       self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
     else:
-      self.text_info = text_info_parse( self.mediainfo, self.language );        # Get and parse text information from the file
+      self.text_info = self.mediainfo.text_info( self.language );               # Get and parse text information from the file
       if self.text_info is None and self.srt:                                   # If text streams were found
         self.log.info('Attempting opensubtitles.org search...');                # Logging information
         self.oSubs = opensubtitles('', imdb = self.IMDb_ID, 
@@ -636,14 +631,14 @@ class videoconverter( object ):
     self._srt = value if self.dependencies.srt else False;
   def get_srt(self):
     return self._srt;
-  ########
-  def set_mp4tags(self, value):
-    self._mp4tags = value if self.dependencies.MP4Tags else False;
-  def get_mp4tags(self):
-    return self._mp4tags;
+  # ########
+  # def set_mp4tags(self, value):
+  #   self._mp4tags = value if self.dependencies.MP4Tags else False;
+  # def get_mp4tags(self):
+  #   return self._mp4tags;
   ########
   cpulimit = property(get_cpulimit, set_cpulimit);
   vobsub   = property(get_vobsub, set_vobsub);
   srt      = property(get_srt, set_srt);
-  mp4tags  = property(get_mp4tags, set_mp4tags);
+  # mp4tags  = property(get_mp4tags, set_mp4tags);
   ########
