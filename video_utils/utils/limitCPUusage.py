@@ -1,4 +1,10 @@
-import subprocess, os;
+import os;
+from subprocess import call, Popen, STDOUT, DEVNULL;
+
+status = call(['which', 'cpulimit'], stdout = DEVNULL, stderr = STDOUT);
+if status != 0:
+  raise Exception( 'cpulimit is NOT installed' );
+
 def limitCPUusage( pid, cpulimit, threads = 1, single = False ):
 	'''
 	Function for limiting cpu usage.
@@ -8,6 +14,5 @@ def limitCPUusage( pid, cpulimit, threads = 1, single = False ):
 	limit = cpulimit if single else cpulimit * threads;                           # Set the cpu limit to threads times 75 per cent
 	limit = '200' if limit > 200 else str( limit );                               # Make sure not more than 200
 	limit = [ 'cpulimit', '-p', str( pid ), '-l', limit ];                        # Set up the cpulimit command
-	with open(os.devnull, 'w') as null:
-		cpuID = subprocess.Popen(limit, stdout=null, stderr=subprocess.STDOUT);     # Run cpu limit command
+	cpuID = Popen(limit, stdout = DEVNULL, stderr = STDOUT);                      # Run cpu limit command
 	return cpuID;
