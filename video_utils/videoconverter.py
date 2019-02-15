@@ -7,7 +7,7 @@ from datetime import datetime;
 from .utils import test_dependencies as dependencies;
 
 from ._logging import fileFMT;
-from .mediainfo import mediainfo;#, video_info_parse, audio_info_parse, text_info_parse;
+from .mediainfo import mediainfo;
 from .subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
 from .utils     import limitCPUusage;
 
@@ -15,7 +15,7 @@ if dependencies.MP4Tags:
   from .videotagger.metadata.getMetaData import getMetaData;
   from .videotagger.mp4Tags import mp4Tags;
     
-class videoconverter( object ):
+class videoconverter( mediainfo ):
   '''
   Name:
      videoconverter
@@ -104,6 +104,7 @@ class videoconverter( object ):
                         the plain text of the password for slightly
                         better security
     '''
+    mediainfo.__init__(self);
     self.illegal      = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
     self.legal        = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
     self.dependencies = dependencies;
@@ -448,12 +449,10 @@ class videoconverter( object ):
       if self.year != '': self.title += ' - ' + self.year;                      # Append movie year to title variable
 
     self.log.info('Getting video, audio, information...');                      # If verbose is set, print some output
-    self.mediainfo = mediainfo( self.in_file );                                 # Get all video, audio, and text information
-    if self.mediainfo is None: return;
 
-    self.video_info = self.mediainfo.video_info( x265 = self.x265 );      # Get and parse video information from the file
+    self.video_info = self.get_video_info( x265 = self.x265 );      # Get and parse video information from the file
     if self.video_info is None: return;                    
-    self.audio_info = self.mediainfo.audio_info( self.language );         # Get and parse audio information from the file
+    self.audio_info = self.get_audio_info( self.language );         # Get and parse audio information from the file
     if self.audio_info is None: return;               
 
     ### Set up output file path and log file path. NO FILE EXTENSIONS USED HERE!!!
@@ -508,7 +507,7 @@ class videoconverter( object ):
     if not self.vobsub and not self.srt:                                        # If both vobsub AND srt are False
       self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
     else:
-      self.text_info = self.mediainfo.text_info( self.language );               # Get and parse text information from the file
+      self.text_info = self.get_text_info( self.language );               # Get and parse text information from the file
       if self.text_info is None and self.srt:                                   # If text streams were found
         self.log.info('Attempting opensubtitles.org search...');                # Logging information
         self.oSubs = opensubtitles('', imdb = self.IMDb_ID, 

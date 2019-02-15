@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET;
 
 class mediainfo( object ):
   log = logging.getLogger(__name__);
-  def __init__( self, file ):
+  def __init__( self, in_file = None ):
     '''
     Name:
        mediainfo
@@ -35,13 +35,29 @@ class mediainfo( object ):
         Changes mediainfo output type from XML to OLDXML as
         the xml tags have changes in newer versions.
     '''
-    xmlstr = check_output( ['mediainfo', '--Full', '--Output=OLDXML', file] );
+    self.in_file = in_file;
+  ################################################################################
+  @property
+  def in_file(self):
+    return self.__in_file
+  @in_file.setter
+  def in_file(self, value):
+    self.__in_file = value;
+    if self.__in_file is None:
+      self.__mediainfo = None;
+    else:
+      self.__parse_output();
+  ################################################################################
+  def __parse_output(self):
+    ''' Method that will run when the file attribute is changed'''
+    self.log.info('Running mediainfo command...');                      # If verbose is set, print some output
+    xmlstr = check_output( ['mediainfo', '--Full', '--Output=OLDXML', self.in_file] );
     root   = ET.fromstring( xmlstr );
     data   = {}
     for track in root[0].findall('track'):                                        # Iterate over all tracks in the XML tree
       tag = track.attrib['type'];                                                 # Get track type
       if 'typeorder' in track.attrib or 'streamid' in track.attrib:               # If typeorder is in the track.attrib dictionary
-        if tag not in data: data[ tag ] = [ ];                                    # If the tag is NOT in the self.data dictionary then create empty list in dictionary under track type in dictionary
+        if tag not in data: data[ tag ] = [ ];                                    # If the tag is NOT in the self.__mediainfo dictionary then create empty list in dictionary under track type in dictionary
         data[ tag ].append( {} );                                                 # Append empty dictionary to list
       else:                                                                       # Else, typeorder is NOT in the track.attrib dictionary
         data[ tag ] = [ {} ];                                                     # create list with dictionary under track type in dictionary
@@ -72,14 +88,14 @@ class mediainfo( object ):
             data[tag][order][cur_tag] = int(elem.text);
           except:
             data[tag][order][cur_tag] = elem.text;
-    self.data = None if len(data) == 0 else data;
+    self.__mediainfo = None if len(data) == 0 else data;
   ################################################################################
-  def __eq__(self, other): return self.data == other;
+  def __eq__(self, other): return self.__mediainfo == other;
   ################################################################################
-  def audio_info( self, language ):
+  def get_audio_info( self, language ):
     '''
     Name:
-      audio_info
+      get_audio_info
     Purpose:
       A python function for getting audio stream information from a video
       file using information from the mediainfo command and parsing it 
@@ -105,10 +121,10 @@ class mediainfo( object ):
         Cleans up some code and comments.
     '''
     self.log.info('Parsing audio information...');                                     # If verbose is set, print some output
-    if self.data is None:         
+    if self.__mediainfo is None:         
       self.log.warning('No media information!');                                       # Print a message
       return None;         
-    if 'Audio' not in self.data:         
+    if 'Audio' not in self.__mediainfo:         
       self.log.warning('No audio information!');                                       # Print a message
       return None;        
     if not isinstance( language, (list, tuple) ): language = (language,);         # If language input is a scalar, convert to tuple
@@ -122,7 +138,7 @@ class mediainfo( object ):
             'file_info' : []};                                                    # Initialize a dictionary for storing audio information
     track_id = '1';                                                               # Initialize a variable for counting the track number.
     for lang in language:                                                         # Iterate over all languages
-      for track in self.data['Audio']:                                            # Iterate over all audio information
+      for track in self.__mediainfo['Audio']:                                            # Iterate over all audio information
         lang3 = track['Language/String3'] if 'Language/String3' in track else '';
         if lang != lang3 and lang3 != '': continue;                             # If the track language does NOT match the current language AND it is not an empty string
         id    = track['ID']               if 'ID'               in track else '';
@@ -189,10 +205,10 @@ class mediainfo( object ):
         info[i] = delim.join( info[i] );                                          # Join the information using the delimiter
       return info;                                                                # If audio info was parsed, i.e., the 'a_track' tag is NOT empty, then set the audio_info to the info dictionary      
   ################################################################################
-  def video_info( self, x265 = False ):
+  def get_video_info( self, x265 = False ):
     '''
     Name:
-      video_info
+      get_video_info
     Purpose:
       A python function for getting video stream information from a video file
       using information from the mediainfo command and parsing it into a 
@@ -224,13 +240,13 @@ class mediainfo( object ):
         Cleans up some code and comments.
     '''     
     self.log.info('Parsing video information...');                                # If verbose is set, print some output
-    if self.data is None:       
+    if self.__mediainfo is None:       
       self.log.warning('No media information!');                                  # Print a message
       return None;        
-    if 'Video' not in self.data:        
+    if 'Video' not in self.__mediainfo:        
       self.log.warning('No video information!');                                  # Print a message
       return None;              
-    if len( self.data['Video'] ) > 2:         
+    if len( self.__mediainfo['Video'] ) > 2:         
       self.log.error('More than one (1) video stream...Stopping!');               # Print a message
       return None;                                                                # If the video has multiple streams, return
     info = {'resolution' : '', \
@@ -238,29 +254,29 @@ class mediainfo( object ):
             'v_codec'    : '', \
             'v_level'    : '', \
             'scan_type'  : 'P'};                                                  # Initialize a dictionary for storing audio information
-    video_tags = self.data['Video'][0].keys();                                    # Get all keys in the dictionary  
-    if self.data['Video'][0]['Height'] <= 1080 and not x265:                      # If the video is 1080 or smaller and x265 is NOT set
+    video_tags = self.__mediainfo['Video'][0].keys();                             # Get all keys in the dictionary  
+    if self.__mediainfo['Video'][0]['Height'] <= 1080 and not x265:               # If the video is 1080 or smaller and x265 is NOT set
       info['v_codec'],info['v_level'],info['v_profile'] = 'x264','4.0','high';    # If video is 1080 or less AND x265 is False, set codec to h264 level to 4.0
     else:                                                                         # Else, the video is either large or x265 has be requested
       info['v_codec'],info['v_level'],info['v_profile'] = 'x265','5.0','main';    # If video is greater than 1080, set codec to h265 and level to 5.0
-      if 'Bit_depth' in self.data['Video'][0]:
-        if self.data['Video'][0]['Bit_depth'] == 10:
+      if 'Bit_depth' in self.__mediainfo['Video'][0]:
+        if self.__mediainfo['Video'][0]['Bit_depth'] == 10:
           info['v_profile'] = 'main10';
-        elif self.data['Video'][0]['Bit_depth'] == 12:
+        elif self.__mediainfo['Video'][0]['Bit_depth'] == 12:
           info['v_profile'] = 'main12';
     # Set resolution and rate factor based on video height
-    if self.data['Video'][0]['Height'] <= 480:
+    if self.__mediainfo['Video'][0]['Height'] <= 480:
       info['resolution'], info['quality'] =  '480', '22';
-    elif self.data['Video'][0]['Height'] <= 720:
+    elif self.__mediainfo['Video'][0]['Height'] <= 720:
       info['resolution'], info['quality'] =  '720', '23';
-    elif self.data['Video'][0]['Height'] <= 1080:
+    elif self.__mediainfo['Video'][0]['Height'] <= 1080:
       info['resolution'], info['quality'] = '1080', '24';
-    elif self.data['Video'][0]['Height'] <= 2160:
+    elif self.__mediainfo['Video'][0]['Height'] <= 2160:
       info['resolution'], info['quality'] = '2160', '26';
     info['resolution']+='p';
     if 'Scan_type' in video_tags and 'Frame_rate_mode' in video_tags:
-      if self.data['Video'][0]['Scan_type'].upper() != 'PROGRESSIVE':
-        if self.data['Video'][0]['Frame_rate_mode']  == 'CFR': 
+      if self.__mediainfo['Video'][0]['Scan_type'].upper() != 'PROGRESSIVE':
+        if self.__mediainfo['Video'][0]['Frame_rate_mode']  == 'CFR': 
           info['scan_type'] = 'I';                                                # Set scan_type to I, or interlaced. A deinterlace setting will be set based on this
     info['file_info'] = info['resolution'] + '.' + info['v_codec'];
     if info['resolution'] == '':
@@ -276,23 +292,23 @@ class mediainfo( object ):
   
     if 'Display_aspect_ratio' in video_tags and \
        'Original_display_aspect_ratio' in video_tags:
-      if self.data['Video'][0]['Display_aspect_ratio'] != \
-         self.data['Video'][0]['Original_display_aspect_ratio']:
-        x,y    = self.data['Video'][0]['Display_aspect_ratio/String'].split(':'); # Get the x and y values of the display aspect ratio
-        width  = self.data['Video'][0]['Height'] * float(x)/float(y);             # Compute new pixel width based on video height times the display ratio
+      if self.__mediainfo['Video'][0]['Display_aspect_ratio'] != \
+         self.__mediainfo['Video'][0]['Original_display_aspect_ratio']:
+        x,y    = self.__mediainfo['Video'][0]['Display_aspect_ratio/String'].split(':'); # Get the x and y values of the display aspect ratio
+        width  = self.__mediainfo['Video'][0]['Height'] * float(x)/float(y);             # Compute new pixel width based on video height times the display ratio
         width -= (width % 16);                                                    # Ensure pixel width is multiple of 16
         info['aspect'] = '{:.0f}:{:.0f}'.format(
-          width, self.data['Video'][0]['Width']
+          width, self.__mediainfo['Video'][0]['Width']
         )
     return info;
   ################################################################################
-  def text_info( self, language ):
+  def get_text_info( self, language ):
     '''
     Name:
-      text_info
+      get_text_info
     Purpose:
       A python function for getting text stream information from a
-      video file using information from the self.data command and 
+      video file using information from the self.__mediainfo command and 
       parsing it into a dictionary in a format that allows for use 
       in the vobsub_extract command to extract the text to  individual
       files and/or convert the text to SRT format.
@@ -315,18 +331,18 @@ class mediainfo( object ):
       Modified 14 Dec. 2018 by Kyle R. Wodzicki
         Cleans up some code and comments.
     ''' 
-    self.log.info('Parsing text information...');                                      # If verbose is set, print some output
-    if self.data is None:       
-      self.log.warning('No media information!');                                       # Print a message
+    self.log.info('Parsing text information...');                                 # If verbose is set, print some output
+    if self.__mediainfo is None:       
+      self.log.warning('No media information!');                                  # Print a message
       return None;         
-    if 'Text' not in self.data:         
-      self.log.warning('No text information!');                                        # Print a message
+    if 'Text' not in self.__mediainfo:         
+      self.log.warning('No text information!');                                   # Print a message
       return None;      
     if not isinstance( language, (list, tuple) ): language = (language,);         # If language input is a scalar, convert to tuple
   
     j, n_elems, info = 0, [], [];                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
     for lang in language:                                                         # Iterate over all languages
-      for track in self.data['Text']:                                             # Iterate over all text information
+      for track in self.__mediainfo['Text']:                                             # Iterate over all text information
         lang3  = track['Language/String3']  if 'Language/String3' in track else ''; 
         if lang != lang3: continue;                                               # If the track language does NOT matche the current language
         id     = track['ID']                if 'ID'                in track else '';
@@ -362,7 +378,7 @@ class mediainfo( object ):
                       'srt'    : False} );                                        # Update a dictionary to the list. vobsub and srt tags indicate whether a file exists or not
         j+=1;                                                                     # Increment sub title track number counter
     if len(n_elems) == 0:                                                         # If subtitle streams were found
-      self.log.warning(  'NO text stream(s) in file...');                              # If verbose is set, print some output
+      self.log.warning(  'NO text stream(s) in file...');                         # If verbose is set, print some output
       return None;  
     else:
       # Double check forced flag
