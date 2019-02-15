@@ -17,7 +17,7 @@ required = {
       'cwd'      : ''
     },
     'linux'  : {
-      'packages' : ['HandBrakeCLI', 'ffmpeg', 'mediainfo'],
+      'packages' : ['handbrake-cli', 'ffmpeg', 'mediainfo'],
       'cmd_base' : ['sudo', 'apt-get', 'install', '-y'],
       'cwd'      : ''
     }

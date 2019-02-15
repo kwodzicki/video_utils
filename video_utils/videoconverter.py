@@ -6,8 +6,8 @@ from datetime import datetime;
 # Try python3 import, else do python2 import
 from .utils import test_dependencies as dependencies;
 
-
-from .mediainfo import mediainfo, video_info_parse, audio_info_parse, text_info_parse;
+from ._logging import fileFMT;
+# from .mediainfo import mediainfo, video_info_parse, audio_info_parse, text_info_parse;
 from .subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
 from .utils     import limitCPUusage;
 
@@ -57,33 +57,15 @@ class videoconverter( object ):
        of forced (i.e., foreign) subtitles.
        Also added better logging through the logging module.
   '''
-  log      = logging.getLogger();                                               # Set log to root logger for all instances
-  log.setLevel(logging.DEBUG);                                                  # Set root logger level to debug
-  handlers = {'screen' : { 
-                'level'     : logging.CRITICAL,
-                'formatter' : logging.Formatter(
-                    '%(levelname)-8s - %(asctime)s - %(name)s - %(message)s',
-                    '%Y-%m-%d %H:%M:%S'
-                  )
-                },
-              'file' : {
-                'level'     : logging.INFO,
-                'formatter' : logging.Formatter( 
-                    '%(levelname)-.4s - %(funcName)-15.15s - %(message)s',
-                    '%Y-%m-%d %H:%M:%S'
-                  )
-                }
-              }
+  log      = logging.getLogger( __name__ );                                               # Set log to root logger for all instances
   def __init__(self,
                out_dir       = None,
                log_dir       = None, 
-               log_file      = None, 
                language      = None, 
                threads       = None, 
                container     = 'mp4',
                cpulimit      = 75, 
                x265          = False,
-               verbose       = False, 
                remove        = False, 
                vobsub        = False, 
                srt           = False,
@@ -96,9 +78,6 @@ class videoconverter( object ):
                         DEFAULT: Place output file(s) in source directory.
        log_dir       : Path to log file directory. Optional input.
                         DEFAULT: Place log file(s) in source directory.
-       log_file      : Set to a file path to write progress of this function
-                        to. If set, verbose is 'set' in that all logging
-                        information is written to the file.
        language      : Comma separated string of ISO 639-2 codes for 
                         subtitle and audio languages to use. 
                         Default is english (eng).
@@ -108,7 +87,6 @@ class videoconverter( object ):
                         is multiplied by number of threads to use.
                         DEFAULT: 75 per cent.
                         TO DISABLE LIMITING - set to 0.
-       verbose       : Set to True to increase verbosity.
        remove        : Set to True to remove mkv file after transcode
        vobsub        : Set to extract VobSub file(s). If SRT is set, then
                         this keyword is also set. Setting this will NOT
@@ -126,9 +104,6 @@ class videoconverter( object ):
                         the plain text of the password for slightly
                         better security
     '''
-    self.verbose = verbose;      
-    self._init_logger( log_file );
-
     self.illegal      = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
     self.legal        = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
     self.dependencies = dependencies;
@@ -177,19 +152,20 @@ class videoconverter( object ):
     self.mp4tags_status   = None;                                               # Set mp4tags_status to None by default
     self.oSubs            = None;                                               # Set attribute of opensubtitles to None
     
-    self.IMDb_ID     = None;
-    self.metaData    = None;
-    self.metaKeys    = None;
-    self.HB_logTime  = None;
-    
-    self.v_preset  = 'slow';                                                    # Set self.handbrake preset to slow
-    self.cpuID     = [];                                                        # Empty list for storing cpulimit PIDs in
-    self.fmt       = 'utf-8';                                                   # Set encoding format
-    self.encode    = type( 'hello'.encode(self.fmt) ) is str;                   # Determine if text should be encoded; python2 vs python3
-    self.timeout   = 12 * 60 * 60;                                              # Set timeout to 12 hours
+    self.IMDb_ID          = None;
+    self.metaData         = None;
+    self.metaKeys         = None;
+    self.HB_logTime       = None;
 
+    self.v_preset         = 'slow';                                             # Set self.handbrake preset to slow
+    self.cpuID            = [];                                                 # Empty list for storing cpulimit PIDs in
+    self.fmt              = 'utf-8';                                            # Set encoding format
+    self.encode           = type( 'hello'.encode(self.fmt) ) is str;            # Determine if text should be encoded; python2 vs python3
+    self.timeout          = 12 * 60 * 60;                                       # Set timeout to 12 hours
+
+    self.__fileHandler    = None;                                               # logging fileHandler 
 ################################################################################
-  def transcode( self, in_file ):
+  def transcode( self, in_file, log_file = None ):
     '''
     Name:
        transcode
@@ -223,6 +199,8 @@ class videoconverter( object ):
        Outputs a transcoded video file in the MP4 container and
        subtitle files, based on keywords used. Also returns codes 
        to signal any errors.
+    Keywords:
+       log_file  : File to write logging information to
     Return codes:
         0 : Everything finished cleanly
        10 : No video OR no audio streams
@@ -283,15 +261,15 @@ class videoconverter( object ):
           Updated header information for better clarity.
     '''
     if not self.file_info( in_file ): return;                                   # If there was an issue with the file_info function, just return
+    self._init_logger( log_file );                                              # Run method to initialize logging to file
     if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
       self.log.critical('No video or no audio, transcode cancelled!');          # Print log message
       self.transcode_status = 10;                                               # Set transcode status
       return;                                                                   # Return
-    if self.verbose:                                                            # IF verbose is true
-      try:
-        start_time = datetime.now();                                            # Set start date
-      except:
-        start_time = None;                                                      # If datetime CANNOT be imported, set start time to None
+    try:
+      start_time = datetime.now();                                              # Set start date
+    except:
+      start_time = None;                                                        # If datetime CANNOT be imported, set start time to None
     self.transcode_status = None;                                               # Reset transcode status to None
     self.HB_logTime       = None;
     self.get_subtitles( );                                                      # Extract subtitles
@@ -628,31 +606,21 @@ class videoconverter( object ):
     '''
     Function to set up the logger for the package
     '''
-    # Not sure why this is necessary, but to ensure that all files are closed
-    # the handler removal had to be placed in a while loop to make sure
-    # that all were removed
-    while len(self.log.handlers) > 0:                                           # While there are handlers
-      for handler in self.log.handlers:                                         # Iterate over the handlers in the logger
-        handler.flush();                                                        # Flush output to handler
-        handler.close();                                                        # Close the handler
-        self.log.removeHandler(handler);                                        # Remove all handlers
-        
-    screen_log = logging.StreamHandler();                                       # Get a stream handler for screen logs
-    screen_log.setFormatter( self.handlers['screen']['formatter'] );            # Set the format tot the screen format
-    self.log.addHandler( screen_log );                                          # Add the handler to the logger
-    if log_file is not None:                                                    # If the log file variable is Not None
+    if self.__fileHandler:                                                      # If there is a file handler defined
+      self.__fileHandler.flush();                                               # Flush output to handler
+      self.__fileHandler.close();                                               # Close the handler
+      self.log.removeHandler(self.__fileHandler);                               # Remove all handlers
+      self.__fileHandler = None;                                                # Set fileHandler attribute to None
+
+    if log_file:                                                                # If there was a log file input
       if not os.path.isdir( os.path.dirname( log_file ) ):                      # If the directory the log_file is to be placed in does NOT exist
         dir = os.path.dirname( log_file );                                      # Get directory log file is to be placed in
         if dir != '': os.makedirs( dir );                                       # Create to directory for the log file
-      screen_log.setLevel( self.handlers['screen']['level'] );                  # Set the logging level for the screen
-      file_log   = logging.FileHandler(log_file, mode='w');                     # Get a file handler for the log file
-      file_log.setLevel( self.handlers['file']['level'] );                      # Set the logging level for the log file
-      file_log.setFormatter( self.handlers['file']['formatter'] );              # Set the log format for the log file
-      self.log.addHandler(file_log);                                            # Add the file log handler to the logger
-      self.verbose = True;                                                      # Set verbose to True
-    elif self.verbose:                                                          # Else if verbose is set
-      screen_log.setLevel( self.handlers['file']['level'] );                    # Change the screen logger level to that of the file log level
-      
+
+      self.__fileHandler = logging.FileHandler( log_file, 'w' );                # Initialize a file handler for the log file
+      self.__fileHandler.setLevel(     fileFMT['level']     );                  # Set the logging level for the log file
+      self.__fileHandler.setFormatter( fileFMT['formatter'] );                  # Set the log format for the log file
+      self.log.addHandler(self.__fileHandler);                                  # Add the file log handler to the logger
 ##############################################################################
   def set_cpulimit(self, value):
     self._cpulimit = value if self.dependencies.cpulimit else None;

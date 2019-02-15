@@ -14,7 +14,7 @@ except:
 try:
 	from ..config import config
 except:
-	from makemkv_to_mp4 import config
+	from video_utils import config
 	
 ext = ('.avi', '.m4v', '.mp4', '.mkv', '.mpeg', '.mov', '.wmv');                # List of some common video extensions
 class opensubtitles():
