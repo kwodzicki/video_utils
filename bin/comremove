@@ -4,11 +4,11 @@ from video_utils.comremove import comremove;
 
 import argparse;                                                              # Import library for parsing
 parser = argparse.ArgumentParser(description="comskip");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
-parser.add_argument("infile",                type   = str, help = "Input directory where all files to be converted are found"); 
-parser.add_argument("--ini",                 type   = str,            help = "Output directory for transcoded files. Default: Same as input"); 
-parser.add_argument("-T", "--threads",       type   = int,            help = "Set number of threads to use. Default: Half the number of threads available");  
-parser.add_argument("-c", "--cpulimit",      type   = int,            help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
-parser.add_argument("-v", "--verbose",       action = "store_true",   help = "Increase verbosity");
+parser.add_argument("infile",                type   = str,          help = "Input file to remove commercials from"); 
+parser.add_argument("--ini",                 type   = str,          help = "comskip ini file to use for commercial detection"); 
+parser.add_argument("-T", "--threads",       type   = int,          help = "Set number of threads to use. Default: all the threads");  
+parser.add_argument("-c", "--cpulimit",      type   = int,          help = "Set to limit CPU usage. Default: all the cpu");
+parser.add_argument("-v", "--verbose",       action = "store_true", help = "Increase verbosity (not implemented");
 args = parser.parse_args();                                                   # Parse the arguments
 inst = comremove(
   ini       = args.ini,
