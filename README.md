@@ -39,6 +39,27 @@ There are separated below into required and optional utilities below:
 * [VobSub2SRT][vobsub]     - Used to convert VobSub subtitles to SRT subtitles
 * [cpulimit][cpu]          - Used to prevent processes from using 100% of CPU
 
+### Comskip INI file
+
+To easily have comskip use a specific ini file, define a COMSKIP_INI environment
+variable for the user that will be running the scripts. To do this, simply add
+the following line to your .bashrc or .bash_profile:
+
+	export COMSKIP_INI=/path/to/comskip.ini
+
+If code will be run under a user without a home directory, such as on a
+raspberry pi where Plex typically runs under the plex user, one can add the
+environment variable definition to the /etc/profile file, which will define it
+for all user on the computer. You can also have it only defined for given users
+based on the uid. For example, if your plex user is uid 456, then you could add
+the following to /etc/profile:
+
+	# Add COMSKIP_INI environment variable if user plex (uid 456)
+	if [ "$(id -u)" -eq 456 ]; then
+  		export COMSKIP_INI=/path/to/comskip.ini
+	fi
+
+
 ## Code example
 
     # create and instance of videoconverter class
