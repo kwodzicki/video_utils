@@ -1,6 +1,9 @@
 import logging;
 import os;
-from subprocess import Popen, STDOUT, DEVNULL
+from subprocess import call, Popen, STDOUT, DEVNULL
+
+if call(['which', 'ccextractor'], stdout = DEVNULL, stderr = STDOUT ) != 0:     # If cannot find the ccextractor CLI
+  raise Exception( "ccextractor is NOT installed or not in your PATH!" );       # Raise an exception
 
 def ccextract( in_file, out_file ):
   log  = logging.getLogger(__name__);

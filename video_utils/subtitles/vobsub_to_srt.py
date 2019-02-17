@@ -1,7 +1,11 @@
 import logging
 import os, subprocess, time;
 from .srt_cleanup import srt_cleanup;
-from ..utils.limitCPUusage import limitCPUusage;
+
+try:
+  from video_utils.utils.limitCPUusage import limitCPUusage;
+except:
+  limitCPUusage = None;
 
 def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, threads = 1 ):
 	'''
@@ -84,8 +88,9 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
 				proc.append( subprocess.Popen( cmd, stdout = null, stderr = null ) );   # Run command and dump all output and errors to /dev/null
 			proc_files.append( file );                                                # Append the ith subtitle file path to the p_id_files list
 			proc_textID.append( i );                                                  # Text_info index for the process
-			if type(cpulimit) is int and cpulimit > 0:                                # If the cpulimit variable is an integer and greater than zero (0)
-				cpuID.append( limitCPUusage( proc[-1].pid, cpulimit, single=True ) );   # Run cpu limit command
+			if limitCPUusage:                                                         # If the function imported properly
+        if (type(cpulimit) is int) and (cpulimit > 0):                          # If the cpulimit variable is an integer and greater than zero (0)
+				  cpuID.append( limitCPUusage( proc[-1].pid, cpulimit, single=True ) ); # Run cpu limit command
 			procBlock( threads );                                                     # Test if maximum number of threads reached, if it has been reached, will wait for a thread to finish before new one opens
 	procBlock();                                                                  # Wait for all threads to finish
 	if vobsub_delete:        					        															      # If vobsub_delete is True
