@@ -16,6 +16,7 @@ class comremove( object ):
   _comcut  = ['ffmpeg', '-nostdin', '-y', '-i'];
   _comjoin = ['ffmpeg', '-nostdin', '-y', '-i'];
   log      = logging.getLogger( __name__ );
+  log.setLevel( logging.DEBUG );
   def __init__(self, ini = None, threads = None, cpulimit = None, verbose = None):
     self.ini      = ini if ini else os.environ.get('COMSKIP_INI', None);        # If the ini input value is NOT None, then use it, else, try to get the COMSKIP_INI environment variable
     self.threads  = threads;
@@ -27,23 +28,53 @@ class comremove( object ):
     self.outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
     self.fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
     edl_file     = None;
-    tmpFiles     = None;                                                        # Set the status to True by default
-    cutFile      = None;
+    tmp_Files    = None;                                                        # Set the status to True by default
+    cut_File     = None;
 
     edl_file     = self.comskip( in_file );                                     # Attempt to run comskip and get edl file path
     if edl_file:                                                                # If eld file path returned
-      tmpFiles   = self.comcut( in_file, edl_file );                            # Run the comcut method to extract just show segments; NOT comercials
+      tmp_Files  = self.comcut( in_file, edl_file );                            # Run the comcut method to extract just show segments; NOT comercials
 
-    if tmpFiles:                                                                # If status is True
-      cutFile    = self.comjoin( tmpFiles );                                    # Attempt to join the files and update status using return code from comjoin
+    if tmp_Files:                                                               # If status is True
+      cut_File   = self.comjoin( tmp_Files );                                   # Attempt to join the files and update status using return code from comjoin
 
-    if cutFile:                                                                 # If status is True
-      print( cutFile )
+    if cut_File:                                                                 # If status is True
+      self.check_size( in_file, cut_File );
 
     self.outDir  = None;                                                        # Reset attribute
     self.fileExt = None;                                                        # Reset attribute
 
     return True;                                                              # Return the status 
+
+  ########################################################
+  def check_size(self, in_file, cut_file):
+    def size_fmt(num, suffix='B'):
+      for unit in ['','K','M','G','T','P','E','Z']:
+        if abs(num) < 1024.0:
+          return "{3.1f}{}{}".format(num, unit, suffix)
+        num /= 1024.0
+      return "{.1f}{}{}".format(num, 'Y', suffix);
+
+    self.log.debug( "Running file size check to make sure too much wasn't removed");
+    in_file_size  = os.path.getsize( in_file  );
+    cut_file_size = os.path.getsize( cut_file );
+    replace       = False
+    if 1.1 > float(cut_file_size) / float(in_file_size) > 0.5:
+      msg     = 'Output file size looked sane, replacing the original: {} -> {}'
+      replace = True;
+    elif 1.01 > float(cut_file_size) / float(in_file_size) > 0.99:
+      msg = 'Output file size was too similar; keeping original: {} -> {}'
+    else:
+      msg = 'Output file size looked odd (too big/too small); keeping original: {} -> {}'
+    self.log.info( 
+      msg.format(
+        size_fmt(in_file_size), size_fmt(cut_file_size)
+      )
+    );
+    if replace:
+      os.rename( cut_file, in_file );
+    else:
+      os.remove( cut_file );
   ########################################################
   def comjoin(self, tmpFiles):
     inFiles = '|'.join( tmpFiles );
@@ -98,7 +129,7 @@ class comremove( object ):
     return tmpFiles;
   ########################################################
   def comskip(self, in_file):
-    self.log.info( 'Running comskip to locate commercail breaks')
+    self.log.info( 'Running comskip to locate commercial breaks')
     cmd = self._comskip;
     if self.threads:
       cmd.append( '--threads={}'.format(self.threads) );

@@ -17,7 +17,7 @@ log.setLevel(logging.DEBUG);                                                  # 
 log.addHandler( logging.StreamHandler() );
 log.handlers[0].setFormatter( screenFMT['formatter'] )
 log.handlers[0].setLevel( screenFMT['level'] );            # Set the format tot the screen format
-
+log.handlers[0].set_name( screenFMT['name'] );
 
 del i, DEVNULL, STDOUT, screenFMT;
 

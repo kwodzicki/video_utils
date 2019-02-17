@@ -3,8 +3,8 @@ import os, time;
 from subprocess import call, Popen, DEVNULL, STDOUT;
 from .srt_cleanup import srt_cleanup;
 
-if call(['which', 'mkvextract'], stdout = DEVNULL, stderr = STDOUT) != 0:
-  raise Exception( 'mkvextract is NOT installed' );
+if call(['which', 'vobsub2srt'], stdout = DEVNULL, stderr = STDOUT) != 0:
+  raise Exception( 'vobsub2srt is NOT installed' );
 
 try:
   from video_utils.utils.limitCPUusage import limitCPUusage;

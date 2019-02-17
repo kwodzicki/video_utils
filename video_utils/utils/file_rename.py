@@ -23,7 +23,7 @@ def file_rename( in_file ):
   new = '{} - {}.{}.{}'.format(se.lower(), title, imdbId, ext);                 # Build new file name
   new = os.path.join( fileDir, new );                                           # Build new file path
   os.rename( in_file, new );                                                    # Rename the file
-  return True;
+  return new;
   
 if __name__ == "__main__":
   import sys;

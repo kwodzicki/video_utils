@@ -1,6 +1,7 @@
 import logging;
 '''Settings for screen logger and file logger'''
 screenFMT  = { 
+  'name'      : 'main',
   'level'     : logging.CRITICAL,
   'formatter' : logging.Formatter(
                 '%(levelname)-8s - %(asctime)s - %(name)s - %(message)s',

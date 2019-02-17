@@ -8,19 +8,20 @@ from .utils import test_dependencies as dependencies;
 
 from ._logging import fileFMT;
 from .mediainfo import mediainfo;
-from .subtitles import opensubtitles;
+
+from .subtitles.opensubtitles import opensubtitles;
 
 try:
-  from .utils import limitCPUusage;
+  from .utils.limitCPUusage import limitCPUusage;
 except:
   limitCPUusage = None;
 
 try:
-  from .subtitles import vobsub_extract;
+  from .subtitles.vobsub_extract import vobsub_extract;
 except:
   vobsub_extract = None;
 try:
-  from .subtitles import vobsub_to_srt;
+  from .subtitles.vobsub_to_srt import vobsub_to_srt;
 except:
    vobsub_to_srt = None;
 try:
@@ -552,7 +553,7 @@ class videoconverter( mediainfo ):
       self.oSubs.logout();                                                      # Log out of the opensubtitles.org API
 
     
-
+    ######
     if (not self.vobsub) and (not self.srt):                                    # If both vobsub AND srt are False
       self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
       return;                                                                   # Return from the method
@@ -561,18 +562,19 @@ class videoconverter( mediainfo ):
     if self.text_info is None:                                                  # If there is not text information, then we cannot extract anything
       if self.srt:                                                              # If srt subtitles are requested
         opensubs_all();                                                         # Run local function
-    elif self.srt:                                                              # Else, if SRT is set
+    elif self.vobsub or self.srt:                                               # Else, if vobsub or srt is set
       if self.format == "MPEG-TS":                                              # If the input file format is MPEG-TS, then must use CCExtractor
-        if ccextract:                                                            # If the ccextract function import successfully
-          status = ccextract( self.in_file, self.out_file, self.text_info );
+        if ccextract:                                                           # If the ccextract function import successfully
+          self._join_out_file( self.title );                                    # Build output directory with directory for episode/movie that will contain video and subtitle files
+          status = ccextract( self.in_file, self.out_file, self.text_info );    # Run ccextractor
         else:
           self.log.warning('ccextractor failed to import, falling back to opensubtitles.org');
           opensubs_all();                                                       # Run local function
       else:                                                                     # Assume other type of file
         if not vobsub_extract:                                                  # If the vobsub_extract function failed to import
           self.log.warning('vobsub extraction not possible');
-          if self.srt:
-            self.log.info('Falling back to opensubtitles.org');
+          if self.srt:                                                          # If the srt flag is set
+            self.log.info('Falling back to opensubtitles.org for SRT files');
             opensubs_all();                                                     # Run local function
         else:
           self._join_out_file( self.title );                                    # Combine out_file path list into single path with movie/episode directory and create directories
@@ -582,7 +584,7 @@ class videoconverter( mediainfo ):
             srt    = self.srt );                                                # Extract VobSub(s) from the input file and convert to SRT file(s).
           if (self.vobsub_status < 2) and self.srt:                             # If there weren't nay major errors in the vobsub extraction
             if not vobsub_to_srt:                                               # If SRT output is enabled AND vobsub_to_srt imported correctly
-              self.log.warning('vobsub2srt conversion not possible. leaving vobsub files.');
+              self.log.warning('vobsub2srt conversion not possible. Leaving vobsub files.');
             else:
               self.srt_status, self.text_info = vobsub_to_srt(   
                 self.out_file, self.text_info,   
@@ -608,9 +610,9 @@ class videoconverter( mediainfo ):
                   self.oSubs.saveSRT();                                         # Save subtitles, note that this may not actually work if noting was found
                   tmpOut = self.out_file + self.text_info[i]['ext'] + '.srt';   # Temporary output file for check
                   if os.path.isfile(tmpOut): self.text_info[i]['srt'] = True;   # If the subtitle file exists, update the srt presence flag.
-                self.oSubs.logout();  
+                self.oSubs.logout();                                            # Log out to of opensubtitles
     else:                                                                       # Else, not subtitle candidates were returned
-      self.log.info('No subtitles found!');                                     # Log some information
+      self.log.debug('No subtitle options set');                                # Log some information
       self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
 ##############################################################################
   def _join_out_file(self, title = None ):
