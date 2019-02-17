@@ -1,8 +1,7 @@
 import os;
 from subprocess import call, Popen, STDOUT, DEVNULL;
 
-status = call(['which', 'cpulimit'], stdout = DEVNULL, stderr = STDOUT);
-if status != 0:
+if call(['which', 'cpulimit'], stdout = DEVNULL, stderr = STDOUT) != 0:
   raise Exception( 'cpulimit is NOT installed' );
 
 def limitCPUusage( pid, cpulimit, threads = 1, single = False ):
