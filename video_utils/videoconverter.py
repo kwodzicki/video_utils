@@ -8,8 +8,25 @@ from .utils import test_dependencies as dependencies;
 
 from ._logging import fileFMT;
 from .mediainfo import mediainfo;
-from .subtitles import opensubtitles, vobsub_extract, vobsub_to_srt;
-from .utils     import limitCPUusage;
+from .subtitles import opensubtitles;
+
+try:
+  from .utils import limitCPUusage;
+except:
+  limitCPUusage = None;
+
+try:
+  from .subtitles import vobsub_extract;
+except:
+  vobsub_extract = None;
+try:
+  from .subtitles import vobsub_to_srt;
+except:
+   vobsub_to_srt = None;
+try:
+  from .subtitles import ccextract;
+except:
+   ccextract = None;
 
 if dependencies.MP4Tags:
   from .videotagger.metadata.getMetaData import getMetaData;
@@ -57,7 +74,7 @@ class videoconverter( mediainfo ):
        of forced (i.e., foreign) subtitles.
        Also added better logging through the logging module.
   '''
-  log      = logging.getLogger( __name__ );                                               # Set log to root logger for all instances
+  log = logging.getLogger( __name__ );                                               # Set log to root logger for all instances
   def __init__(self,
                out_dir       = None,
                log_dir       = None, 
@@ -108,14 +125,20 @@ class videoconverter( mediainfo ):
     self.illegal      = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
     self.legal        = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
     self.dependencies = dependencies;
-    self.vobsub       = self.dependencies.vobsub;
-    self.srt          = self.dependencies.srt;
-    self.cpulimit     = self.dependencies.cpulimit;
+    # self.srt          = self.dependencies.srt;
+    # self.cpulimit     = self.dependencies.cpulimit;
     self.container    = container.lower();
     self.mp4tags      = (self.container == 'mp4');
 
-    if self.vobsub   is not None: self.vobsub   = vobsub
+    if vobsub_extract is None:
+      self.log.warning('VobSub extraction is DISABLED! Check that mkvextract is installed and in your PATH');
+      self.vobsub = False;
+    else:
+      self.vobsub = vobsub;
     if self.srt      is not None: self.srt      = srt;
+    if self.srt and (not vobsub_to_srt):
+      self.log.warning('VobSub2SRT conversion is DISABLED! Check that vobsub2srt is installed and in your PATH')
+
     if self.cpulimit is not None: self.cpulimit = cpulimit;
 
 
@@ -320,8 +343,9 @@ class videoconverter( mediainfo ):
     with open(self.hb_log_file, 'w') as log:                                    # With the handbrake log file open
       with open(self.hb_err_file, 'w') as err:
         self.handbrake = subprocess.Popen(self.hb_cmd, stdout=log, stderr=err); # Start the HandBrakeCLI command and direct all errors to a PIPE
-    if type(self.cpulimit) is int and self.cpulimit > 0:                        # If limiting of CPU usage is requested
-      CPU_id = limitCPUusage(self.handbrake.pid, self.cpulimit, self.threads);  # Run cpu limit command
+    if limitCPUusage:                                                           # If limitCPUusage is not None
+      if type(self.cpulimit) is int and self.cpulimit > 0:                      # If limiting of CPU usage is requested
+        CPU_id = limitCPUusage(self.handbrake.pid, self.cpulimit, self.threads);# Run cpu limit command
       
     self.handbrake.communicate();                                               # Wait for self.handbrake to finish completely
     try:                                                                        # Try to...
@@ -504,67 +528,90 @@ class videoconverter( mediainfo ):
     '''
 
     # Extract VobSub(s) and convert to SRT based on keywords
-    if not self.vobsub and not self.srt:                                        # If both vobsub AND srt are False
-      self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
-    else:
-      self.text_info = self.get_text_info( self.language );               # Get and parse text information from the file
-      if self.text_info is None and self.srt:                                   # If text streams were found
-        self.log.info('Attempting opensubtitles.org search...');                # Logging information
-        self.oSubs = opensubtitles('', imdb = self.IMDb_ID, 
-                            lang     = ','.join(self.language), 
-                            username = self.username, 
-                            userpass = self.userpass);                          # Initialize opensubtitles instance
-        self.oSubs.login();                                                     # Login to the opensubtitles.org API
-        self.oSubs.searchSubs();                                                # Search for subtitles
-        if self.oSubs.subs is None:                                             # If no subtitles are found
-          self._join_out_file( );                                               # Combine out_file path list into single path with NO movie/episode directory and create directories
-        else:                                                                   # Else, some subtitles were found
-          found = 0;                                                            # Initialize found to zero (0)
-          for lang in self.oSubs.subs:                                          # Iterate over all languages in the sub titles dictionary
-            if self.oSubs.subs[lang] is not None: found+=1;                     # If one of the keys under that language is NOT None, then increment found
-          if found > 0:                                                         # If found is greater than zero (0), then subtitles were found
-            self._join_out_file( self.title );                                  # Combine out_file path list into single path with movie/episode directory and create directories
-            self.oSubs.file = self.out_file;                                    # Set movie/episode file path in opensubtitles class so that subtitles have same naming as movie/episode
-            self.oSubs.saveSRT();                                               # Download the subtitles
-          else:                                                                 # Else, no subtitles were found
-            self._join_out_file( );                                             # Combine out_file path list into single path with NO movie/episode directory and create directories
-        self.oSubs.logout();                                                    # Log out of the opensubtitles.org API
-      elif self.text_info is not None:
-        self._join_out_file( self.title );                                      # Combine out_file path list into single path with movie/episode directory and create directories
-        self.vobsub_status = vobsub_extract( 
-          self.in_file, self.out_file, self.text_info, 
-          vobsub = self.vobsub,
-          srt    = self.srt );                                                  # Extract VobSub(s) from the input file and convert to SRT file(s).
-        if self.vobsub_status < 2:
-          if self.srt: 
-            self.srt_status, self.text_info = vobsub_to_srt( 
-                  self.out_file, self.text_info, 
-                  vobsub_delete = self.vobsub_delete, 
-                  cpulimit      = self.cpulimit, 
-                  threads       = self.threads );                               # Convert vobsub to SRT files
-        if self.srt:                                                            # If srt is True
-          failed = [i for i in self.text_info if i['srt'] is False];            # Check for missing srt files
-          if len(failed) > 0:                                                   # If missing files found
-            self._join_out_file( self.title );                                  # Combine out_file path list into single path with movie/episode directory and create directories
-            self.log.info('Attempting opensubtitles.org search...');            # Logging information
-            self.oSubs = opensubtitles(self.out_file, 
-                            imdb     = self.IMDb_ID, 
-                            username = self.username, 
-                            userpass = self.userpass);                          # Initialize opensubtitles instance
-            self.oSubs.login();                                                 # Log into opensubtitles
-            for i in range(len(self.text_info)):                                # Iterate over all entries in text_info
-              if self.text_info[i]['srt']: continue;                            # If the srt file exists, skip
-              self.oSubs.lang       = self.text_info[i]['lang3'];               # Set the language for the subtitle search
-              self.oSubs.track_num  = self.text_info[i]['track'];               # Set the track number for the subtitle search
-              self.oSubs.get_forced = self.text_info[i]['forced'];              # Set the forced flag for the subtitle search
-              self.oSubs.searchSubs();                                          # Search for subtitles
-              self.oSubs.saveSRT();                                             # Save subtitles, note that this may not actually work if noting was found
-              tmpOut = self.out_file + self.text_info[i]['ext'] + '.srt';       # Temporary output file for check
-              if os.path.isfile(tmpOut): self.text_info[i]['srt'] = True;       # If the subtitle file exists, update the srt presence flag.
-            self.oSubs.logout();
-      else:                                                                     # Else, not subtitle candidates were returned
-        self.log.info('No subtitles found!');                                   # Log some information
+    def opensubs_all():
+      '''Local function to download all subtitles from opensubtitles'''
+      self.log.info('Attempting opensubtitles.org search...');                  # Logging information
+      self.oSubs = opensubtitles('', imdb = self.IMDb_ID, 
+                          lang     = ','.join(self.language), 
+                          username = self.username, 
+                          userpass = self.userpass);                            # Initialize opensubtitles instance
+      self.oSubs.login();                                                       # Login to the opensubtitles.org API
+      self.oSubs.searchSubs();                                                  # Search for subtitles
+      if self.oSubs.subs is None:                                               # If no subtitles are found
         self._join_out_file( );                                                 # Combine out_file path list into single path with NO movie/episode directory and create directories
+      else:                                                                     # Else, some subtitles were found
+        found = 0;                                                              # Initialize found to zero (0)
+        for lang in self.oSubs.subs:                                            # Iterate over all languages in the sub titles dictionary
+          if self.oSubs.subs[lang] is not None: found+=1;                       # If one of the keys under that language is NOT None, then increment found
+        if found > 0:                                                           # If found is greater than zero (0), then subtitles were found
+          self._join_out_file( self.title );                                    # Combine out_file path list into single path with movie/episode directory and create directories
+          self.oSubs.file = self.out_file;                                      # Set movie/episode file path in opensubtitles class so that subtitles have same naming as movie/episode
+          self.oSubs.saveSRT();                                                 # Download the subtitles
+        else:                                                                   # Else, no subtitles were found
+          self._join_out_file( );                                               # Combine out_file path list into single path with NO movie/episode directory and create directories
+      self.oSubs.logout();                                                      # Log out of the opensubtitles.org API
+
+    
+
+    if (not self.vobsub) and (not self.srt):                                    # If both vobsub AND srt are False
+      self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
+      return;                                                                   # Return from the method
+
+    self.text_info = self.get_text_info( self.language );                       # Get and parse text information from the file
+    if self.text_info is None:                                                  # If there is not text information, then we cannot extract anything
+      if self.srt:                                                              # If srt subtitles are requested
+        opensubs_all();                                                         # Run local function
+    elif self.srt:                                                              # Else, if SRT is set
+      if self.format == "MPEG-TS":                                              # If the input file format is MPEG-TS, then must use CCExtractor
+        if ccextract:                                                            # If the ccextract function import successfully
+          status = ccextract( self.in_file, self.out_file, self.text_info );
+        else:
+          self.log.warning('ccextractor failed to import, falling back to opensubtitles.org');
+          opensubs_all();                                                       # Run local function
+      else:                                                                     # Assume other type of file
+        if not vobsub_extract:                                                  # If the vobsub_extract function failed to import
+          self.log.warning('vobsub extraction not possible');
+          if self.srt:
+            self.log.info('Falling back to opensubtitles.org');
+            opensubs_all();                                                     # Run local function
+        else:
+          self._join_out_file( self.title );                                    # Combine out_file path list into single path with movie/episode directory and create directories
+          self.vobsub_status = vobsub_extract( 
+            self.in_file, self.out_file, self.text_info, 
+            vobsub = self.vobsub,
+            srt    = self.srt );                                                # Extract VobSub(s) from the input file and convert to SRT file(s).
+          if (self.vobsub_status < 2) and self.srt:                             # If there weren't nay major errors in the vobsub extraction
+            if not vobsub_to_srt:                                               # If SRT output is enabled AND vobsub_to_srt imported correctly
+              self.log.warning('vobsub2srt conversion not possible. leaving vobsub files.');
+            else:
+              self.srt_status, self.text_info = vobsub_to_srt(   
+                self.out_file, self.text_info,   
+                vobsub_delete = self.vobsub_delete,   
+                cpulimit      = self.cpulimit,   
+                threads       = self.threads );                                 # Convert vobsub to SRT files
+
+              failed = [i for i in self.text_info if i['srt'] is False];        # Check for missing srt files
+              if len(failed) > 0:                                               # If missing files found
+                self._join_out_file( self.title );                              # Combine out_file path list into single path with movie/episode directory and create directories
+                self.log.info('Attempting opensubtitles.org search...');        # Logging information
+                self.oSubs = opensubtitles(self.out_file,   
+                                imdb     = self.IMDb_ID,   
+                                username = self.username,   
+                                userpass = self.userpass);                      # Initialize opensubtitles instance
+                self.oSubs.login();                                             # Log into opensubtitles
+                for i in range(len(self.text_info)):                            # Iterate over all entries in text_info
+                  if self.text_info[i]['srt']: continue;                        # If the srt file exists, skip
+                  self.oSubs.lang       = self.text_info[i]['lang3'];           # Set the language for the subtitle search
+                  self.oSubs.track_num  = self.text_info[i]['track'];           # Set the track number for the subtitle search
+                  self.oSubs.get_forced = self.text_info[i]['forced'];          # Set the forced flag for the subtitle search
+                  self.oSubs.searchSubs();                                      # Search for subtitles
+                  self.oSubs.saveSRT();                                         # Save subtitles, note that this may not actually work if noting was found
+                  tmpOut = self.out_file + self.text_info[i]['ext'] + '.srt';   # Temporary output file for check
+                  if os.path.isfile(tmpOut): self.text_info[i]['srt'] = True;   # If the subtitle file exists, update the srt presence flag.
+                self.oSubs.logout();  
+    else:                                                                       # Else, not subtitle candidates were returned
+      self.log.info('No subtitles found!');                                     # Log some information
+      self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
 ##############################################################################
   def _join_out_file(self, title = None ):
     '''

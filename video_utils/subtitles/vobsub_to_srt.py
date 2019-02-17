@@ -1,6 +1,10 @@
 import logging
-import os, subprocess, time;
+import os, time;
+from subprocess import call, Popen, DEVNULL, STDOUT;
 from .srt_cleanup import srt_cleanup;
+
+if call(['which', 'mkvextract'], stdout = DEVNULL, stderr = STDOUT) != 0:
+  raise Exception( 'mkvextract is NOT installed' );
 
 try:
   from video_utils.utils.limitCPUusage import limitCPUusage;
@@ -84,8 +88,7 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
 				cmd.extend( ['--tesseract-lang', info['lang3']] );                      # Append tesseract language option
 				cmd.extend( ['--lang', info['lang2']] );                                # Append language option
 			cmd.append( file );                                                       # Append input file to cmd
-			with open(os.devnull, 'w') as null:                                       # Open /dev/null for writing
-				proc.append( subprocess.Popen( cmd, stdout = null, stderr = null ) );   # Run command and dump all output and errors to /dev/null
+			proc.append( Popen( cmd, stdout = DEVNULL, stderr = STDOUT ) );           # Run command and dump all output and errors to /dev/null
 			proc_files.append( file );                                                # Append the ith subtitle file path to the p_id_files list
 			proc_textID.append( i );                                                  # Text_info index for the process
 			if limitCPUusage:                                                         # If the function imported properly

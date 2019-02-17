@@ -1,5 +1,10 @@
 import logging;
-import os, subprocess;
+import os
+from subprocess import call, check_output, DEVNULL, STDOUT;
+
+if call(['which', 'mkvextract'], stdout = DEVNULL, stderr = STDOUT) != 0:
+  raise Exception( 'mkvextract is NOT installed' );
+
 
 def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
 	'''
@@ -43,13 +48,12 @@ def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
 	else:  
 		while True:                                                                 # Loop forever
 			try:  
-				tmp = subprocess.check_output(['pgrep', 'mkvextract']);								  # Check for instance of mkvextract
+				tmp = check_output(['pgrep', 'mkvextract']);								            # Check for instance of mkvextract
 				log.info('Waiting for a mkvextract instance to finish...');             # logging info
 				time.sleep(15);                                                         # If pgrep return (i.e., no error thrown), then sleep 15 seconds
 			except:  
 				log.info('Extracting VobSubs...');                                      # logging info
-				with open(os.devnull, 'w') as null:  
-					status = subprocess.call( extract, stdout = null, stderr = null );    # Run command and dump all output and errors to /dev/null
+					status = call( extract, stdout = DEVNULL, stderr = STDOUT );          # Run command and dump all output and errors to /dev/null
 				break;                                                                  # Pret the while loop
 		if status == 0:  
 			for i in range( len(text_info) ): text_info[i]['vobsub'] = True;  
