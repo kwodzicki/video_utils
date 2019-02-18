@@ -4,7 +4,7 @@ from datetime import timedelta;
 from subprocess import Popen, STDOUT, DEVNULL;
 
 try:
-  from .utils.limitCPUusage import limitCPUusage;
+  from video_utils.utils.limitCPUusage import limitCPUusage;
 except:
   limitCPUusage = None;
 
@@ -21,6 +21,7 @@ class comremove( object ):
     self.ini      = ini if ini else os.environ.get('COMSKIP_INI', None);        # If the ini input value is NOT None, then use it, else, try to get the COMSKIP_INI environment variable
     self.threads  = threads;
     self.cpulimit = cpulimit;
+    self.verbose  = verbose;
     self.outDir   = None;
     self.fileExt  = None;
   ########################################################
@@ -51,9 +52,9 @@ class comremove( object ):
     def size_fmt(num, suffix='B'):
       for unit in ['','K','M','G','T','P','E','Z']:
         if abs(num) < 1024.0:
-          return "{3.1f}{}{}".format(num, unit, suffix)
+          return "{:3.1f}{}{}".format(num, unit, suffix)
         num /= 1024.0
-      return "{.1f}{}{}".format(num, 'Y', suffix);
+      return "{:.1f}{}{}".format(num, 'Y', suffix);
 
     self.log.debug( "Running file size check to make sure too much wasn't removed");
     in_file_size  = os.path.getsize( in_file  );
@@ -77,6 +78,7 @@ class comremove( object ):
       os.remove( cut_file );
   ########################################################
   def comjoin(self, tmpFiles):
+    self.log.info( 'Joining video segments into one file')
     inFiles = '|'.join( tmpFiles );
     inFiles = 'concat:{}'.format( inFiles );
     outFile = 'tmp_nocom.{}'.format(self.fileExt);                              # Output file name for joined file
@@ -144,10 +146,13 @@ class comremove( object ):
     cmd.append( '--output={}'.format(self.outDir) );
     cmd.extend( [in_file, self.outDir] );
     self.log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
+    if self.verbose:
+      with open(os.path.join(self.outDir, 'comskip.log'), 'w') as log:
+        with open(os.path.join(self.outDir, 'comskip.err'), 'w') as err:
+          proc = Popen(cmd, stdout = log, stderr = err);
+    else:
+      proc = Popen(cmd, stdout = DEVNULL, stderr = STDOUT);
 
-    with open(os.path.join(self.outDir, 'comskip.log'), 'w') as log:
-      with open(os.path.join(self.outDir, 'comskip.err'), 'w') as err:
-        proc = Popen(cmd, stdout = log, stderr = err);
     if limitCPUusage and self.cpulimit:
       CPU_id = limitCPUusage(proc.pid, self.cpulimit, self.threads);            # Run cpu limit command
     proc.communicate();                                                         # Wait for self.handbrake to finish completely

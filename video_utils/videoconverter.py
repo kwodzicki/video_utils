@@ -25,7 +25,7 @@ try:
 except:
    vobsub_to_srt = None;
 try:
-  from .subtitles import ccextract;
+  from .subtitles.ccextract import ccextract;
 except:
    ccextract = None;
 
@@ -136,11 +136,12 @@ class videoconverter( mediainfo ):
       self.vobsub = False;
     else:
       self.vobsub = vobsub;
-    if self.srt      is not None: self.srt      = srt;
+    self.srt = srt;
     if self.srt and (not vobsub_to_srt):
       self.log.warning('VobSub2SRT conversion is DISABLED! Check that vobsub2srt is installed and in your PATH')
 
-    if self.cpulimit is not None: self.cpulimit = cpulimit;
+    self.cpulimit = cpulimit;
+    # if self.cpulimit is not None: self.cpulimit = cpulimit;
 
 
     # Set up all the easy parameters first
@@ -665,28 +666,28 @@ class videoconverter( mediainfo ):
       self.__fileHandler.setFormatter( fileFMT['formatter'] );                  # Set the log format for the log file
       self.log.addHandler(self.__fileHandler);                                  # Add the file log handler to the logger
 ##############################################################################
-  def set_cpulimit(self, value):
-    self._cpulimit = value if self.dependencies.cpulimit else None;
-  def get_cpulimit(self):
-    return self._cpulimit;
+  # def set_cpulimit(self, value):
+  #   self._cpulimit = value if self.dependencies.cpulimit else None;
+  # def get_cpulimit(self):
+  #   return self._cpulimit;
   ########
-  def set_vobsub(self, value):
-    self._vobsub = value if self.dependencies.vobsub else False;
-  def get_vobsub(self):
-    return self._vobsub;
+  # def set_vobsub(self, value):
+  #   self._vobsub = value if self.dependencies.vobsub else False;
+  # def get_vobsub(self):
+  #   return self._vobsub;
   ########
-  def set_srt(self, value):
-    self._srt = value if self.dependencies.srt else False;
-  def get_srt(self):
-    return self._srt;
+  # def set_srt(self, value):
+  #   self._srt = value if self.dependencies.srt else False;
+  # def get_srt(self):
+  #   return self._srt;
   # ########
   # def set_mp4tags(self, value):
   #   self._mp4tags = value if self.dependencies.MP4Tags else False;
   # def get_mp4tags(self):
   #   return self._mp4tags;
   ########
-  cpulimit = property(get_cpulimit, set_cpulimit);
-  vobsub   = property(get_vobsub, set_vobsub);
-  srt      = property(get_srt, set_srt);
+  # cpulimit = property(get_cpulimit, set_cpulimit);
+  # vobsub   = property(get_vobsub, set_vobsub);
+  # srt      = property(get_srt, set_srt);
   # mp4tags  = property(get_mp4tags, set_mp4tags);
   ########

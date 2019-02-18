@@ -1,26 +1,10 @@
 #!/usr/bin/env python
 
 import logging;
-import argparse;
-from multiprocessing import cpu_count;
 
 from video_utils.utils.file_rename import file_rename;
 from video_utils.comremove import comremove;
 from video_utils.videoconverter import videoconverter;
-
-
-parser = argparse.ArgumentParser(description="MKV Cron Converter");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
-parser.add_argument("in_file",               type   = str,                           help = "Input file to process"); 
-parser.add_argument("-l", "--logdir",        type   = str,                           help = "Log file directory. Default: Same as input file"); 
-parser.add_argument("-T", "--threads",       type   = int, default = cpu_count()//2, help = "Set number of CPUs to use. Default: Half the number of CPUs available");  
-parser.add_argument("-c", "--cpulimit",      type   = int, default = 75,             help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
-parser.add_argument("--language",            type   = str,                           help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using commas. Default: eng for English");
-parser.add_argument("-v", "--verbose",       action = "store_true",                  help = "Increase verbosity");
-parser.add_argument("--no-remove",           action = "store_true",                  help = "Set to remove input file after transcode");
-parser.add_argument("-V", "--vobsub",        action = "store_true",                  help = "Set to extract VobSub(s)");
-parser.add_argument("-s", "--srt",           action = "store_true",                  help = "Set to convert VobSub(s) to SRT");
-parser.add_argument("-d", "--delete-vobsub", action = "store_true",                  help = "Set to delete VobSub(s). Usually used with the --srt option.");
-args = parser.parse_args();                                                   # Parse the arguments
 
 log = logging.getLogger('video_utils');                                         # Get the video_utils logger
 for handler in log.handlers:                                                    # Iterate over all the handlers
@@ -28,32 +12,59 @@ for handler in log.handlers:                                                    
     handler.setLevel(logging.INFO);                                             # Set log level to info
     break;                                                                      # Break for loop to save some iterations
 
-file = file_rename( args.in_file );
-if not file:
-  print('Error renaming file')
-  exit(1);
+def Plex_DVR_PostProcess(in_file, 
+     logdir    = None, 
+     threads   = None, 
+     cpulimit  = None,
+     language  = None,
+     verbose   = None,
+     no_remove = False,
+     not_srt   = False):
+ 
+  file = file_rename( in_file );
+  if not file:
+    log.critical('Error renaming file')
+    exit(1);
+  
+  com_inst = comremove(threads = threads, cpulimit = cpulimit, verbose = verbose);
+  status = com_inst.run( file );
+  if not status:
+    log.cirtical('Error cutting commercials')
+    exit(1);
+  
+  inst = videoconverter( 
+    log_dir       = logdir,
+    threads       = threads,
+    cpulimit      = cpulimit,
+    language      = language,
+    remove        = not no_remove,
+    srt           = not not_srt); 
+  
+  
+  inst.transcode( file );
+  return inst.status
 
-com_inst = comremove();
-status = com_inst.run( file );
+if __name__ == "__main__":
+  import argparse;
+  from multiprocessing import cpu_count;
 
-print(status);
-exit();
-
-inst = videoconverter( args.indir, 
-  log_dir       = args.logdir,
-  threads       = args.threads,
-  cpulimit      = args.cpulimit,
-  language      = args.language,
-  verbose       = args.verbose,
-  remove        = not args.no_remove,
-  vobsub        = args.vobsub,
-  srt           = args.srt,
-  vobsub_delete = args.delete_vobsub ); 
-
-
-threadMain.start();                                                           # Start the transcode thread
-threadInput.start();                                                          # Start the input thread
-threadMain.join();                                                            # Join the transcode thread, i.e., wait for it to finish
-if not inst.halt: print( "" );                                                # Print empty string if halt is False
-
-exit( inst.status );  
+  parser = argparse.ArgumentParser(description="MKV Cron Converter");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+  parser.add_argument("in_file",               type   = str,                           help = "Input file to process"); 
+  parser.add_argument("-l", "--logdir",        type   = str,                           help = "Log file directory. Default: Same as input file"); 
+  parser.add_argument("-T", "--threads",       type   = int, default = cpu_count()//2, help = "Set number of CPUs to use. Default: Half the number of CPUs available");  
+  parser.add_argument("-c", "--cpulimit",      type   = int, default = 75,             help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
+  parser.add_argument("--language",            type   = str,                           help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using commas. Default: eng for English");
+  parser.add_argument("-v", "--verbose",       action = "store_true",                  help = "Increase verbosity");
+  parser.add_argument("--no-remove",           action = "store_true",                  help = "Set to remove input file after transcode");
+  parser.add_argument("--no-srt",              action = "store_true",                  help = "Set to convert VobSub(s) to SRT");
+  args = parser.parse_args();                                                   # Parse the arguments
+  status = Plex_DVR_PostProcess(args.in_file, 
+     logdir    = args.logdir, 
+     threads   = args.threads, 
+     cpulimit  = args.cpulimit,
+     language  = args.language,
+     verbose   = args.verbose,
+     no_remove = args.no_remove,
+     not_srt   = args.no_srt);
+  
+  exit( status );  
