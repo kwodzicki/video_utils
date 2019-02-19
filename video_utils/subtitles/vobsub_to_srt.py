@@ -4,7 +4,9 @@ from subprocess import call, Popen, DEVNULL, STDOUT;
 from .srt_cleanup import srt_cleanup;
 
 if call(['which', 'vobsub2srt'], stdout = DEVNULL, stderr = STDOUT) != 0:
-  raise Exception( 'vobsub2srt is NOT installed' );
+  msg = 'vobsub2srt is NOT installed';
+  logging.getLogger(__name__).error( msg );
+  raise Exception( msg );
 
 try:
   from video_utils.utils.limitCPUusage import limitCPUusage;
