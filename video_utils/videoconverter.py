@@ -75,10 +75,13 @@ class videoconverter( mediainfo ):
        of forced (i.e., foreign) subtitles.
        Also added better logging through the logging module.
   '''
-  log = logging.getLogger( __name__ );                                               # Set log to root logger for all instances
+  log     = logging.getLogger( __name__ );                                               # Set log to root logger for all instances
+  illegal = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
+  legal   = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
   def __init__(self,
                out_dir       = None,
-               log_dir       = None, 
+               log_dir       = None,
+               in_place      = False, 
                language      = None, 
                threads       = None, 
                container     = 'mp4',
@@ -96,6 +99,9 @@ class videoconverter( mediainfo ):
                         DEFAULT: Place output file(s) in source directory.
        log_dir       : Path to log file directory. Optional input.
                         DEFAULT: Place log file(s) in source directory.
+       in_place      : Set to transcode file in place; i.e., do NOT create a 
+                         new path to file such as with TV, where
+                         ./Series/Season XX/ directories are created
        language      : Comma separated string of ISO 639-2 codes for 
                         subtitle and audio languages to use. 
                         Default is english (eng).
@@ -123,11 +129,7 @@ class videoconverter( mediainfo ):
                         better security
     '''
     mediainfo.__init__(self);
-    self.illegal      = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
-    self.legal        = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
     self.dependencies = dependencies;
-    # self.srt          = self.dependencies.srt;
-    # self.cpulimit     = self.dependencies.cpulimit;
     self.container    = container.lower();
     self.mp4tags      = (self.container == 'mp4');
 
@@ -141,12 +143,12 @@ class videoconverter( mediainfo ):
       self.log.warning('VobSub2SRT conversion is DISABLED! Check that vobsub2srt is installed and in your PATH')
 
     self.cpulimit = cpulimit;
-    # if self.cpulimit is not None: self.cpulimit = cpulimit;
 
 
     # Set up all the easy parameters first
     self.out_dir       = out_dir;
     self.log_dir       = log_dir;
+    self.in_place      = in_place;                                              # Set the in_place attribute based on input value
     self.language      = ['eng'] if language is None else language.split(',');  # Set default language to None, i.e., use all languages  
     self.miss_lang     = [];
     self.x265          = x265;      
@@ -490,9 +492,10 @@ class videoconverter( mediainfo ):
                                      self.video_info['file_info'] + '.' + \
                                      self.audio_info['file_info'];
     if self.IMDb_ID is not None: self.file_name += '.' + self.IMDb_ID;          # Append the IMDB ID to the file name if it is NOT None.
+
     # Generate file paths for the output file and the self.handbrake log files
     self.hb_log_file = os.path.join(self.log_dir, self.file_name);              # Set the self.handbrake log file path without extension
-#   self.out_file    = os.path.join(self.new_out_dir, self.file_name);        # Set the output file path without extension
+    if self.in_place: self.new_out_dir = self.out_dir;                          # If the in_place keyword was set, then overwrite the new_out_dir with the input files directory path
     self.out_file    = [self.new_out_dir, '', self.file_name];                  # Set the output file path without extension
     return True;
 ##############################################################################    
