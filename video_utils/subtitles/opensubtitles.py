@@ -11,10 +11,7 @@ try:
 except:
 	import xmlrpc.client as xmlrpc;
 
-try:
-	from ..config import config
-except:
-	from video_utils import config
+from video_utils.config import opensubtitles as opensubs_config
 	
 ext = ('.avi', '.m4v', '.mp4', '.mkv', '.mpeg', '.mov', '.wmv');                # List of some common video extensions
 class opensubtitles():
@@ -99,8 +96,8 @@ class opensubtitles():
 		self.sort       = 'score' if sort is None else sort.lower()
 		self.subs       = None;
 		
-		self.api_url     = config.opensubtitles_url;                                # Set the URL
-		self.user_agent  = config.opensutitles_user_agent;                          # Set the user agent for testing
+		self.api_url     = opensubs_config['url'];                                  # Set the URL
+		self.user_agent  = opensubs_config['user_agent'];                           # Set the user agent for testing
 		self.server      = xmlrpc.ServerProxy(self.api_url, verbose=False);         # Set up the server
 		self.server_lang = 'en';                                                    # Set up the server language
 		self.login_token = None;                                                    # Set the login token

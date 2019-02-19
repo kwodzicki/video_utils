@@ -1,9 +1,17 @@
 # Some global configuration settings
-opensubtitles_url       = 'https://api.opensubtitles.org:443/xml-rpc'
-opensutitles_user_agent = 'makemkv_to_mp4'; # do NOT use in other programs, register for your own
 
-python_req = ['sys','re','time','subprocess'];
-# python_opt = ['imdb', 'tvdbsimple', 'socket'];
-python_opt = ['videotagger.metadata.getMetaData'];
-cli_req    = ['HandBrakeCLI', 'mediainfo'];
-cli_opt    = ['cpulimit', 'mkvextract', 'vobsub2srt'];
+# do NOT use opensubtitles info in other programs, register for your own
+opensubtitles = {
+  'url'        : 'https://api.opensubtitles.org:443/xml-rpc',
+  'user_agent' : 'makemkv_to_mp4'
+};
+
+# Information for TMDb api requests
+TMDb = {
+  'urlBase'    : 'https://api.themoviedb.org/3/',
+  'urlImage'   : 'http://image.tmdb.org/t/p/original/',
+};
+TMDb['urlFind']    = TMDb['urlBase'] + 'find/{}?external_source=imdb_id';
+TMDb['urlMovie']   = TMDb['urlBase'] + 'movie/{}';
+TMDb['urlSeries']  = TMDb['urlBase'] + 'tv/{}';
+TMDb['urlEpisode'] = TMDb['urlBase'] + 'tv/{}/season/{}/episode/{}';

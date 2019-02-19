@@ -14,14 +14,7 @@ if not tmdb_key:
   logging.getLogger(__name__).error( msg );
   raise Exception( msg );
 
-maxAttempts = 10;                                                               # Set default maximum attempts to 10
-# Set up some base URLs for accessing the API
-urlBase    = 'https://api.themoviedb.org/3/';
-urlImage   = 'http://image.tmdb.org/t/p/original/';
-urlFind    = urlBase + 'find/{}?external_source=imdb_id';
-urlMovie   = urlBase + 'movie/{}';
-urlSeries  = urlBase + 'tv/{}';
-urlEpisode = urlBase + 'tv/{}/season/{}/episode/{}';
+from video_utils.config import TMDb as TMDb_config;
 
 ###
 def parseRating( rating ):
@@ -58,9 +51,8 @@ def parseRelease( release ):
 					return year, mpaa;                                                    # Return the year and rating to break the loop
 	return year, mpaa;                                                            # Return the year and rating				
 ###
-def downloadInfo( url, external = False, attempts = None ):
+def downloadInfo( url, external = False, attempts = 3 ):
 	'''Function to download and parse json data from the API'''
-	if attempts is None: attempts = maxAttempts;                                  # Set default number of attempts to ten (10)
 	attempt = 0;                                                                  # Initialize attempt to zero (0)
 	url += ('&' if external else '?') + 'api_key=' + tmdb_key;                    # Append the API key to the url
 	
@@ -93,7 +85,7 @@ def getTVInfo( info, attempts = None ):
 	           'episode' : episode};
 
 	# Work on series information
-	url    = urlSeries.format( show_id );                                         # Set series info URL
+	url    = TMDb_config['urlSeries'].format( show_id );                          # Set series info URL
 	series = downloadInfo( url, attempts = attempts );                            # Get series info
 	if series is None:                                                            # If downloadInfo returned None
 		log.warning('Failed to get series information!');                           # Log a warning
@@ -116,7 +108,7 @@ def getTVInfo( info, attempts = None ):
 		if rating is not None: outData['mpaa'] = ' ' + rating;                      # Prepend space to the rating and add to output dictionary
 
 	# Work on some episode specific information
-	url     = urlEpisode.format(show_id, season, episode);                        # Set URL for episode data download
+	url     = TMDb_config['urlEpisode'].format(show_id, season, episode);         # Set URL for episode data download
 	episode = downloadInfo( url, attempts = attempts );                           # Download some episode data
 	if episode is None:                                                           # If downloadInfo return None
 		log.warning('Failed to get episode information!');                          # Log an error
@@ -125,7 +117,7 @@ def getTVInfo( info, attempts = None ):
 		if 'overview'   in episode: outData['plot']  = [episode.pop('overview')];   # Set episode plot in output
 		if 'still_path' in episode:	
 			if type(episode['still_path']) is str:                                    # If still_path is type string
-				outData['full-size cover url'] = urlImage + episode['still_path'];      # Set poster path
+				outData['full-size cover url'] = TMDb_config['urlImage']+episode['still_path'];      # Set poster path
 		if 'crew' in episode:                                                       # if the crew tag is NOT in the episode dictionary
 			crew = parseCrew( episode.pop('crew') );                                  # Parse crew information
 			if len(crew[0]) > 0: outData['director'] = crew[0];                       # Add director(s) to output dictionary
@@ -146,11 +138,11 @@ def getTVInfo( info, attempts = None ):
 	return outData;
 
 ###################################################################
-def getMovieInfo( info, attempts = None ):
+def getMovieInfo( info, attempts = 3 ):
 	'''Function to get information about Movies'''
 	log = logging.getLogger(__name__);
 	outData = {}
-	url     = urlMovie.format(info['id']);                                        # Set URL for movie
+	url     = TMDb_config['urlMovie'].format(info['id']);                         # Set URL for movie
 
 	# Work on movie base information
 	data = downloadInfo( url, attempts = attempts );                              # Get the movie data
@@ -162,7 +154,7 @@ def getMovieInfo( info, attempts = None ):
 		if 'genres'               in data: outData['genre'] = data['genres'];
 		if 'poster_path'          in data:
 			if type(data['poster_path']) is str:                                      # If poster_path is type string
-				outData['full-size cover url']  = urlImage + data['poster_path'];       # Set post url
+				outData['full-size cover url']  = TMDb_config['urlImage']+data['poster_path'];       # Set post url
 		if 'production_companies' in data: 
 			outData['production companies'] = data['production_companies'];
 
@@ -194,7 +186,7 @@ def getMovieInfo( info, attempts = None ):
 	return outData;                                                               # Return the data
 
 ###################################################################
-def getTMDb_Info(IMDb_ID, attempts = None, logLevel = 30):
+def getTMDb_Info(IMDb_ID, attempts = 3, logLevel = 30):
 	'''
 	Name:
 	  getTMDb_Info
@@ -214,31 +206,30 @@ def getTMDb_Info(IMDb_ID, attempts = None, logLevel = 30):
 	log = logging.getLogger(__name__);                                            # Initialize a logger
 # 	if logLevel is None: logLevel = logging.INFO;                                 # Set the default logging level
 # 	log.setLevel( logLevel );                                                     # Actually set the logging level
-	attempts = maxAttempts if attempts is None else attempts;                     # Set the number of attempts for downloading data
 	tmdb = TMDb( IMDb_ID );                                                       # Initialize instance of the TMDb class
 	movie, tv = False, False;                                                     # Initialize movie and tv variables to False
 
-	log.info('Attempting to get information from themoviedb.org...');           # Log some information
-	info = downloadInfo( urlFind.format(IMDb_ID), True, attempts );             # Search themoviedb.org using the IMDb ID
-	if info is None:                                                            # If no information was return, then there was an issue
-		log.warning('Failed to find matching content on themoviedb.org!');        # Log a warning message
-	elif 'movie_results' in info and 'tv_episode_results' in info:              # Else, if the two keys are in the dictionary
-		if len(info['movie_results']) == 1:                                       # If the length of movie results is one (1)
-			movie = getMovieInfo(info['movie_results'][0], attempts);               # Parse the movie data
-		if len(info['tv_episode_results']) == 1:                                  # Else, if the length of tv/episode results is one (1)
-			tv = getTVInfo(info['tv_episode_results'][0], attempts);                # Parse the episode data
-		if (movie and tv) or tv:                                                  # If both movie and TV data returned OR just TV data returned, assume TV
-			tmdb.data['is_episode'] = True;                                         # Set is episod to Ture
-			tmdb.data.update( tv );                                                 # Update the tmdb.data with the TV information
-		elif movie:                                                               # Else, only movie data was returned
-			tmdb.data.update( movie );                                              # Update the tmdb.data with the movie information
-		if len(tmdb.data.keys()) > 1:                                             # If there is more than one key ('is_episode' is always present) in the data attribute...
-			log.info('Information downloaded from themoviedb.org!');                # Print log information for success
-		else:                                                                     # Else, something went wrong
-			log.warning('Failed to get information from themoviedb.org!');          # Log a warning
-			log.warning('More than one movie or TV show returned?');                # Log a warning
-	else:                                                                       # Else, tags may have changed in the API
-		log.warning('Something went wrong with the API...Tag changes in JSON?');  # Log a warning
+	log.info('Attempting to get information from themoviedb.org...');             # Log some information
+	info = downloadInfo( TMDb_config['urlFind'].format(IMDb_ID), True, attempts );# Search themoviedb.org using the IMDb ID
+	if info is None:                                                              # If no information was return, then there was an issue
+		log.warning('Failed to find matching content on themoviedb.org!');          # Log a warning message
+	elif 'movie_results' in info and 'tv_episode_results' in info:                # Else, if the two keys are in the dictionary
+		if len(info['movie_results']) == 1:                                         # If the length of movie results is one (1)
+			movie = getMovieInfo(info['movie_results'][0], attempts);                 # Parse the movie data
+		if len(info['tv_episode_results']) == 1:                                    # Else, if the length of tv/episode results is one (1)
+			tv = getTVInfo(info['tv_episode_results'][0], attempts);                  # Parse the episode data
+		if (movie and tv) or tv:                                                    # If both movie and TV data returned OR just TV data returned, assume TV
+			tmdb.data['is_episode'] = True;                                           # Set is episod to Ture
+			tmdb.data.update( tv );                                                   # Update the tmdb.data with the TV information
+		elif movie:                                                                 # Else, only movie data was returned
+			tmdb.data.update( movie );                                                # Update the tmdb.data with the movie information
+		if len(tmdb.data.keys()) > 1:                                               # If there is more than one key ('is_episode' is always present) in the data attribute...
+			log.info('Information downloaded from themoviedb.org!');                  # Print log information for success
+		else:                                                                       # Else, something went wrong
+			log.warning('Failed to get information from themoviedb.org!');            # Log a warning
+			log.warning('More than one movie or TV show returned?');                  # Log a warning
+	else:                                                                         # Else, tags may have changed in the API
+		log.warning('Something went wrong with the API...Tag changes in JSON?');    # Log a warning
 	return tmdb;                                                                  # Return the TMDb class instance
 
 ###################################################################
