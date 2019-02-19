@@ -10,7 +10,9 @@ except:
   tmdb_key = os.environ.get('TMDB_API_KEY', None);         # On exception, try to get the API key from the TMDB_API_KEY environment variable
 
 if not tmdb_key:
-  raise Exception("API key for TMDb could NOT be imported!");
+  msg = "API key for TMDb could NOT be imported!";
+  logging.getLogger(__name__).error( msg );
+  raise Exception( msg );
 
 maxAttempts = 10;                                                               # Set default maximum attempts to 10
 # Set up some base URLs for accessing the API

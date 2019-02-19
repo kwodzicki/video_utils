@@ -3,7 +3,9 @@ import os
 from subprocess import call, check_output, DEVNULL, STDOUT;
 
 if call(['which', 'mkvextract'], stdout = DEVNULL, stderr = STDOUT) != 0:
-  raise Exception( 'mkvextract is NOT installed' );
+  msg = 'mkvextract is NOT installed';
+  logging.getLogger(__name__).error( msg )
+  raise Exception( msg );
 
 
 def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):

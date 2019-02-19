@@ -3,7 +3,9 @@ import os;
 from subprocess import call, Popen, STDOUT, DEVNULL;
 
 if call(['which', 'cpulimit'], stdout = DEVNULL, stderr = STDOUT) != 0:
-  raise Exception( 'cpulimit is NOT installed' );
+  msg = 'cpulimit is NOT installed';
+  logging.getLogger(__name__).error( msg );
+  raise Exception( msg );
 
 def limitCPUusage( pid, cpulimit, threads = 1, single = False ):
   '''

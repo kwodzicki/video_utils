@@ -6,12 +6,11 @@ except:
   tvdb_key = os.environ.get('TVDB_API_KEY', None);         # On exception, try to get the API key from the TVDB_API_KEY environment variable
 
 if not tvdb_key:
-	raise Exception("API key for TVDb could NOT be imported!");
+  msg = "API key for TVDb could NOT be imported!";
+  logging.getLogger(__name__).error( msg );
+  raise Exception( msg );
 
-try:
-	import tvdbsimple as tvdb;
-except:
-	raise Exception("Failed to import 'tvdbsimple'!")
+import tvdbsimple as tvdb;
 tvdb.KEYS.API_KEY = tvdb_key;
 
 # def download_TVDb(Info, imdbId, maxAttempt = 3, logLevel = None): 

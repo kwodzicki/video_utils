@@ -1,7 +1,12 @@
 import logging;
 import os;
 from datetime import timedelta;
-from subprocess import Popen, STDOUT, DEVNULL;
+from subprocess import call, Popen, STDOUT, DEVNULL;
+
+if call(['which', 'comskip'], stdout = DEVNULL, stderr = STDOUT ) != 0:         # If cannot find the ccextractor CLI
+  msg = "comskip is NOT installed or not in your PATH!";
+  logging.getLogger(__name__).error(msg);
+  raise Exception( msg );                 # Raise an exception
 
 try:
   from video_utils.utils.limitCPUusage import limitCPUusage;
@@ -9,7 +14,9 @@ except:
   limitCPUusage = None;
 
 
-
+# Following code may be useful for fixing issues with audio in
+# video files that cut out
+# ffmpeg -copyts -i "concat:in1.ts|in2.ts" -muxpreload 0 -muxdelay 0 -c copy joint.ts
 class comremove( object ):
   # _comskip = ['comskip', '--hwassist', '--cuvid', '--vdpau'];
   _comskip = ['comskip'];
