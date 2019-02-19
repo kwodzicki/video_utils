@@ -1,6 +1,7 @@
 import logging;
 
-import os, sys, re, time, subprocess, threading;
+import os, sys, re, time, threading;
+from subprocess import Popen, DEVNULL, STDOUT;
 from datetime import datetime;
 
 # Try python3 import, else do python2 import
@@ -82,6 +83,7 @@ class videoconverter( mediainfo ):
                out_dir       = None,
                log_dir       = None,
                in_place      = False, 
+               no_hb_log     = False,
                language      = None, 
                threads       = None, 
                container     = 'mp4',
@@ -102,6 +104,9 @@ class videoconverter( mediainfo ):
        in_place      : Set to transcode file in place; i.e., do NOT create a 
                          new path to file such as with TV, where
                          ./Series/Season XX/ directories are created
+       no_hb_log     : Set to suppress the creation of stdout and stderr log
+                        files for HandBrakeCLI and instead pipe the output to
+                        /dev/null
        language      : Comma separated string of ISO 639-2 codes for 
                         subtitle and audio languages to use. 
                         Default is english (eng).
@@ -149,6 +154,7 @@ class videoconverter( mediainfo ):
     self.out_dir       = out_dir;
     self.log_dir       = log_dir;
     self.in_place      = in_place;                                              # Set the in_place attribute based on input value
+    self.no_hb_log     = no_hb_log;                                             # Set the no_hb_log attribute based on the input value
     self.language      = ['eng'] if language is None else language.split(',');  # Set default language to None, i.e., use all languages  
     self.miss_lang     = [];
     self.x265          = x265;      
@@ -344,9 +350,13 @@ class videoconverter( mediainfo ):
     self.hb_cmd.extend(['--input', self.in_file, '--output', out_file]);        # Append input and output file paths to the self.handbrake command
 
     self.log.info( 'Transcoding file...' )
-    with open(self.hb_log_file, 'w') as log:                                    # With the handbrake log file open
-      with open(self.hb_err_file, 'w') as err:
-        self.handbrake = subprocess.Popen(self.hb_cmd, stdout=log, stderr=err); # Start the HandBrakeCLI command and direct all errors to a PIPE
+
+    if self.no_hb_log:                                                          # If creation of HandBrake log files is disabled
+      self.handbrake = Popen(self.hb_cmd, stdout = DEVNULL, stderr = STDOUT);   # Start the HandBrakeCLI command and direct all output to /dev/null
+    else:                                                                       # Else
+      with open(self.hb_log_file, 'w') as log:                                  # With the handbrake log file open
+        with open(self.hb_err_file, 'w') as err:                                # With the handbrake error file open
+          self.handbrake = Popen(self.hb_cmd, stdout = log, stderr = err);      # Start the HandBrakeCLI command and direct all errors to a PIPE
     if limitCPUusage:                                                           # If limitCPUusage is not None
       if type(self.cpulimit) is int and self.cpulimit > 0:                      # If limiting of CPU usage is requested
         CPU_id = limitCPUusage(self.handbrake.pid, self.cpulimit, self.threads);# Run cpu limit command
@@ -647,7 +657,8 @@ class videoconverter( mediainfo ):
   def _create_dirs( self ):
     if not os.path.isdir( self.out_dir     ): os.makedirs( self.out_dir );      # Check if the output directory exists, if it does NOT, create the directory
     if not os.path.isdir( self.new_out_dir ): os.makedirs( self.new_out_dir );  # Check if the new output directory exists, if it does NOT, create the directory
-    if not os.path.isdir( self.log_dir     ): os.makedirs( self.log_dir );      # Create log directory if it does NOT exist
+    if not self.no_hb_log:                                                      # If HandBrake log files are NOT disabled
+      if not os.path.isdir( self.log_dir     ): os.makedirs( self.log_dir );    # Create log directory if it does NOT exist
 ##############################################################################
   def _init_logger(self, log_file = None):
     '''
