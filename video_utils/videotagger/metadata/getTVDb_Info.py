@@ -1,16 +1,18 @@
 import logging
 
 try:
-	from video_utils import api_keys;
+	from video_utils.api_keys import tvdb as tvdb_key;       # Attempt to import the API key from the api_keys module
 except:
-	raise Exception("API key could NOT be imported!");
-if not hasattr(api_keys, 'tvdb'):
-	raise Exception("API key(s) imported but 'tvdb' NOT found!")
+  tvdb_key = os.environ.get('TVDB_API_KEY', None);         # On exception, try to get the API key from the TVDB_API_KEY environment variable
+
+if not tvdb_key:
+	raise Exception("API key for TVDb could NOT be imported!");
+
 try:
 	import tvdbsimple as tvdb;
 except:
 	raise Exception("Failed to import 'tvdbsimple'!")
-tvdb.KEYS.API_KEY = api_keys.tvdb;
+tvdb.KEYS.API_KEY = tvdb_key;
 
 # def download_TVDb(Info, imdbId, maxAttempt = 3, logLevel = None): 
 # 	attempt = 1;

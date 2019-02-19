@@ -3,10 +3,14 @@ import json;
 
 
 from urllib.request import urlopen;
+
 try:
-	from video_utils import api_keys;
+  from video_utils.api_keys import tmdb as tmdb_key;       # Attempt to import the API key from the api_keys module
 except:
-	raise Exception('API key could NOT be imported!');
+  tmdb_key = os.environ.get('TMDB_API_KEY', None);         # On exception, try to get the API key from the TMDB_API_KEY environment variable
+
+if not tmdb_key:
+  raise Exception("API key for TMDb could NOT be imported!");
 
 maxAttempts = 10;                                                               # Set default maximum attempts to 10
 # Set up some base URLs for accessing the API
@@ -56,7 +60,7 @@ def downloadInfo( url, external = False, attempts = None ):
 	'''Function to download and parse json data from the API'''
 	if attempts is None: attempts = maxAttempts;                                  # Set default number of attempts to ten (10)
 	attempt = 0;                                                                  # Initialize attempt to zero (0)
-	url += ('&' if external else '?') + 'api_key=' + api_keys.tmdb;               # Append the API key to the url
+	url += ('&' if external else '?') + 'api_key=' + tmdb_key;                    # Append the API key to the url
 	
 	while attempt < attempts:                                                     # While attempt is less than attempts
 		try:                                                                        # Try;
