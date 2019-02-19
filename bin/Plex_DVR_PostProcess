@@ -34,6 +34,8 @@ def Plex_DVR_PostProcess(in_file,
   
   inst = videoconverter( 
     log_dir       = logdir,
+    in_place      = True,
+    no_hb_log     = True,
     threads       = threads,
     cpulimit      = cpulimit,
     language      = language,
@@ -42,7 +44,7 @@ def Plex_DVR_PostProcess(in_file,
   
   
   inst.transcode( file );
-  return inst.status
+  return inst.transcode_status
 
 if __name__ == "__main__":
   import argparse;
