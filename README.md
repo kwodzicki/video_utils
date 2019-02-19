@@ -1,12 +1,12 @@
 # video_utils
 
-**video_utils** is a Python package containing many tools useful for converting vidoe files to h264/h265 encoded MKV or MP4 files.
+**video_utils** is a Python package containing many tools useful for converting video files to h264/h265 encoded MP4 or MP4 files.
 
 ## Main features
 
 * Compatible with Python3
 * Will try to download SRT subtitles from opensubtitles.org if no subtitles in input file
-* Can tag movies and TV shows
+* Can tag movies and TV shows (MP4 files only)
 * Can extract closed captions and VOBSUB subtitles from input file and convert to SRT files (dependencies required)
 * Can be set to use a certain percentage of CPU available (dependency required)
 
@@ -132,9 +132,56 @@ the following to /etc/profile:
 	fi
 
 
-## Code example
+## Command line utilities
 
-    # create and instance of videoconverter class
+This package provides a few command line utilities for some of the core
+components.
+
+#### Conversion of MakeMKV Output
+###### MKV_Cron_Convert
+Automated converting can be done using the `MKV_Cron_Convert` utility. The utility
+is designed to look through one (or more) directory for `.mkv` files and 
+transcode them, one at a time, to a designated output directory until no more
+remain in the input directory. All options available in the `videoconverter`
+class can be set in the script. Set up a cron job to call this script and simply 
+place new files into the designated input folder(s) and let your computer take
+care of the rest. For more information use the `--help`
+flag when running the utility.
+
+#### Commercial Removal
+###### comremove
+Commercials can be removed using the `comremove` utility, which allows for input
+of a Mpeg Transport Stream file (.ts), with some extra options for .ini file
+specification and CPU limiting. For more information use the `--help`
+flag when running the utility.
+
+#### Tagging of MP4 files
+###### mp4tagger
+The `mp4tagger` utility tags MP4 files with data from IMDb, TMDb, and TVDb (pending API keys installed)
+either using the IMDb id found in the file name if the file naming convention 
+is used, or using a user supplied IMDb id. For more information use the `--help`
+flag when running the utility.
+
+#### Post Processing of Plex DVR
+###### Plex_DVR_PostProcess
+This utility is designed to be used as your Plex DVR post processing script, 
+namely for TV shows. This utility does a few things:
+ 
+ * Attempts to get the the IMDb id of the episode based on the series name, year, and episode title.
+ * Renames file to match input file naming convention
+ * Attempts to remove commercials using `comskip` CLI if installed
+ * Attempts to extract subtitles to SRT using `ccextractor` CLI if installed
+ * Converts movie to MP4 format using the `videoconverter` class
+ * Attempts to download nad Write MP4 tags to file
+
+Note: This post processing script is still being tested to work out some bugs.
+Use at your own risk
+
+## Code example
+Of course you can always use these utilities in your own code. A brief example
+of how to use the videoconverter class is below:
+
+    # create an instance of videoconverter class
     from video_utils import videoconverter
     converter = videoconverter()
 
@@ -144,15 +191,7 @@ the following to /etc/profile:
     # transcode the file
     converter.transcode( file )
 
-## Automated converting
 
-Automated converting can be done using the MKV_Cron_Convert.py script. The script
-is designed to look through one (or more) directory for `.mkv` files and 
-transcode them, one at a time, to a designated output directory until no more
-remain in the input directory. All options available in the `videoconverter`
-class can be set in the script. Set up a cron job to call this script and simply 
-place new files into the designated input folder(s) and let your computer take
-care of the rest.
 
 ## License
 

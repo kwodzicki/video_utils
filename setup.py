@@ -16,5 +16,9 @@ setuptools.setup(
   version          = main_ns['__version__'],
   packages         = setuptools.find_packages(),
   install_requires = [ "mutagen", "imdbpy", "tvdbsimple", "setproctitle" ],
+  scripts          = ['bin/comremove',
+                      'bin/MKV_Cron_Convert',
+                      'bin/mp4tagger',
+                      'bin/Plex_DVR_PostProcess'],
   zip_save         = False,
 );
