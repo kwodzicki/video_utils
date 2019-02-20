@@ -2,18 +2,22 @@ import logging;
 import os, re;
 from imdb import IMDb;
 
-TVDb = None;                                     # Set tvdb to None
-try:                                             # Try to 
-  from video_utils import api_keys;              # Import api_keys
-except:                                          # If the import fails
-  pass;                                          # Do nothing
-else:                                            # Else, the api_key import was a success
-  if hasattr(api_keys, 'tvdb'):                  # If there is a 'tvdb' attribute in the api_keys
-    import tvdbsimple as TVDb;                   # Import tvdbsimple as tvdb; this will make if tvdb: return True
-    TVDb.KEYS.API_KEY = api_keys.tvdb;           # Set the API_KEY for the tvdbsimple
+TVDb = None;                                                                    # Set tvdb to None
+try:
+  from video_utils.api_keys import tvdb as tvdb_key;                            # Attempt to import the API key from the api_keys module
+except:
+  tvdb_key = os.environ.get('TVDB_API_KEY', None);                              # On exception, try to get the API key from the TVDB_API_KEY environment variable
 
-imdbFMT = 'tt{}';                                # Format string for IMDb id
-yearPat = re.compile( r'\(([0-9]{4})\)' );       # Pattern for finding year in series name
+if tvdb_key:                                                                    # If the tvdb_key variable is valid
+  import tvdbsimple as TVDb;                                                    # Import tvdbsimple as tvdb; this will make if tvdb: return True
+  TVDb.KEYS.API_KEY = tvdb_key;                                                 # Set the API_KEY for the tvdbsimple
+else:                                                                           # Else, get a logger and log an error
+  logging.getLogger(__name__).error( 
+    "API key for TVDb could NOT be imported!"
+  );
+
+imdbFMT = 'tt{}';                                                               # Format string for IMDb id
+yearPat = re.compile( r'\(([0-9]{4})\)' );                                      # Pattern for finding year in series name
 
 def getIMDb_ID( in_file ):
   '''
@@ -50,9 +54,9 @@ def getIMDb_ID( in_file ):
 
   ###############
   ### IMDb serach
-  log.info( 'Attempting to get IMDb ID from IDMb' );               
-  imdb              = IMDb();                                                   # Initialize IMDb instance
-  res               = imdb.search_episode( title );                             # Search for the episode title on IMDb
+  log.info( 'Attempting to get IMDb ID from IMDb' );               
+  imdb = IMDb();                                                                # Initialize IMDb instance
+  res  = imdb.search_episode( title );                                          # Search for the episode title on IMDb
 
   for r in res:                                                                 # Iterate over all the results from IMDb
     if r['episode of'].lower() in series.lower():                               # If the series name from IMDb is in the series name from the file
@@ -62,6 +66,7 @@ def getIMDb_ID( in_file ):
         if r['series year'] != year: 
           log.debug('Series year did NOT match');
           continue;                                                             # If the result series year NOT match the local series year, skip series
+      log.info( 'IMDb ID found from IMDb search')
       return imdbFMT.format( r.getID() );                                       # Return the IMDb id
   
   log.warning( 'IMDb search failed' )
@@ -75,10 +80,13 @@ def getIMDb_ID( in_file ):
   res  = tvdb.series( series );                                                 # Search for the series on the TVDb
   for r in res:                                                                 # Iterate over all search results
     if str(year) in r['firstAired']:                                            # If the local year is in the firstAird tag
+      log.debug( 'Found series with same firstAird year' );
       eps = TVDb.Series( r['id'] ).Episodes.all();                              # Get list of all episodes in series
       for ep in eps:                                                            # Iterate over all episodes
         if (ep['episodeName'].lower() in title.lower()) and ('imdbId' in ep):   # If the episode name is in the local title and there is an imdbId in the ep
+          log.debug( 'Found episode with same name' );
           if ep['imdbId'] != '':                                                # If the imdbId tag is NOT empty
+            log.info( 'IMDb ID found from TVDb search' )
             return ep['imdbId'];                                                # Return it
 
   log.warning( 'TVDb search failed' );
