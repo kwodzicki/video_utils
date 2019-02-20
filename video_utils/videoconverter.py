@@ -4,8 +4,6 @@ import os, sys, re, time, threading;
 from subprocess import Popen, DEVNULL, STDOUT;
 from datetime import datetime;
 
-# Try python3 import, else do python2 import
-from .utils import test_dependencies as dependencies;
 
 from ._logging import fileFMT;
 from .mediainfo import mediainfo;
@@ -30,9 +28,8 @@ try:
 except:
    ccextract = None;
 
-if dependencies.MP4Tags:
-  from .videotagger.metadata.getMetaData import getMetaData;
-  from .videotagger.mp4Tags import mp4Tags;
+from .videotagger.metadata.getMetaData import getMetaData;
+from .videotagger.mp4Tags import mp4Tags;
     
 class videoconverter( mediainfo ):
   '''

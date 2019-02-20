@@ -75,7 +75,7 @@ def getIMDb_ID( in_file ):
   res  = tvdb.series( series );                                                 # Search for the series on the TVDb
   for r in res:                                                                 # Iterate over all search results
     if str(year) in r['firstAired']:                                            # If the local year is in the firstAird tag
-      eps = TVDb.Series( r['id'].Episodes.all() );                              # Get list of all episodes in series
+      eps = TVDb.Series( r['id'] ).Episodes.all();                              # Get list of all episodes in series
       for ep in eps:                                                            # Iterate over all episodes
         if (ep['episodeName'].lower() in title.lower()) and ('imdbId' in ep):   # If the episode name is in the local title and there is an imdbId in the ep
           if ep['imdbId'] != '':                                                # If the imdbId tag is NOT empty
