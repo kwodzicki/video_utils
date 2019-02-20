@@ -131,7 +131,6 @@ class videoconverter( mediainfo ):
                         better security
     '''
     mediainfo.__init__(self);
-    self.dependencies = dependencies;
     self.container    = container.lower();
     self.mp4tags      = (self.container == 'mp4');
 
