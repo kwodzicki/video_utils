@@ -14,6 +14,7 @@ def limitCPUusage( pid, cpulimit, threads = 1, single = False ):
   command runs only on a single thread.
   '''
   log = logging.getLogger(__name__);
+  if cpulimit == 0: return None;                                                # If cpulimit is zero (0), then return None
   limit = cpulimit if single else cpulimit * threads;                           # Set the cpu limit to threads times 75 per cent
   limit = '200' if limit > 200 else str( limit );                               # Make sure not more than 200
   log.debug('Limiting CPU usage to {}%'.format(limit))
