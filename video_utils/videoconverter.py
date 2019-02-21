@@ -10,10 +10,7 @@ from .mediainfo import mediainfo;
 
 from .subtitles.opensubtitles import opensubtitles;
 
-try:
-  from .utils.limitCPUusage import limitCPUusage;
-except:
-  limitCPUusage = None;
+from video_utils.utils.subprocManager import subprocManager;
 
 try:
   from .subtitles.vobsub_extract import vobsub_extract;
@@ -31,7 +28,7 @@ except:
 from .videotagger.metadata.getMetaData import getMetaData;
 from .videotagger.mp4Tags import mp4Tags;
     
-class videoconverter( mediainfo ):
+class videoconverter( mediainfo, subprocManager ):
   '''
   Name:
      videoconverter
@@ -73,7 +70,6 @@ class videoconverter( mediainfo ):
        of forced (i.e., foreign) subtitles.
        Also added better logging through the logging module.
   '''
-  log     = logging.getLogger( __name__ );                                               # Set log to root logger for all instances
   illegal = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
   legal   = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
   def __init__(self,
@@ -130,7 +126,9 @@ class videoconverter( mediainfo ):
                         the plain text of the password for slightly
                         better security
     '''
-    mediainfo.__init__(self);
+    super().__init__();
+    log = logging.getLogger( __name__ );                                               # Set log to root logger for all instances
+
     self.container    = container.lower();
     self.mp4tags      = (self.container == 'mp4');
 
@@ -144,6 +142,7 @@ class videoconverter( mediainfo ):
       self.log.warning('VobSub2SRT conversion is DISABLED! Check that vobsub2srt is installed and in your PATH')
 
     self.cpulimit = cpulimit;
+    self.threads  = threads;
 
 
     # Set up all the easy parameters first
@@ -158,17 +157,6 @@ class videoconverter( mediainfo ):
     self.vobsub_delete = vobsub_delete;
     self.username      = username;
     self.userpass      = userpass;
-
-    
-    if type(threads) is int:
-      self.threads = threads;
-    else:                                                                       # Get number of cores on machine; set the number of threads to half of total
-      try:
-        from multiprocessing import cpu_count;                                  # Attempt to import the cpu_count function from the multiprocessing module
-        self.threads = int( cpu_count() );                                      # Get number of CPUs available
-      except:
-        self.threads = 1;                                                       # If could not get number of threads, set to 1
-      self.threads = self.threads / 2 if self.threads >= 4 else 1;              # Set threads to half of total threads IF 4 or more threads are avaiable
     
     self.handbrake        = None;
     self.video_info       = None;                                               # Set video_info to None by default
@@ -348,22 +336,13 @@ class videoconverter( mediainfo ):
     self.log.info( 'Transcoding file...' )
 
     if self.no_hb_log:                                                          # If creation of HandBrake log files is disabled
-      self.handbrake = Popen(self.hb_cmd, stdout = DEVNULL, stderr = STDOUT);   # Start the HandBrakeCLI command and direct all output to /dev/null
+      self.addProc( self.hb_cmd );                                              # Start the HandBrakeCLI command and direct all output to /dev/null
     else:                                                                       # Else
-      with open(self.hb_log_file, 'w') as log:                                  # With the handbrake log file open
-        with open(self.hb_err_file, 'w') as err:                                # With the handbrake error file open
-          self.handbrake = Popen(self.hb_cmd, stdout = log, stderr = err);      # Start the HandBrakeCLI command and direct all errors to a PIPE
-    if limitCPUusage:                                                           # If limitCPUusage is not None
-      if type(self.cpulimit) is int and self.cpulimit > 0:                      # If limiting of CPU usage is requested
-        CPU_id = limitCPUusage(self.handbrake.pid, self.cpulimit, self.threads);# Run cpu limit command
-      
-    self.handbrake.communicate();                                               # Wait for self.handbrake to finish completely
-    try:                                                                        # Try to...
-      CPU_id.communicate();                                                     # Communicate with CPU_id to wait for it to exit cleanly
-      status = CPU_id.returncode;                                               # Get the return code
-    except:                                                                     # On exception
-      status = 0;                                                               # Set status to zero;
-    self.transcode_status = self.handbrake.returncode;                          # Set transcode_status      
+      self.addProc( self.hb_cmd, 
+        stdout = self.hb_log_file, stderr = self.hb_err_file
+      );                                                                        # Start the HandBrakeCLI command and direct all output to /dev/null
+    self.run();
+    self.transcode_status = self.returncodes[0];                                # Set transcode_status      
 
     if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
       self.log.info( 'Transcode SUCCESSFUL!' );                                 # Print information

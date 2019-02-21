@@ -70,7 +70,7 @@ def downloadInfo( url, external = False, attempts = 3 ):
 	return json.loads( response );                                                # Parse the response and return it
 
 ##################
-def getTVInfo( info, attempts = None ):
+def getTVInfo( info, attempts = 3 ):
 	'''Function to get information about TV Episodes/series'''
 	log = logging.getLogger(__name__);
 	if 'season_number'  not in info or \
@@ -186,7 +186,7 @@ def getMovieInfo( info, attempts = 3 ):
 	return outData;                                                               # Return the data
 
 ###################################################################
-def getTMDb_Info(IMDb_ID, attempts = 3, logLevel = 30):
+def getTMDb_Info(IMDb_ID, attempts = None, logLevel = 30):
 	'''
 	Name:
 	  getTMDb_Info
@@ -204,6 +204,7 @@ def getTMDb_Info(IMDb_ID, attempts = 3, logLevel = 30):
 	    function are not downloading the same data.
 	'''
 	log = logging.getLogger(__name__);                                            # Initialize a logger
+  if not attempts: attempts = 3;
 # 	if logLevel is None: logLevel = logging.INFO;                                 # Set the default logging level
 # 	log.setLevel( logLevel );                                                     # Actually set the logging level
 	tmdb = TMDb( IMDb_ID );                                                       # Initialize instance of the TMDb class

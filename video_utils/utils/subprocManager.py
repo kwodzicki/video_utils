@@ -29,6 +29,7 @@ class subprocManager(object):
                    but will also use more resources while checking for
                    process completion.
     '''
+    super().__init__();
     self.log           = logging.getLogger(__name__);                           # Get logger for the class
     self.cpulimit      = cpulimit;                                              # Set cpulimit attribute to user input cpulimit; see @properties at bottom for defaults
     self.threads       = threads;                                               # Set threads attribute to user input threads; see @properties at bottom for defaults

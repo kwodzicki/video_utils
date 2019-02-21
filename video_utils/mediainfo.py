@@ -35,6 +35,7 @@ class mediainfo( object ):
         Changes mediainfo output type from XML to OLDXML as
         the xml tags have changes in newer versions.
     '''
+    super().__init__();
     self.in_file = in_file;
   ################################################################################
   @property
