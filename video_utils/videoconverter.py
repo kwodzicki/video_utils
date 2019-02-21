@@ -1,17 +1,15 @@
+# Built-in imports
 import logging;
-
-import os, sys, re, time, threading;
-from subprocess import Popen, DEVNULL, STDOUT;
+import os, re;
 from datetime import datetime;
 
 
-from ._logging import fileFMT;
+# Parent classes
 from .mediainfo import mediainfo;
+from .utils.subprocManager import subprocManager;
 
+# Subtitle imports
 from .subtitles.opensubtitles import opensubtitles;
-
-from video_utils.utils.subprocManager import subprocManager;
-
 try:
   from .subtitles.vobsub_extract import vobsub_extract;
 except:
@@ -25,9 +23,13 @@ try:
 except:
    ccextract = None;
 
+# Metadata imports
 from .videotagger.metadata.getMetaData import getMetaData;
 from .videotagger.mp4Tags import mp4Tags;
-    
+
+# Logging formatter
+from ._logging import fileFMT;
+
 class videoconverter( mediainfo, subprocManager ):
   '''
   Name:
@@ -43,8 +45,8 @@ class videoconverter( mediainfo, subprocManager ):
      used for all videos with resolution greater than 1080P. 
      The H265 codec can be enabled for lower resolution videos.
   Dependencies:
-     os, sys, re, urllib2, time, subprocess, IMDbPY
-     HandBrakeCLI, mkvextract, vobsub2srt, mp4tags, cpulimit
+     os, re
+     HandBrakeCLI
   Author and History:
      Kyle R. Wodzicki     Created 24 Jul. 2017
      
