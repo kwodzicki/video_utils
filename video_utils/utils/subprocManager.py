@@ -13,7 +13,6 @@ if call(['which','cpulimit'], stdout=DEVNULL, stderr=STDOUT) != 0:              
   cpulimitInstalled = False;                                                    # Set global cpulimitInstalled flag to False;
 
 class subprocManager(object):
-  __logFMT = 'Process {:3d} of {:3d} - {}'
   def __init__(self, cpulimit = None, threads = None, interval = None):
     '''
     Keywords:
@@ -34,6 +33,7 @@ class subprocManager(object):
     self.cpulimit      = cpulimit;                                              # Set cpulimit attribute to user input cpulimit; see @properties at bottom for defaults
     self.threads       = threads;                                               # Set threads attribute to user input threads; see @properties at bottom for defaults
     self.interval      = interval;                                              # Set interval attribute to user input interval; see @properties at bottom for defaults
+    self._logFMT       = 'Process {:3d} of {:3d} - {}';                         # Format for logging message
     self.__n           =  0;                                                    # Counter for the process number being run
     self.__nProcs      =  0;                                                    # Total number of process added
     self.__queue       = [];                                                    # Empty list to queue process information
@@ -41,6 +41,7 @@ class subprocManager(object):
     self.__returncodes = [];
     self.__cpuProcs    = [];                                                    # Empty list for Popen handles from cpulimit instances
     self.__threadID    = None;                                                  # Set _threadID attribute to None
+
   ##############################################################################
   def addProc(self, args, **kwargs):
     '''
@@ -58,8 +59,8 @@ class subprocManager(object):
       Accepts all subprocess.Popen arguments. Only difference is that
       by default stdout and stderr are piped to DEVNULL
     '''
-    self.__queue.append( (args, kwargs,) );                                      # Append the Popen info to the queue as a tuple
-    self.__nProcs += 1;                                                          # Increment the number of processes to be run
+    self.__queue.append( (args, kwargs,) );                                     # Append the Popen info to the queue as a tuple
+    self.__nProcs += 1;                                                         # Increment the number of processes to be run
   ##############################################################################
   def run(self, block = True):
     '''
@@ -84,13 +85,13 @@ class subprocManager(object):
     Keywords:
       timeout : Time, in seconds, to wait for process to finish.
     '''
-    if self.__threadID:                                                          # If the _threadID attribute valid; i.e., not None
-      self.__threadID.join(timeout = timeout);                                   # Try to join the thread
-      if self.__threadID.is_alive():                                             # If the thread is still alive
+    if self.__threadID:                                                         # If the _threadID attribute valid; i.e., not None
+      self.__threadID.join(timeout = timeout);                                  # Try to join the thread
+      if self.__threadID.is_alive():                                            # If the thread is still alive
         return False;                                                           # Return False
       else:                                                                     # Else, thread is done
-        self.__threadID = None;                                                  # Set _threadID attribute to None;
-    self.__nProcs = 0;                                                           # Reste number of processes to zero (0)
+        self.__threadID = None;                                                 # Set _threadID attribute to None;
+    self.__nProcs = 0;                                                          # Reste number of processes to zero (0)
     return True;                                                                # Return True by default
   ##############################################################################
   def __thread(self):
@@ -147,14 +148,14 @@ class subprocManager(object):
         with open( stderr, 'w' ) as stderr:                                     # Open stderr file for writing
           proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs );     # Start the process
 
-    self.log.info( self.__logFMT.format(self.__n, self.__nProcs, 'Started!') ); # Logging information
+    self.log.info( self._logFMT.format(self.__n, self.__nProcs, 'Started!') ); # Logging information
 
     self.__procs.append( (proc, self.__n) );                                    # Append handle and process number tuple to the _procs attribute
     if cpulimitInstalled and self.cpulimit > 0:                                 # If the cpulimit CLI is installed AND the cpulimit is greater than zero (0)
       limit = self.cpulimit if single else self.cpulimit * self.threads;        # Set the cpu limit to threads times the current cpulimit percentage
       limit = '200' if limit > 200 else str( limit );                           # Make sure not more than 200
       limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', limit ];               # Set up the cpulimit command
-      self.__cpuProcs.append( Popen(limit, stdout=DEVNULL, stderr=STDOUT) );     # Start new subprocess for CPU limit command and append handle to _cpuProcs
+      self.__cpuProcs.append( Popen(limit, stdout=DEVNULL, stderr=STDOUT) );    # Start new subprocess for CPU limit command and append handle to _cpuProcs
   ##############################################################################
   def __procCheck(self):
     '''
@@ -166,7 +167,7 @@ class subprocManager(object):
       if self.__procs[i][0].returncode is not None:                             # If the process has finished (remember _procs contains tuples)
         proc, n = self.__procs.pop( i );                                        # Pop off the (process, #) tuple
         proc.communicate();                                                     # Ensure processes finished, just good practice
-        self.log.info( self.__logFMT.format( n, self.__nProcs, 'Finished!' ) ); # Log some information
+        self.log.info( self._logFMT.format( n, self.__nProcs, 'Finished!' ) );  # Log some information
         try:                                                                    # Try to
           cpuProc = self.__cpuProcs.pop( i );                                   # Pop off the cpulimit Popen handle for the process
         except:                                                                 # If there is an exception
@@ -176,7 +177,7 @@ class subprocManager(object):
         self.__returncodes.append( proc.returncode );                           # Append the return code to the __returcodes attribute
         if proc.returncode != 0:                                                # If a non-zero returncode
           self.log.warning( 
-            self.__logFMT.format( n, self.__nProcs, 'Non-zero returncode!!!' ) 
+            self._logFMT.format( n, self.__nProcs, 'Non-zero returncode!!!' ) 
           );                                                                    # Log some information
         break;                                                                  # Break out of the for loop  
   ##############################################################################
@@ -194,7 +195,7 @@ class subprocManager(object):
         os.makedirs( dir );                                                     # Make the directory tree
       except:                                                                   # On exception; likely no write permissions on dst
         self.log.warning( 
-          self.__logFMT.format( self.__n, self.__nProcs, errFMT.format(path) ) 
+          self._logFMT.format( self.__n, self.__nProcs, errFMT.format(path) ) 
         );                                                                      # Log information
         return False;                                                           # Return False
     return True;                                                                # Return True
