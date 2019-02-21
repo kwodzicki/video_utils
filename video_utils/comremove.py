@@ -78,21 +78,12 @@ class comremove( subprocManager ):
     cmd.extend( [in_file, self.outDir] );
     self.log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
     if self.verbose:
-      with open(os.path.join(self.outDir, 'comskip.log'), 'w') as log:
-        with open(os.path.join(self.outDir, 'comskip.err'), 'w') as err:
-          proc = Popen(cmd, stdout = log, stderr = err);
+      self.addProc(cmd, stdout = log, stderr = err);
     else:
-      proc = Popen(cmd, stdout = DEVNULL, stderr = STDOUT);
+      self.addProc(cmd);
+    self.run();
 
-    if limitCPUusage and self.cpulimit:
-      CPU_id = limitCPUusage(proc.pid, self.cpulimit, self.threads);            # Run cpu limit command
-    proc.communicate();                                                         # Wait for self.handbrake to finish completely
-
-    try:                                                                        # Try to...
-      CPU_id.communicate();                                                     # Communicate with CPU_id to wait for it to exit cleanly
-    except:                                                                     # On exception
-      pass;
-    if proc.returncode == 0:
+    if sum(self.returncodes) == 0:
       self.log.info('comskip ran successfully');
       try:
         os.remove( txt_file );
@@ -165,12 +156,12 @@ class comremove( subprocManager ):
     outFile = 'tmp_nocom.{}'.format(self.fileExt);                              # Output file name for joined file
     outFile = os.path.join(self.outDir, outFile);                               # Output file path for joined file
     cmd     = self._comjoin + [inFiles, '-c', 'copy', '-map', '0', outFile];    # Command for joining files
-    proc    = Popen( cmd, stdout = DEVNULL, stderr = STDOUT );                  # Run the command
-    proc.communicate();                                                         # Wait for command to finish
+    self.addProc( cmd );                                                        # Run the command
+    self.run();
     for file in tmpFiles:                                                       # Iterate over the input files
       self.log.debug('Deleting temporary file: {}'.format(file));               # Debugging information 
       os.remove( file );                                                        # Delete the temporary file
-    if proc.returncode == 0:
+    if sum(self.returncodes) == 0:
       return outFile;
     else:
       try:

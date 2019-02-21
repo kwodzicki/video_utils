@@ -72,8 +72,9 @@ class subprocManager(object):
                  more processes the to process queue. You can then use
                  the .wait() method to wait for processes to finish.
     '''
-    self.__threadID = Thread( target = self.__thread );                           # Initialize Thread class
-    self.__threadID.start();                                                     # Start the thread
+    self.__returncodes = [];                                                    # Reset __return codes to empty list
+    self.__threadID    = Thread( target = self.__thread );                      # Initialize Thread class
+    self.__threadID.start();                                                    # Start the thread
     if block: self.wait();                                                      # If block (default), wait for processes to complete
   ##############################################################################
   def wait(self, timeout = None):
