@@ -27,7 +27,7 @@ def Plex_DVR_PostProcess(in_file,
     exit(1);
   
   com_inst = comremove(threads = threads, cpulimit = cpulimit, verbose = verbose);
-  status = com_inst.run( file );
+  status = com_inst.process( file );
   if not status:
     log.cirtical('Error cutting commercials')
     exit(1);
