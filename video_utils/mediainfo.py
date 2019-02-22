@@ -59,8 +59,13 @@ class mediainfo( object ):
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
     self.log.info('Running mediainfo command...');                      # If verbose is set, print some output
-    xmlstr = check_output( ['mediainfo', '--Full', '--Output=OLDXML', self.in_file] );
-    root   = ET.fromstring( xmlstr );
+    try:
+      xmlstr = check_output( ['mediainfo', '--Full', '--Output=OLDXML', self.in_file] );
+      root   = ET.fromstring( xmlstr );
+    except:
+      xmlstr = check_output( ['mediainfo', '--Full', '--Output=XML', self.in_file] );
+      root   = ET.fromstring( xmlstr );
+
     data   = {}
     for track in root[0].findall('track'):                                        # Iterate over all tracks in the XML tree
       tag = track.attrib['type'];                                                 # Get track type
