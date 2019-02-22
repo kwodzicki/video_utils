@@ -21,6 +21,7 @@ class comremove( subprocManager ):
   _comjoin = ['ffmpeg', '-nostdin', '-y', '-i'];
   def __init__(self, ini = None, threads = None, cpulimit = None, verbose = None):
     super().__init__();
+    self.log      = logging.getLogger(__name__);
     self.ini      = ini if ini else os.environ.get('COMSKIP_INI', None);        # If the ini input value is NOT None, then use it, else, try to get the COMSKIP_INI environment variable
     self.threads  = threads;
     self.cpulimit = cpulimit;

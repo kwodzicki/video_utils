@@ -18,7 +18,6 @@ else:                                                                           
 
 
 class mediainfo( object ):
-  log = logging.getLogger(__name__);
   def __init__( self, in_file = None ):
     '''
     Name:
@@ -50,7 +49,9 @@ class mediainfo( object ):
         the xml tags have changes in newer versions.
     '''
     super().__init__();
+    self.log     = logging.getLogger(__name__);
     self.in_file = in_file;
+    self.cmd     = ['mediainfo', '--Full', '--Output={}'.format(output_fmt) ];  # The base command for mediainfo; just add [self.in_file]
   ################################################################################
   @property
   def in_file(self):
@@ -73,9 +74,7 @@ class mediainfo( object ):
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
     self.log.info('Running mediainfo command...');                      # If verbose is set, print some output
-    cmd    = ['mediainfo', '--Full'];                                           # Base command for mediainfo
-    cmd    = cmd + [ '--Output={}'.format(output_fmt), self.in_file ];          # Append output format and input file
-    xmlstr = subproc.check_output( cmd );                                       # Run the command
+    xmlstr = subproc.check_output( self.cmd  + [self.in_file] );                # Run the command
     root   = ET.fromstring( xmlstr );                                           # Parse xml tree
     data   = {}
     for track in root[0].findall('track'):                                      # Iterate over all tracks in the XML tree
