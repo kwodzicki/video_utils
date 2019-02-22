@@ -6,7 +6,7 @@ import argparse;                                                              # 
 parser = argparse.ArgumentParser(description="comskip");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
 parser.add_argument("infile",                type   = str,          help = "Input file to remove commercials from"); 
 parser.add_argument("--ini",                 type   = str,          help = "comskip ini file to use for commercial detection"); 
-parser.add_argument("-T", "--threads",       type   = int,          help = "Set number of threads to use. Default: all the threads");  
+parser.add_argument("-t", "--threads",       type   = int,          help = "Set number of threads to use. Default: all the threads");  
 parser.add_argument("-c", "--cpulimit",      type   = int,          help = "Set to limit CPU usage. Default: all the cpu");
 parser.add_argument("-v", "--verbose",       action = "store_true", help = "Increase verbosity (not implemented");
 args = parser.parse_args();                                                   # Parse the arguments
@@ -16,4 +16,4 @@ inst = comremove(
   cpulimit  = args.cpulimit,
   verbose   = args.verbose)
 
-exit( inst.run( args.infile ) );  
+exit( inst.process( args.infile ) );  

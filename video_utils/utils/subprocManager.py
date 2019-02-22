@@ -206,14 +206,14 @@ class subprocManager(object):
     return self.__cpulimit;                                                     # return _cpulimit
   @cpulimit.setter
   def cpulimit(self, value):
-    self.__cpulimit = int(value) if value else 75;                              # Set _cpulimit to integer of value if value is valid, else set to 75
+    self.__cpulimit = 75 if (value is None) else int(value);                    # Set _cpulimit to defulat if value if value is None, else set to integer of value
   ##############################################################################
   @property
   def threads(self):
     return self.__threads;                                                      # return _threads
   @threads.setter
   def threads(self, value):
-    self.__threads = int(value) if value else nthreads;                         # Set _threads to integer of value if value is valid, else set to nthreads
+    self.__threads = nthreads if (value is None) else int(value);               # Set _threads to default if value is None, else set to integer of value
     if self.__threads < 1: self.__threads = 1;                                  # If _threads is less than one (1), set to one (1)
   ##############################################################################
   @property
@@ -221,7 +221,7 @@ class subprocManager(object):
     return self.__interval;                                                     # return _cpulimit
   @interval.setter
   def interval(self, value):
-    self.__interval = float(value) if value else 0.5;                           # Set _interval to integer of value if value is valid, else set to 0.5
+    self.__interval = 0.5 if (value is None) else float(value);                 # Set _interval to default if value is None, else set to float of value
     if self.__interval < 0.01: self.__interval = 0.01;                          # If _interval is less than 0.01, set to 0.01
   ##############################################################################
   @property

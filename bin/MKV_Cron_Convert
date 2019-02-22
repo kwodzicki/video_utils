@@ -266,7 +266,7 @@ if __name__ == "__main__":
   parser.add_argument("indir",                 type   = str, nargs='+', help = "Input directory(s) where all files to be converted are found"); 
   parser.add_argument("-o", "--outdir",        type   = str,            help = "Output directory for transcoded files. Default: Same as input"); 
   parser.add_argument("-l", "--logdir",        type   = str,            help = "Log file directory. Default: Same as input file"); 
-  parser.add_argument("-T", "--threads",       type   = int,            help = "Set number of threads to use. Default: Half the number of threads available");  
+  parser.add_argument("-t", "--threads",       type   = int,            help = "Set number of threads to use. Default: Half the number of threads available");  
   parser.add_argument("-c", "--cpulimit",      type   = int,            help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
   parser.add_argument("--language",            type   = str,            help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using commas. Default: eng for English");
   parser.add_argument("-v", "--verbose",       action = "store_true",   help = "Increase verbosity");

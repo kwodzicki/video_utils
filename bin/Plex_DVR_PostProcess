@@ -53,7 +53,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="MKV Cron Converter");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
   parser.add_argument("in_file",               type   = str,                           help = "Input file to process"); 
   parser.add_argument("-l", "--logdir",        type   = str,                           help = "Log file directory. Default: Same as input file"); 
-  parser.add_argument("-T", "--threads",       type   = int, default = cpu_count()//2, help = "Set number of CPUs to use. Default: Half the number of CPUs available");  
+  parser.add_argument("-t", "--threads",       type   = int, default = cpu_count()//2, help = "Set number of CPUs to use. Default: Half the number of CPUs available");  
   parser.add_argument("-c", "--cpulimit",      type   = int, default = 75,             help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
   parser.add_argument("--language",            type   = str,                           help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using commas. Default: eng for English");
   parser.add_argument("-v", "--verbose",       action = "store_true",                  help = "Increase verbosity");
