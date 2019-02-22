@@ -13,26 +13,6 @@ if not tvdb_key:
 import tvdbsimple as tvdb;
 tvdb.KEYS.API_KEY = tvdb_key;
 
-# def download_TVDb(Info, imdbId, maxAttempt = 3, logLevel = None): 
-# 	attempt = 1;
-# 	while attempt < maxAttempt+1:                                               # While not at the maximum attempts
-# 		try:                                                                      # Try to...
-# 			tvdbInfo = search.series( imdbId = imdbId );                            # Search the TV Database for the show
-# 		except:                                                                   # On exception...
-# 			tvdbInfo = None;                                                        # Set tvdbInfo to None
-# 			log.debug('Attempt {} of {} Failed!'.format(attempt, maxAttempt));      # Debugging information
-# 			attempt += 1;                                                           # Increment the attempt counter
-# 		else:                                                                     # Else when try is successful
-# 			break;                                                                  # Break the while loop
-# 	if attempt == maxAttempt or tvdbInfo is None:                               # If reached the maximum attempts or failed to download
-# 		log.warning('Search by IMDb ID Failed!');                                 # Log a warning
-# 		return None;                                                              # Return None
-# 	log.debug('Search by IMDb ID successful');                                  # Some debugging information
-# 	if len(tvdbInfo) == 1:                                                      # If found only one (1) matching series
-# 		log.info('Information downloaded from thetvdb.com!');                     # Some debugging information		
-# 		return tvdbInfo[0];                                                       # Return the information
-
-
 def getTVDb_Info( Info = None, imdbId = None, maxAttempt = 3, logLevel = None ):
 	'''
 	Name:
@@ -105,51 +85,3 @@ def getTVDb_Info( Info = None, imdbId = None, maxAttempt = 3, logLevel = None ):
 		return tvdbInfo[0];                                                         # Return the information
 	log.warning('Failed to get information from thetvdb.com!');                   # Some debugging information		
 	return None;
-
-# 	if Info is not None:                                                          # If information was input (i.e., Info not None)
-# 		if 'seriesName' not in Info:                                                # If NO 'seriesName' tag in Info
-# 			log.warning('No series name in Info dictionary, returning');              # Log a warning
-# 			return None;                                                              # Return None
-# 		if 'first_air_date' not in Info:                                            # If NO first_air_date tag in Info
-# 			log.warning('No first_air_date in Info dictionary, returning');           # Log a warning
-# 			return None;                                                              # Return None
-# 		log.debug('Attempting search for series based on name');                    # Debugging informaiton
-# 		while attempt < maxAttempt+1:                                               # While not at the maximum attempts
-# 			try:                                                                      # Try to...
-# 				tvdbInfo = search.series( Info['seriesName'] );                         # Search the TV Database for the show
-# 			except:                                                                   # On exception...
-# 				tvdbInfo = None;                                                        # Set tvdbInfo to None
-# 				log.debug('Attempt {} of {} Failed!'.format(attempt, maxAttempt));      # Debugging information
-# 				attempt += 1;                                                           # Increment the attempt counter
-# 			else:                                                                     # Else when try is successful
-# 				break;                                                                  # Break the while loop
-# 		if attempt == maxAttempt or tvdbInfo is None:                               # If reached the maximum attempts or failed to download
-# 			log.warning('Search by name Failed!');                                    # Log a warning
-# 			return None;                                                              # Return None
-# 		log.debug('Search by name successful');                                     # Some debugging information
-# 		for i in tvdbInfo:                                                          # Iterate over all series returned
-# 			if i['firstAired'] == Info['first_air_date']:                             # If the first aired date from the tv database matches that of the movie database
-# 				log.info('Information downloaded from thetvdb.com!');                   # Some debugging information		
-# 				return i;                                                               # Return the information
-# 	elif imdbId is not None:                                                      # Else, if imdbId is not None
-# 		if type(imdbId) is not str: imdbId = str(imdbId);                           # Ensure imdbId is a string
-# 		if imdbId[:2] != 'tt': imdbId = 'tt' + str(imdbId);                         # Ensure the imdbId string begins with 'tt'
-# 		log.debug('Attempting search for series based on IMDb ID');                 # Debugging informaiton
-# 		while attempt < maxAttempt+1:                                               # While not at the maximum attempts
-# 			try:                                                                      # Try to...
-# 				tvdbInfo = search.series( imdbId = imdbId );                            # Search the TV Database for the show
-# 			except:                                                                   # On exception...
-# 				tvdbInfo = None;                                                        # Set tvdbInfo to None
-# 				log.debug('Attempt {} of {} Failed!'.format(attempt, maxAttempt));      # Debugging information
-# 				attempt += 1;                                                           # Increment the attempt counter
-# 			else:                                                                     # Else when try is successful
-# 				break;                                                                  # Break the while loop
-# 		if attempt == maxAttempt or tvdbInfo is None:                               # If reached the maximum attempts or failed to download
-# 			log.warning('Search by IMDb ID Failed!');                                 # Log a warning
-# 			return None;                                                              # Return None
-# 		log.debug('Search by IMDb ID successful');                                  # Some debugging information
-# 		if len(tvdbInfo) == 1:                                                      # If found only one (1) matching series
-# 			log.info('Information downloaded from thetvdb.com!');                     # Some debugging information		
-# 			return tvdbInfo[0];                                                       # Return the information
-# 	log.warning('Failed to get information from thetvdb.com!');                   # Some debugging information		
-# 	return None;                                                                  # If got to this point, information was NOT found for requested series

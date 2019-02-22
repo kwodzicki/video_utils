@@ -50,8 +50,8 @@ class mediainfo( object ):
     '''
     super().__init__();
     self.log     = logging.getLogger(__name__);
-    self.in_file = in_file;
     self.cmd     = ['mediainfo', '--Full', '--Output={}'.format(output_fmt) ];  # The base command for mediainfo; just add [self.in_file]
+    self.in_file = in_file;
   ################################################################################
   @property
   def in_file(self):
@@ -63,7 +63,6 @@ class mediainfo( object ):
       self.__mediainfo = None;
     else:
       self.__parse_output();
-
   @property
   def format(self):
     if self.__mediainfo:
