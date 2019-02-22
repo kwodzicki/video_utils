@@ -1,7 +1,21 @@
 import logging;
 import re;
-from subprocess import check_output;
+import subprocess as subproc;
 from xml.etree import ElementTree as ET;
+
+cmd  = ['mediainfo', '--version']
+proc = subproc.Popen( cmd, stdout = subproc.PIPE, stderr = subproc.PIPE );
+stdout, stderr = proc.communicate()
+MediaInfoLib = re.findall( b'v(\d+(?:.\d+)+)', stdout )[0].decode().split('.'); # Find all instances of version string and get numbers
+del cmd, proc, stdout, stderr;                                                  # Remove unneccesary variables
+
+if int(MediaInfoLib[0]) > 17:                                                   # If the major version is greater than 17
+  output_fmt = 'OLDXML';                                                        # Set the output format to OLDXML
+elif (int(MediaInfoLib[0]) == 17) and (int(MediaInfoLib[1]) >= 10):             # Else, if the major version is 17 and the minor version is greater or equal to 10
+  output_fmt = 'OLDXML';                                                        # Set the output format to OLDXML
+else:                                                                           # Else
+  output_fmt = 'XML';                                                           # Set output format to XML
+
 
 class mediainfo( object ):
   log = logging.getLogger(__name__);
@@ -59,45 +73,42 @@ class mediainfo( object ):
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
     self.log.info('Running mediainfo command...');                      # If verbose is set, print some output
-    try:
-      xmlstr = check_output( ['mediainfo', '--Full', '--Output=OLDXML', self.in_file] );
-      root   = ET.fromstring( xmlstr );
-    except:
-      xmlstr = check_output( ['mediainfo', '--Full', '--Output=XML', self.in_file] );
-      root   = ET.fromstring( xmlstr );
-
+    cmd    = ['mediainfo', '--Full'];                                           # Base command for mediainfo
+    cmd    = cmd + [ '--Output={}'.format(output_fmt), self.in_file ];          # Append output format and input file
+    xmlstr = subproc.check_output( cmd );                                       # Run the command
+    root   = ET.fromstring( xmlstr );                                           # Parse xml tree
     data   = {}
-    for track in root[0].findall('track'):                                        # Iterate over all tracks in the XML tree
-      tag = track.attrib['type'];                                                 # Get track type
-      if 'typeorder' in track.attrib or 'streamid' in track.attrib:               # If typeorder is in the track.attrib dictionary
-        if tag not in data: data[ tag ] = [ ];                                    # If the tag is NOT in the self.__mediainfo dictionary then create empty list in dictionary under track type in dictionary
-        data[ tag ].append( {} );                                                 # Append empty dictionary to list
-      else:                                                                       # Else, typeorder is NOT in the track.attrib dictionary
-        data[ tag ] = [ {} ];                                                     # create list with dictionary under track type in dictionary
+    for track in root[0].findall('track'):                                      # Iterate over all tracks in the XML tree
+      tag = track.attrib['type'];                                               # Get track type
+      if 'typeorder' in track.attrib or 'streamid' in track.attrib:             # If typeorder is in the track.attrib dictionary
+        if tag not in data: data[ tag ] = [ ];                                  # If the tag is NOT in the self.__mediainfo dictionary then create empty list in dictionary under track type in dictionary
+        data[ tag ].append( {} );                                               # Append empty dictionary to list
+      else:                                                                     # Else, typeorder is NOT in the track.attrib dictionary
+        data[ tag ] = [ {} ];                                                   # create list with dictionary under track type in dictionary
   
-    for track in root[0].findall('track'):                                        # Iterate over all tracks in the XML tree
+    for track in root[0].findall('track'):                                      # Iterate over all tracks in the XML tree
       tag, order = track.attrib['type'], 0;
-      old_tag, tag_cnt = '', 0;                                                   # initialize old_tag to an empty string and tag_cnt to zero (0)
+      old_tag, tag_cnt = '', 0;                                                 # initialize old_tag to an empty string and tag_cnt to zero (0)
       if 'typeorder' in track.attrib:
         order = int( track.attrib['typeorder'] ) - 1;
       elif 'streamid' in track.attrib:
         order = int( track.attrib['streamid'] ) - 1;
-      for elem in track.iter():                                                   # Iterate over all elements in the track
-        cur_tag = elem.tag;                                                       # Set the cur_tag to the tag of the element in the track
-        if cur_tag == old_tag:                                                    # If the current tag is the same as the old tag
-          cur_tag += '/String';                                                   # Append string to the tag
-          if tag_cnt > 1: cur_tag += str(tag_cnt);                                # If the tag_cnt is greater than one (1), then append the number to the tag
-          tag_cnt += 1;                                                           # Increment that tag_cnt by one (1);
-        else:                                                                     # Else
-          tag_cnt = 0;                                                            # Set tag_cnt to zero (0)
-        old_tag = elem.tag;                                                       # Set the old_tag to the tag of the element in the track
-        if '.' in elem.text:                                                      # If there is a period in the text of the current element
-          try:                                                                    # Try to convert the text to a float
+      for elem in track.iter():                                                 # Iterate over all elements in the track
+        cur_tag = elem.tag;                                                     # Set the cur_tag to the tag of the element in the track
+        if cur_tag == old_tag:                                                  # If the current tag is the same as the old tag
+          cur_tag += '/String';                                                 # Append string to the tag
+          if tag_cnt > 1: cur_tag += str(tag_cnt);                              # If the tag_cnt is greater than one (1), then append the number to the tag
+          tag_cnt += 1;                                                         # Increment that tag_cnt by one (1);
+        else:                                                                   # Else
+          tag_cnt = 0;                                                          # Set tag_cnt to zero (0)
+        old_tag = elem.tag;                                                     # Set the old_tag to the tag of the element in the track
+        if '.' in elem.text:                                                    # If there is a period in the text of the current element
+          try:                                                                  # Try to convert the text to a float
             data[tag][order][cur_tag] = float(elem.text);
           except:
             data[tag][order][cur_tag] = elem.text;
-        else:                                                                     # Else there is not period in the text of the current element
-          try:                                                                    # Try to convert the text to an integer
+        else:                                                                   # Else there is not period in the text of the current element
+          try:                                                                  # Try to convert the text to an integer
             data[tag][order][cur_tag] = int(elem.text);
           except:
             data[tag][order][cur_tag] = elem.text;
