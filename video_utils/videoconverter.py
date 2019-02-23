@@ -129,7 +129,7 @@ class videoconverter( mediainfo, subprocManager ):
                         better security
     '''
     super().__init__();
-    log = logging.getLogger( __name__ );                                               # Set log to root logger for all instances
+    self.log = logging.getLogger( __name__ );                                   # Set log to root logger for all instances
 
     self.container    = container.lower();
     self.mp4tags      = (self.container == 'mp4');
