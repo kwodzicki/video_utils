@@ -152,10 +152,11 @@ class subprocManager(object):
     self.log.info( self._logFMT.format(self.__n, self.__nProcs, 'Started!') ); # Logging information
 
     self.__procs.append( (proc, self.__n) );                                    # Append handle and process number tuple to the _procs attribute
-    if cpulimitInstalled and self.cpulimit > 0:                                 # If the cpulimit CLI is installed AND the cpulimit is greater than zero (0)
+    if cpulimitInstalled and (self.cpulimit > 0) and (self.cpulimit < 100):     # If the cpulimit CLI is installed AND the cpulimit is greater than zero (0) AND less than 100
       limit = self.cpulimit if single else self.cpulimit * self.threads;        # Set the cpu limit to threads times the current cpulimit percentage
-      limit = '200' if limit > 200 else str( limit );                           # Make sure not more than 200
-      limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', limit ];               # Set up the cpulimit command
+      # limit = '200' if limit > 200 else str( limit );                           # Make sure not more than 200
+      # limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', limit ];               # Set up the cpulimit command
+      limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', str(limit) ];            # Set up the cpulimit command
       self.__cpuProcs.append( Popen(limit, stdout=DEVNULL, stderr=STDOUT) );    # Start new subprocess for CPU limit command and append handle to _cpuProcs
   ##############################################################################
   def __procCheck(self):
