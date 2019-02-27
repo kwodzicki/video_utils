@@ -1,5 +1,5 @@
 import logging;
-import os, time, atexit;
+import os, time;
 
 from video_utils.utils.file_rename import file_rename;
 from video_utils.comremove import comremove;
@@ -13,7 +13,7 @@ for handler in log.handlers:                                                    
     handler.setLevel(logging.INFO);                                             # Set log level to info
     break;                                                                      # Break for loop to save some iterations
 
-def exitFunc():
+def rmLock():
   if os.path.isfile( lock_file ): 
     os.remove(lock_file)
 
@@ -32,13 +32,15 @@ def Plex_DVR_PostProcess(in_file,
   file = file_rename( in_file );                                                # Try to rename the input file using standard convention
   if not file:                                                                  # if the rename fails
     log.critical('Error renaming file');                                        # Log error
-    exit(1);                                                                    # Exit the script
+    rmLock();                                                                   # Function to remove the lock file
+    return 1;                                                                   # Return from function
   
   com_inst = comremove(threads=threads, cpulimit=cpulimit, verbose=verbose);    # Set up comremove instance
   status   = com_inst.process( file );                                          # Try to remove commercials from video
   if not status:                                                                # If comremove failed
     log.cirtical('Error cutting commercials');                                  # Log error
-    exit(1);                                                                    # Exit script
+    rmLock();                                                                   # Function to remove the lock file
+    return 1;                                                                   # Exit script
   
   inst = videoconverter( 
     log_dir       = logdir,
@@ -51,6 +53,5 @@ def Plex_DVR_PostProcess(in_file,
     srt           = not not_srt);                                               # Set up video converter instance
   
   inst.transcode( file );                                                       # Run the transcode
+  rmLock();                                                                     # Function to remove the lock file
   return inst.transcode_status;                                                 # Return transcode status
-
-atexit.register( exitFunc );                                                    # Register removal of lock file on exit from python
