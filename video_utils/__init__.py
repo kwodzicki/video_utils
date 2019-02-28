@@ -11,7 +11,7 @@ for i in ['HandBrakeCLI', 'ffmpeg', 'mediainfo']:
       i
     );
 
-__version__ = "0.0.41";
+__version__ = "0.1.0";
 __doc__     = "Collection of utilities to manipulate video files; " + \
   "namely transcoding, subtitle extraction, audio aligning/downmixing, "+\
   "and metadata editing."
