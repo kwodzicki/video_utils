@@ -3,7 +3,7 @@ import setuptools
 from distutils.util import convert_path
 
 main_ns  = {};
-ver_path = convert_path("video_utils/version.py");
+ver_path = convert_path("video_utils/__init__.py");
 with open(ver_path) as ver_file:
   exec(ver_file.read(), main_ns);
 
@@ -15,8 +15,9 @@ setuptools.setup(
   author_email     = "krwodzicki@gmail.com",
   version          = main_ns['__version__'],
   packages         = setuptools.find_packages(),
-  install_requires = [ "mutagen", "imdbpy", "tvdbsimple", "setproctitle",
-                       "soundfile", "numpy", "scipy" ],
+  install_requires = [ "mutagen", "imdbpy", "tvdbsimple",
+                       "soundfile", "numpy", "scipy",
+                       "setproctitle", "psutil"]
   scripts          = ['bin/comremove',
                       'bin/MKV_Cron_Convert',
                       'bin/mp4tagger',

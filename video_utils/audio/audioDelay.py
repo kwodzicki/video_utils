@@ -125,9 +125,9 @@ def audioDelay( file1, file2, showPlots = False, limit = None ):
 ################################################################################
 if __name__ == "__main__":
 	import argparse;                                                              # Import library for parsing
-	parser = argparse.ArgumentParser(description="MKV Cron Converter");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+	parser = argparse.ArgumentParser(description="Utility to determine the delay, in seconds, between audio streams in two files");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
 	parser.add_argument("ref",    type=str, help="Referene file, new file will be offset to match this one."); 
-	parser.add_argument("new",    type=str, help="New fil to be offset to match ref"); 
+	parser.add_argument("new",    type=str, help="New file to be offset to match ref"); 
 	parser.add_argument("-p", "--plot", action="store_true", help="Show plots of offset correction"); 
 	args = parser.parse_args();                                                   # Parse the arguments
 

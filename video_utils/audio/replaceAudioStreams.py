@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 
-import os, shutil, subprocess, time, psutil;
-from ..videotagger.mp4Tags     import mp4Tags;
-from makemkv_to_mp4.mediainfo import mediainfo;
-from makemkv_to_mp4.metadata  import getMetaData
-
+import os, shutil, subprocess, psutil;
 from threading import Thread;
-# from makemkv_to_mp4.mediainfo.audio_info_parse import audio_info_parse
-# from makemkv_to_mp4.mediainfo.video_info_parse import video_info_parse
+from datetime import timedelta;
+from time import sleep;
 
-from datetime import timedelta
-from audio_utils.audioDelay import audioDelay;
-from audio_utils.DolbyDownmix  import DolbyDownmix;
+from video_utils.mediainfo import mediainfo;
+from video_utils.videotagger.metadata.getMetaData  import getMetaData
+from video_utils.videotagger.mp4Tags import mp4Tags;
+
+from video_utils.audio.audioDelay import audioDelay;
+from video_utils.audio.DolbyDownmix  import DolbyDownmix;
 
 ################################################################################
 def extractAudio( info, inFile, outDir, result, time = None ):
@@ -37,12 +36,12 @@ def extractAudio( info, inFile, outDir, result, time = None ):
 	outFile += '.ogg'                                                             # Append '.ogg' to outFile
 	print( 'outFile: {}'.format(outFile) );
 	if info['Channel_s_'] <= 2:                                                   # If the number of audio channels is <= 2
-		cmd = ['ffmpeg','-y','-v', 'quiet', '-stats', '-i',inFile, '-vn'];          # Initialize command list
+		cmd = ['ffmpeg','-y','-nostdin', '-v', 'quiet', '-stats', '-i',inFile, '-vn'];# Initialize command list
 		if time is not None: cmd.extend( ['-t', str(time)] );                       # Append time if it is NOT None
 		cmd.append( outFile );                                                      # Append outfile to command
 # 		with open(os.devnull, 'w') as devnull:                                      # Open /dev/null for writing
 # 			proc = subprocess.Popen( cmd,	stdout=devnull, stderr=subprocess.STDOUT ); # Call the command
-		proc = subprocess.Popen( cmd, stdin=open(os.devnull) );
+		proc = subprocess.Popen( cmd );
 		proc.communicate();                                                         # Wait for command to finish
 		if proc.returncode != 0:                                                    # If the return code is NOT zero (0)
 			print('There was an error');                                              # Print message
@@ -98,7 +97,7 @@ def computeOffset(in1, in2, info1, info2, outDir):
 	threads.append( Thread(target=extractAudio, args=args1) );                    # Initialize thread1 and append handle to threads list
 	threads.append( Thread(target=extractAudio, args=args2) );                    # Initialize thread2 and append handle to threads list
 	for thread in threads: thread.start();                                        # Iterate over threads and start each
-	while all( [thread.is_alive() for thread in threads] ): time.sleep(0.01);     # While all the process are alive, leep for a little
+	while all( [thread.is_alive() for thread in threads] ): sleep(0.01);     # While all the process are alive, leep for a little
 	for thread in threads:                                                        # One of the process is no longer alive so iterate to find the dead one
 		if not thread.is_alive():                                                   # If the process is not alive
 			thread.join();                                                            # Join the process
@@ -127,7 +126,7 @@ def replaceAudioStreams( in1, in2, outDir = None, replace = False):
 	'''
 	if outDir is None: outDir = os.path.dirname(in1)
 	out    = os.path.join(outDir, 'test.mp4');
-	base   = ['ffmpeg','-v', 'quiet', '-stats']
+	base   = ['ffmpeg', '-nostdin', '-v', 'quiet', '-stats']
 	inputs = [];
 	codecs = ['-c:v', 'copy'];                                                    # Codec options (copy audio and video)
 	opts   = ['-movflags', 'disable_chpl', '-hide_banner'];                       # Extra options; removes weird extra movie chaptes
@@ -208,7 +207,7 @@ def replaceAudioStreams( in1, in2, outDir = None, replace = False):
 
 	cmd.append( out );                                                            # Add output name
 	print('Combining files');                                                     # Print information
-	proc = subprocess.Popen(cmd, stdin = open(os.devnull));                       # Initialize merger
+	proc = subprocess.Popen( cmd );                                               # Initialize merger
 	proc.communicate();                                                           # Wait for merge to finish
 	if audioIn is not None:                                                       # If down-mixed audio file path is not None
 		if os.path.isfile(audioIn): os.remove(audioIn);                             # If the file exists, remove it
@@ -218,11 +217,10 @@ def replaceAudioStreams( in1, in2, outDir = None, replace = False):
 ################################################################################
 if __name__ == "__main__":
 	import argparse;                                                              # Import library for parsing
-	parser = argparse.ArgumentParser(description="MKV Cron Converter");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
-	parser.add_argument("orig",    type=str, help="Original file"); 
-	parser.add_argument("new",     type=str, help="New file with surround stream(s)"); 
+	parser = argparse.ArgumentParser(description="Utility to replace audio streams one file with audio streams from another");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+	parser.add_argument("orig",    type=str, help="Original file; will replace audio"); 
+	parser.add_argument("new",     type=str, help="New file with surround stream(s); new audio"); 
 	parser.add_argument("-o", "--output",   type=str, help="Output directory."); 
-# 	parser.add_argument("-O", "--offset",   type=str, help="Audio offset, in seconds. Positive makes audio later, negative earlier."); 
 	parser.add_argument("-r", "--replace",   action="store_true", help="Set to replace existing output file.");
 	args = parser.parse_args();                                                   # Parse the arguments
 	status = replaceAudioStreams( args.orig, args.new, 

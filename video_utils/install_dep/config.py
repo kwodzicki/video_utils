@@ -9,7 +9,7 @@ required = {
   'test'    : b'',
   'autogen' : False,
   'config'  : False,
-  'make'    ; False,
+  'make'    : False,
   'dep'     : {
     'darwin' : {
       'packages' : ['handbrake', 'ffmpeg', 'mediainfo'],
@@ -30,7 +30,7 @@ ccextractor = {
   'test'    : b'Error: (This help screen was shown because there were no input files)',
   'autogen' : True,
   'config'  : True,
-  'make'    ; True,
+  'make'    : True,
   'dep'     : {
     'darwin' : {
       'packages' : ['pkg-config', 'autoconf', 
@@ -58,7 +58,7 @@ comskip = {
   'test'    : b'ComSkip: missing option <file>',
   'autogen' : True,
   'config'  : True,
-  'make'    ; True,
+  'make'    : True,
   'dep'     : {
     'darwin' : {
       'packages' : [],
@@ -83,7 +83,7 @@ vobsub2srt = {
   'test'    : b'ComSkip: missing option <file>',
   'autogen' : False,
   'config'  : True,
-  'make'    ; True,
+  'make'    : True,
   'dep'     : {
     'darwin' : {
       'packages' : ['tesseract'],
@@ -106,7 +106,7 @@ cpulimit = {
   'test'    : b'',
   'autogen' : False,
   'config'  : False,
-  'make'    ; False,
+  'make'    : False,
   'dep'     : {
     'darwin' : {
       'packages' : ['cpulimit'],
@@ -127,7 +127,7 @@ mkvtool = {
   'test'    : b'',
   'autogen' : False,
   'config'  : False,
-  'make'    ; False,
+  'make'    : False,
   'dep'     : {
     'darwin' : {
       'packages' : ['mkvtoolnix'],

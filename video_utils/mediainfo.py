@@ -69,7 +69,19 @@ class mediainfo( object ):
       return self.__mediainfo['General'][0]['Format'];
     else:
       return None;
-  ################################################################################
+  ##############################################################################
+  def __getitem__(self, key):
+    '''Method for easily getting key from mediainfo; acts a dict'''
+    return self.__mediainfo[key]
+  ##############################################################################
+  def __setitem__(self, key, value):
+    '''Method for easily setting key in mediainfo; acts a dict'''
+    self.__mediainfo[key] = value
+  ##############################################################################
+  def keys(self):
+    '''Method for geting mediainfo keys; acts a dict'''
+    return self.__mediainfo.keys();
+  ##############################################################################
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
     self.log.info('Running mediainfo command...');                      # If verbose is set, print some output

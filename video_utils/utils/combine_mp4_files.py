@@ -2,7 +2,7 @@
 import logging;
 import os;
 
-from subprocManager import subprocManager
+from video_utils.utils.subprocManager import subprocManager
 
 def combine_mp4_files(inFiles, outFile):
   '''

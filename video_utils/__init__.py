@@ -11,6 +11,12 @@ for i in ['HandBrakeCLI', 'ffmpeg', 'mediainfo']:
       i
     );
 
+__version__ = "0.0.41";
+__doc__     = "Collection of utilities to manipulate video files; " + \
+  "namely transcoding, subtitle extraction, audio aligning/downmixing, "+\
+  "and metadata editing."
+
+
 # Set up the logger for the module
 log = logging.getLogger( __name__ );                                          # Get root logger based on package name
 log.setLevel(logging.DEBUG);                                                  # Set root logger level to debug
