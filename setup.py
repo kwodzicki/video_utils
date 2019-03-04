@@ -17,7 +17,7 @@ setuptools.setup(
   packages         = setuptools.find_packages(),
   install_requires = [ "mutagen", "imdbpy", "tvdbsimple",
                        "soundfile", "numpy", "scipy",
-                       "setproctitle", "psutil"]
+                       "setproctitle", "psutil"],
   scripts          = ['bin/comremove',
                       'bin/MKV_Cron_Convert',
                       'bin/mp4tagger',
