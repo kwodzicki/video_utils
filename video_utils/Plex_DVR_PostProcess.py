@@ -30,6 +30,10 @@ def Plex_DVR_PostProcess(in_file,
      verbose   = False,
      no_remove = False,
      not_srt   = False):
+
+  while os.path.isfile( lock_file ): time.sleep(1.0);                           # While the lock file exists, sleep for 1 second
+  open(lock_file, 'w').close();                                                 # Create the new lock file so other processes have to wait
+
   rfh = RotatingFileHandler(log_file, maxBytes=log_size, backupCount=log_count);# Create a rotatin file handler
   rfh.setFormatter( fileFMT['formatter'] );                                     # Set formatter for the handler
   if verbose:                                                                   # If verbose, then set file handler to DEBUG
@@ -37,9 +41,6 @@ def Plex_DVR_PostProcess(in_file,
   else:                                                                         # Else, set to INFO
     rfh.setLevel(logging.INFO);
   log.addHandler( rfh );                                                          # Add hander to the main logger
-
-  while os.path.isfile( lock_file ): time.sleep(1.0);                           # While the lock file exists, sleep for 1 second
-  open(lock_file, 'w').close();                                                 # Create the new lock file so other processes have to wait
 
   file = file_rename( in_file );                                                # Try to rename the input file using standard convention
   if not file:                                                                  # if the rename fails
