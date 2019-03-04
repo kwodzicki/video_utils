@@ -24,11 +24,10 @@ def rmLock():
 
 def Plex_DVR_PostProcess(in_file, 
      logdir    = None, 
-     verbose   = False,
      threads   = None, 
      cpulimit  = None,
      language  = None,
-     verbose   = None,
+     verbose   = False,
      no_remove = False,
      not_srt   = False):
   if verbose:                                                                   # If verbose, then set file handler to DEBUG
