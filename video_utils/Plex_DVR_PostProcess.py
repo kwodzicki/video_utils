@@ -40,7 +40,7 @@ def Plex_DVR_PostProcess(in_file,
     rfh.setLevel(logging.DEBUG);
   else:                                                                         # Else, set to INFO
     rfh.setLevel(logging.INFO);
-  log.addHandler( rfh );                                                          # Add hander to the main logger
+  log.addHandler( rfh );                                                        # Add hander to the main logger
 
   file = file_rename( in_file );                                                # Try to rename the input file using standard convention
   if not file:                                                                  # if the rename fails
