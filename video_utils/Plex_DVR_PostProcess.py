@@ -5,18 +5,18 @@ import os, time;
 from video_utils.utils.file_rename import file_rename;
 from video_utils.comremove import comremove;
 from video_utils.videoconverter import videoconverter;
+from video_utils._logging import fileFMT;
 
 lock_file = '/tmp/Plex_DVR_PostProcess.lock';                                   # Path to a lock file to stop multiple instances from running at same time
 log_file  = '/tmp/Plex_DVR_PostProcess.log';
 log_size  = 10 * 1024**2;
 log_count = 4;
+
 log = logging.getLogger('video_utils');                                         # Get the video_utils logger
 for handler in log.handlers:                                                    # Iterate over all the handlers
   if handler.get_name() == 'main':                                              # If found the main handler
     handler.setLevel(logging.INFO);                                             # Set log level to info
     break;                                                                      # Break for loop to save some iterations
-rfh = RotatingFileHandler(log_file, maxBytes=log_size, backupCount=log_count);  # Create a rotatin file handler
-log.addHandler( rfh );                                                          # Add hander to the main logger
 
 def rmLock():
   if os.path.isfile( lock_file ): 
@@ -30,10 +30,13 @@ def Plex_DVR_PostProcess(in_file,
      verbose   = False,
      no_remove = False,
      not_srt   = False):
+  rfh = RotatingFileHandler(log_file, maxBytes=log_size, backupCount=log_count);# Create a rotatin file handler
+  rfh.setFormatter( fileFMT['formatter'] );                                     # Set formatter for the handler
   if verbose:                                                                   # If verbose, then set file handler to DEBUG
     rfh.setLevel(logging.DEBUG);
   else:                                                                         # Else, set to INFO
     rfh.setLevel(logging.INFO);
+  log.addHandler( rfh );                                                          # Add hander to the main logger
 
   while os.path.isfile( lock_file ): time.sleep(1.0);                           # While the lock file exists, sleep for 1 second
   open(lock_file, 'w').close();                                                 # Create the new lock file so other processes have to wait
