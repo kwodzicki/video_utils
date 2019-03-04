@@ -1,5 +1,6 @@
 import logging;
 from ._logging import screenFMT;
+from .version import __version__;
 from subprocess import call, DEVNULL, STDOUT;
 
 # Check for required CLIs
@@ -11,7 +12,6 @@ for i in ['HandBrakeCLI', 'ffmpeg', 'mediainfo']:
       i
     );
 
-__version__ = "0.1.1a";
 __doc__     = "Collection of utilities to manipulate video files; " + \
   "namely transcoding, subtitle extraction, audio aligning/downmixing, "+\
   "and metadata editing."
