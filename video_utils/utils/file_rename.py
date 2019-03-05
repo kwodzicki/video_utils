@@ -17,7 +17,7 @@ def file_rename( in_file ):
   imdbId            = getIMDb_ID( in_file );                                    # Try to get IMDb id
 
   if not imdbId: 
-    log.warning( 'No IDMb ID! Renaming file without it')
+    log.warning( 'No IMDb ID! Renaming file without it')
     imdbId = '';                                                                # If no IMDb id found, set imdbId to emtpy string
 
   new = '{} - {}.{}.{}'.format(se.lower(), title, imdbId, ext);                 # Build new file name
