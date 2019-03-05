@@ -172,10 +172,10 @@ namely for TV shows. This utility does a few things:
  * Attempts to remove commercials using `comskip` CLI if installed
  * Attempts to extract subtitles to SRT using `ccextractor` CLI if installed
  * Converts movie to MP4 format using the `videoconverter` class
- * Attempts to download nad Write MP4 tags to file
+ * Attempts to download and write MP4 tags to file
 
 Note: This post processing script is still being tested to work out some bugs.
-Use at your own risk
+Use at your own risk.
 
 ## Code example
 Of course you can always use these utilities in your own code. A brief example

@@ -15,3 +15,10 @@ TMDb['urlFind']    = TMDb['urlBase'] + 'find/{}?external_source=imdb_id';
 TMDb['urlMovie']   = TMDb['urlBase'] + 'movie/{}';
 TMDb['urlSeries']  = TMDb['urlBase'] + 'tv/{}';
 TMDb['urlEpisode'] = TMDb['urlBase'] + 'tv/{}/season/{}/episode/{}';
+
+plex_dvr = {
+  'lock_file' : '/tmp/Plex_DVR_PostProcess.lock',
+  'log_file'  : '/tmp/Plex_DVR_PostProcess.log',
+  'log_size'  : 10 * 1024**2,
+  'log_count' : 4
+}                                   # Path to a lock file to stop multiple instances from running at same time

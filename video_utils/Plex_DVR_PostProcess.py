@@ -6,11 +6,7 @@ from video_utils.utils.file_rename import file_rename;
 from video_utils.comremove import comremove;
 from video_utils.videoconverter import videoconverter;
 from video_utils._logging import fileFMT;
-
-lock_file = '/tmp/Plex_DVR_PostProcess.lock';                                   # Path to a lock file to stop multiple instances from running at same time
-log_file  = '/tmp/Plex_DVR_PostProcess.log';
-log_size  = 10 * 1024**2;
-log_count = 4;
+from video_utils.config import plex_dvr;
 
 log = logging.getLogger('video_utils');                                         # Get the video_utils logger
 for handler in log.handlers:                                                    # Iterate over all the handlers
@@ -19,8 +15,8 @@ for handler in log.handlers:                                                    
     break;                                                                      # Break for loop to save some iterations
 
 def rmLock():
-  if os.path.isfile( lock_file ): 
-    os.remove(lock_file)
+  if os.path.isfile( plex_dvr['lock_file'] ): 
+    os.remove( plex_dvr['lock_file'] )
 
 def Plex_DVR_PostProcess(in_file, 
      logdir    = None, 
@@ -31,10 +27,12 @@ def Plex_DVR_PostProcess(in_file,
      no_remove = False,
      not_srt   = False):
 
-  while os.path.isfile( lock_file ): time.sleep(1.0);                           # While the lock file exists, sleep for 1 second
-  open(lock_file, 'w').close();                                                 # Create the new lock file so other processes have to wait
+  while os.path.isfile( plex_dvr['lock_file'] ): time.sleep(1.0);               # While the lock file exists, sleep for 1 second
+  open(plex_dvr['lock_file'], 'w').close();                                     # Create the new lock file so other processes have to wait
 
-  rfh = RotatingFileHandler(log_file, maxBytes=log_size, backupCount=log_count);# Create a rotatin file handler
+  rfh = RotatingFileHandler(plex_dvr['log_file'], 
+          maxBytes    = plex_dvr['log_size'], 
+          backupCount = plex_dvr['log_count']);                                 # Create a rotatin file handler
   rfh.setFormatter( fileFMT['formatter'] );                                     # Set formatter for the handler
   if verbose:                                                                   # If verbose, then set file handler to DEBUG
     rfh.setLevel(logging.DEBUG);
