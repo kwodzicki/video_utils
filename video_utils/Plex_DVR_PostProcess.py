@@ -43,7 +43,6 @@ def Plex_DVR_PostProcess(in_file,
     logFMT  = plexFMT.pop('formatter');                                         # Pop off formatter
     logLvl  = plexFMT.pop('level');                                             # Pop off the logging level
     logPerm = plexFMT.pop('permissions');                                       # Pop off permissions for the logging file
-    logLvl  = logging.DEBUG if verbose else plt
     if verbose: logLvl = logging.DEBUG;                                         # If verbose, then set file handler to DEBUG
     
     rfh = RotatingFileHandler(logFile, **plexFMT);                              # Set up rotating file handler

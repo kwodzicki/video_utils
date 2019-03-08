@@ -20,7 +20,7 @@ plexFMT    = {
   'name'        : 'plex_dvr',
   'maxBytes'    : 10 * 1024**2,
   'backupCount' : 4,
-  'level'       : logging.INFO,
+  'level'       : logging.DEBUG,
   'formatter'   : logging.Formatter( 
                 '%(levelname)-.4s - %(funcName)-15.15s - %(message)s',
                 '%Y-%m-%d %H:%M:%S'),

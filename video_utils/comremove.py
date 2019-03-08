@@ -8,8 +8,7 @@ if call(['which', 'comskip'], stdout = DEVNULL, stderr = STDOUT ) != 0:         
   logging.getLogger(__name__).error(msg);
   raise Exception( msg );                 # Raise an exception
 
-from video_utils.utils.subprocManager import subprocManager
-
+from video_utils.utils.subprocManager import subprocManager;
 # Following code may be useful for fixing issues with audio in
 # video files that cut out
 # ffmpeg -copyts -i "concat:in1.ts|in2.ts" -muxpreload 0 -muxdelay 0 -c copy joint.ts
@@ -43,13 +42,13 @@ class comremove( subprocManager ):
     if tmp_Files:                                                               # If status is True
       cut_File   = self.comjoin( tmp_Files );                                   # Attempt to join the files and update status using return code from comjoin
 
-    if cut_File:                                                                 # If status is True
+    if cut_File:                                                                # If status is True
       self.check_size( in_file, cut_File );
 
     self.outDir  = None;                                                        # Reset attribute
     self.fileExt = None;                                                        # Reset attribute
 
-    return True;                                                              # Return the status 
+    return True;                                                                # Return the status 
   ########################################################
   def comskip(self, in_file):
     '''
@@ -86,6 +85,9 @@ class comremove( subprocManager ):
 
     if sum(self.returncodes) == 0:
       self.log.info('comskip ran successfully');
+      if not os.path.isfile( edl_file ):
+        self.log.warning('No EDL file was created; trying to convert TXT file')
+        edl_file = self.convertTXT( txt_file, edl_file );
       try:
         os.remove( txt_file );
       except:
@@ -107,6 +109,7 @@ class comremove( subprocManager ):
       Returns list of file paths for the intermediate 
       files created if successful. Else, returns None.
     '''
+    self.log.info('Cutting out commercials')
     cmdBase  = self._comcut + [in_file];                                        # Base command for splitting up files
     tmpFiles = [];                                                              # List for all temporary files
     fnum     = 0;                                                               # Set file number to zero
@@ -207,6 +210,21 @@ class comremove( subprocManager ):
       os.rename( cut_file, in_file );
     else:
       os.remove( cut_file );
+  ########################################################
+  def convertTXT( self, txt_file, edl_file ):
+    if os.stat(txt_file).st_size == 0:
+      self.log.warning('TXT file is empty!');
+      return None;    
+    with open(txt_file, 'r') as txt:
+      with open(edl_file, 'w') as edl:
+        line = txt.readline();
+        rate = int(line.split()[-1])/100.0;
+        line = txt.readline();                                                  # Read past a line
+        line = txt.readline();                                                  # Read line
+        while line != '':                                                       # While the line from the txt file is NOT emtpy
+          start, end = [float(i)/rate for i in line.rstrip().split()];          # Strip of return, split line on space, convert each value to float and divide by frame rate
+          edl.write( '{:0.2f} {:0.2f} 0\n'.format( start, end ) );              # Write out information to edl file
+    return edl_file
   ########################################################
   def __size_fmt(self, num, suffix='B'):
     '''

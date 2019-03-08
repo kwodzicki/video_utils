@@ -26,5 +26,3 @@ log.handlers[0].setLevel( screenFMT['level'] );            # Set the format tot 
 log.handlers[0].set_name( screenFMT['name'] );
 
 del i, DEVNULL, STDOUT, screenFMT;
-
-#from .videoconverter import videoconverter;
