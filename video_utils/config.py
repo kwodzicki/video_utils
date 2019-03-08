@@ -1,4 +1,5 @@
 # Some global configuration settings
+import stat;
 
 # do NOT use opensubtitles info in other programs, register for your own
 opensubtitles = {
@@ -18,7 +19,8 @@ TMDb['urlEpisode'] = TMDb['urlBase'] + 'tv/{}/season/{}/episode/{}';
 
 plex_dvr = {
   'lock_file' : '/tmp/Plex_DVR_PostProcess.lock',
-  'log_file'  : '/tmp/Plex_DVR_PostProcess.log',
-  'log_size'  : 10 * 1024**2,
-  'log_count' : 4
+  'lock_perm' : stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | \
+                stat.S_IRGRP | stat.S_IWGRP  | \
+                stat.S_IROTH | stat.S_IWOTH
+
 }                                   # Path to a lock file to stop multiple instances from running at same time

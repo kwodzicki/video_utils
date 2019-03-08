@@ -1,11 +1,11 @@
 import logging;
 from logging.handlers import RotatingFileHandler;
-import os, time;
+import os, stat, time;
 
 from video_utils.utils.file_rename import file_rename;
 from video_utils.comremove import comremove;
 from video_utils.videoconverter import videoconverter;
-from video_utils._logging import fileFMT;
+from video_utils._logging import plexFMT;
 from video_utils.config import plex_dvr;
 
 log = logging.getLogger('video_utils');                                         # Get the video_utils logger
@@ -29,16 +29,35 @@ def Plex_DVR_PostProcess(in_file,
 
   while os.path.isfile( plex_dvr['lock_file'] ): time.sleep(1.0);               # While the lock file exists, sleep for 1 second
   open(plex_dvr['lock_file'], 'w').close();                                     # Create the new lock file so other processes have to wait
+  os.chmod( plex_dvr['lock_file'], plex_dvr['lock_perm'] );                     # Set permissions on file
 
-  rfh = RotatingFileHandler(plex_dvr['log_file'], 
-          maxBytes    = plex_dvr['log_size'], 
-          backupCount = plex_dvr['log_count']);                                 # Create a rotatin file handler
-  rfh.setFormatter( fileFMT['formatter'] );                                     # Set formatter for the handler
-  if verbose:                                                                   # If verbose, then set file handler to DEBUG
-    rfh.setLevel(logging.DEBUG);
-  else:                                                                         # Else, set to INFO
-    rfh.setLevel(logging.INFO);
-  log.addHandler( rfh );                                                        # Add hander to the main logger
+  logName   = plexFMT.pop('name');                                              # Get logger name
+  noHandler = True;                                                             # Initialize noHandler to True
+  for handler in log.handers:                                                   # Iterate over all handlers
+    if handler.get_name() == logName:                                           # If handler name matches logName
+      noHandler = False;                                                        # Set no handler false
+      break;                                                                    # Break for loop
+
+  if noHandler:
+    logFile = plexFMT.pop('file');                                              # Pop off file for logging
+    logFMT  = plexFMT.pop('formatter');                                         # Pop off formatter
+    logLvl  = plexFMT.pop('level');                                             # Pop off the logging level
+    logPerm = plexFMT.pop('permissions');                                       # Pop off permissions for the logging file
+    logLvl  = logging.DEBUG if verbose else plt
+    if verbose: logLvl = logging.DEBUG;                                         # If verbose, then set file handler to DEBUG
+    
+    rfh = RotatingFileHandler(logFile, **plexFMT);                              # Set up rotating file handler
+    rfh.setFormatter( logFMT  );                                                # Set formatter for the handler
+    rfh.setLevel(     logLvl  );                                                # Set the logging level
+    rfh.set_name(     logName );                                                # Set the log name
+    log.addHandler( rfh );                                                      # Add hander to the main logger
+    
+    info = os.stat( logFile );                                                  # Get information about the log file
+    if (info.st_mode & logPerm) != logPerm:                                     # If the permissions of the file are not those requested
+      try:                                                                      # Try to 
+        os.chmod( logFile, logPerm );                                           # Set the permissions of the log file
+      except:
+        log.info('Failed to change log permissions; this may cause issues')
 
   file = file_rename( in_file );                                                # Try to rename the input file using standard convention
   if not file:                                                                  # if the rename fails
