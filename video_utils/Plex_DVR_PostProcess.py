@@ -58,7 +58,8 @@ def Plex_DVR_PostProcess(in_file,
         os.chmod( logFile, logPerm );                                           # Set the permissions of the log file
       except:
         log.info('Failed to change log permissions; this may cause issues')
-
+  
+  log.info('Input file: {}'.format( in_file ) );
   file = file_rename( in_file );                                                # Try to rename the input file using standard convention
   if not file:                                                                  # if the rename fails
     log.critical('Error renaming file');                                        # Log error
