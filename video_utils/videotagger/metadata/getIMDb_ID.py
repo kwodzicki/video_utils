@@ -77,17 +77,21 @@ def getIMDb_ID( in_file ):
   log.info( 'Attempting to get IMDb ID from TVDb' );               
 
   tvdb = TVDb.Search();                                                         # Initialize search for TVDb
-  res  = tvdb.series( series );                                                 # Search for the series on the TVDb
-  for r in res:                                                                 # Iterate over all search results
-    if str(year) in r['firstAired']:                                            # If the local year is in the firstAird tag
-      log.debug( 'Found series with same firstAird year' );
-      eps = TVDb.Series( r['id'] ).Episodes.all();                              # Get list of all episodes in series
-      for ep in eps:                                                            # Iterate over all episodes
-        if (ep['episodeName'].lower() in title.lower()) and ('imdbId' in ep):   # If the episode name is in the local title and there is an imdbId in the ep
-          log.debug( 'Found episode with same name' );
-          if ep['imdbId'] != '':                                                # If the imdbId tag is NOT empty
-            log.info( 'IMDb ID found from TVDb search' )
-            return ep['imdbId'];                                                # Return it
+  try:                                                                          # Try to
+    res  = tvdb.series( series );                                               # Search for the series on the TVDb
+  except:                                                                       # On exception
+    pass;                                                                       # Do nothing
+  else:                                                                         # If try was success
+    for r in res:                                                               # Iterate over all search results
+      if str(year) in r['firstAired']:                                          # If the local year is in the firstAird tag
+        log.debug( 'Found series with same firstAird year' );
+        eps = TVDb.Series( r['id'] ).Episodes.all();                            # Get list of all episodes in series
+        for ep in eps:                                                          # Iterate over all episodes
+          if (ep['episodeName'].lower() in title.lower()) and ('imdbId' in ep): # If the episode name is in the local title and there is an imdbId in the ep
+            log.debug( 'Found episode with same name' );
+            if ep['imdbId'] != '':                                              # If the imdbId tag is NOT empty
+              log.info( 'IMDb ID found from TVDb search' )
+              return ep['imdbId'];                                              # Return it
 
   log.warning( 'TVDb search failed' );
   return None;

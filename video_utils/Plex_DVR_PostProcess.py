@@ -33,7 +33,7 @@ def Plex_DVR_PostProcess(in_file,
 
   logName   = plexFMT.pop('name');                                              # Get logger name
   noHandler = True;                                                             # Initialize noHandler to True
-  for handler in log.handers:                                                   # Iterate over all handlers
+  for handler in log.handlers:                                                  # Iterate over all handlers
     if handler.get_name() == logName:                                           # If handler name matches logName
       noHandler = False;                                                        # Set no handler false
       break;                                                                    # Break for loop
