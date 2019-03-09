@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+import argparse;
+import time;
+from video_utils.Plex_DVR_PostProcess import Plex_DVR_PostProcess;
+from video_utils.config import plex_dvr;
+
 if __name__ == "__main__":
-  import argparse;
-  from video_utils.Plex_DVR_PostProcess import Plex_DVR_PostProcess;
 
   parser = argparse.ArgumentParser(description="Plex DVR Post Processor");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
   parser.add_argument("in_file",               type   = str,          help = "Input file to process"); 
@@ -13,12 +16,22 @@ if __name__ == "__main__":
   parser.add_argument("--no-remove",           action = "store_true", help = "Set to remove input file after transcode");
   parser.add_argument("--no-srt",              action = "store_true", help = "Set to convert VobSub(s) to SRT");
   args = parser.parse_args();                                                   # Parse the arguments
-  status = Plex_DVR_PostProcess(args.in_file, 
-     logdir    = args.logdir, 
-     threads   = args.threads, 
-     cpulimit  = args.cpulimit,
-     language  = args.language,
-     verbose   = args.verbose,
-     no_remove = args.no_remove,
-     not_srt   = args.no_srt);
+
+  while os.path.isfile( plex_dvr['lock_file'] ): time.sleep(1.0);               # While the lock file exists, sleep for 1 second
+  open(plex_dvr['lock_file'], 'w').close();                                     # Create the new lock file so other processes have to wait
+  try:
+    status = Plex_DVR_PostProcess(args.in_file, 
+        logdir    = args.logdir, 
+        threads   = args.threads, 
+        cpulimit  = args.cpulimit,
+        language  = args.language,
+        verbose   = args.verbose,
+        no_remove = args.no_remove,
+        not_srt   = args.no_srt);
+  except:
+    status = 255
+
+  if os.path.isfile( plex_dvr['lock_file'] ): 
+    os.remove( plex_dvr['lock_file'] )
+
   exit( status );  

@@ -6,17 +6,12 @@ from video_utils.utils.file_rename import file_rename;
 from video_utils.comremove import comremove;
 from video_utils.videoconverter import videoconverter;
 from video_utils._logging import plexFMT;
-from video_utils.config import plex_dvr;
 
 log = logging.getLogger('video_utils');                                         # Get the video_utils logger
 for handler in log.handlers:                                                    # Iterate over all the handlers
   if handler.get_name() == 'main':                                              # If found the main handler
     handler.setLevel(logging.INFO);                                             # Set log level to info
     break;                                                                      # Break for loop to save some iterations
-
-def rmLock():
-  if os.path.isfile( plex_dvr['lock_file'] ): 
-    os.remove( plex_dvr['lock_file'] )
 
 def Plex_DVR_PostProcess(in_file, 
      logdir    = None, 
@@ -26,10 +21,6 @@ def Plex_DVR_PostProcess(in_file,
      verbose   = False,
      no_remove = False,
      not_srt   = False):
-
-  while os.path.isfile( plex_dvr['lock_file'] ): time.sleep(1.0);               # While the lock file exists, sleep for 1 second
-  open(plex_dvr['lock_file'], 'w').close();                                     # Create the new lock file so other processes have to wait
-  os.chmod( plex_dvr['lock_file'], plex_dvr['lock_perm'] );                     # Set permissions on file
 
   logName   = plexFMT.pop('name');                                              # Get logger name
   noHandler = True;                                                             # Initialize noHandler to True
@@ -62,14 +53,12 @@ def Plex_DVR_PostProcess(in_file,
   file = file_rename( in_file );                                                # Try to rename the input file using standard convention
   if not file:                                                                  # if the rename fails
     log.critical('Error renaming file');                                        # Log error
-    rmLock();                                                                   # Function to remove the lock file
     return 1;                                                                   # Return from function
   
   com_inst = comremove(threads=threads, cpulimit=cpulimit, verbose=verbose);    # Set up comremove instance
   status   = com_inst.process( file );                                          # Try to remove commercials from video
   if not status:                                                                # If comremove failed
     log.cirtical('Error cutting commercials');                                  # Log error
-    rmLock();                                                                   # Function to remove the lock file
     return 1;                                                                   # Exit script
   
   inst = videoconverter( 
@@ -83,5 +72,4 @@ def Plex_DVR_PostProcess(in_file,
     srt           = not not_srt);                                               # Set up video converter instance
   
   inst.transcode( file );                                                       # Run the transcode
-  rmLock();                                                                     # Function to remove the lock file
   return inst.transcode_status;                                                 # Return transcode status
