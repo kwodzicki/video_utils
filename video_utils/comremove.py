@@ -224,7 +224,8 @@ class comremove( subprocManager ):
         while line != '':                                                       # While the line from the txt file is NOT emtpy
           start, end = [float(i)/rate for i in line.rstrip().split()];          # Strip of return, split line on space, convert each value to float and divide by frame rate
           edl.write( '{:0.2f} {:0.2f} 0\n'.format( start, end ) );              # Write out information to edl file
-    return edl_file
+          line = txt.readline();                                                # Read next line
+    return edl_file;                                                            # Return edl_file path
   ########################################################
   def __size_fmt(self, num, suffix='B'):
     '''
