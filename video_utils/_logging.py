@@ -22,7 +22,7 @@ plexFMT    = {
   'backupCount' : 4,
   'level'       : logging.DEBUG,
   'formatter'   : logging.Formatter( 
-                '%(levelname)-.4s - %(funcName)-15.15s - %(message)s',
+                '%(levelname)-.4s - %(asctime)s - %(name)s.%(funcName)-15.15s - %(message)s',
                 '%Y-%m-%d %H:%M:%S'),
   'permissions' : stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | \
                   stat.S_IRGRP | stat.S_IWGRP  | \

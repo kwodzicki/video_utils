@@ -437,9 +437,9 @@ class videoconverter( mediainfo, subprocManager ):
       self.year        = None;
       self.new_out_dir = self.tv_dir;                                           # Reset output directory to original directory
       if file_split[-1][:2] == 'tt' or file_split[-1][:2] == '':                # If the first two characters of the last element of the split file name are 'tt' OR it is an empty string
-        self.file_name = '.'.join(file_split[:-1]);                             # Join file base name using periods EXCLUDING the IMDB id
+        self.file_name = file_split[:-1];                                       # Join file base name using periods EXCLUDING the IMDB id
       else:                                                                     # If the first two characters of the last element of the split file name are NOT 'tt'
-        self.file_name = '.'.join(file_split);                                  # Join file base name using periods
+        self.file_name = file_split;                                            # Join file base name using periods
       if se_test:
         try:                                                                    # Try to use the seriesName tag from the metaData
           st = self.metaData['seriesName'];                                     # Set Series directory name
@@ -453,33 +453,35 @@ class videoconverter( mediainfo, subprocManager ):
         sn = 'Season {:02d}'.format(self.metaData['season']);                   # Set up name for Season Directory
         self.new_out_dir = os.path.join(self.new_out_dir, sn);                  # Add the season directory to the output directory
         if re_test is False:                                                    # If the re_test is False
-          ss = 's{:02d}'.format(self.metaData['season']);                       # Set up season prefix
-          ee = 'e{:02d}'.format(self.metaData['episode']);                      # Set up episode prefix
-          self.file_name = ss + ee + ' - ' + self.file_name;                    # Modify the file_name
+          self.file_name[0] = 's{:02d}e{:02d} - {}'.format(
+            self.metaData['season'], self.metaData['episode'], self.file_name[0]
+          )
     else:                                                                       # Else the file is a movie
       self.is_episode  = False;                                                 # Set is_episode to False
       self.new_out_dir = self.mov_dir;                                          # Reset output directory to original directory
-      self.file_name   = '.'.join(file_split[:-2]);                             # Join file base name using periods EXCLUDING the year and IMDB id
+      self.file_name   = file_split[:-2];                                       # Join file base name using periods EXCLUDING the year and IMDB id
       self.year        = file_split[-2];                                        # Get movie year and IMDB id from the file name; the second last and last elements, respectively
-      if self.year != '': self.title += ' - ' + self.year;                      # Append movie year to title variable
+      if self.year != '': self.title = '{} - {}'.format(self.title, self.year); # Append movie year to title variable
 
     self.log.info('Getting video, audio, information...');                      # If verbose is set, print some output
 
-    self.video_info = self.get_video_info( x265 = self.x265 );      # Get and parse video information from the file
+    self.video_info = self.get_video_info( x265 = self.x265 );                  # Get and parse video information from the file
     if self.video_info is None: return;                    
-    self.audio_info = self.get_audio_info( self.language );         # Get and parse audio information from the file
+    self.audio_info = self.get_audio_info( self.language );                     # Get and parse audio information from the file
     if self.audio_info is None: return;               
 
     ### Set up output file path and log file path. NO FILE EXTENSIONS USED HERE!!!
     if self.is_episode:                                                         # If the file is an episode, set up file name with video info, and audio info
-        self.file_name += '.' + self.video_info['file_info'] + '.' + \
-                                            self.audio_info['file_info'];
+        self.file_name += [ self.video_info['file_info'], 
+                            self.audio_info['file_info'] ];
     else:                                                                       # Else, file is a movie, set up file name with year, video info, audio info, and IMDB ID
-        self.file_name += '.' + self.year + '.'  + \
-                                     self.video_info['file_info'] + '.' + \
-                                     self.audio_info['file_info'];
-    if self.IMDb_ID is not None: self.file_name += '.' + self.IMDb_ID;          # Append the IMDB ID to the file name if it is NOT None.
+        self.file_name += [ self.year,
+                            self.video_info['file_info'],
+                            self.audio_info['file_info'] ];
+    if self.IMDb_ID is not None: self.file_name += [self.IMDb_ID];              # Append the IMDB ID to the file name if it is NOT None.
 
+    self.file_name = '.'.join(self.file_name)
+    self.log.debug( 'File name: {}'.format( self.file_name) )
     # Generate file paths for the output file and the self.handbrake log files
     self.hb_log_file = os.path.join(self.log_dir, self.file_name);              # Set the self.handbrake log file path without extension
     if self.in_place: self.new_out_dir = self.out_dir;                          # If the in_place keyword was set, then overwrite the new_out_dir with the input files directory path
@@ -625,13 +627,14 @@ class videoconverter( mediainfo, subprocManager ):
                 DEFAULT is no title.
     '''
     if isinstance(self.out_file, list):                                         # If the out_file is a list instance
+      self.log.debug( 'Joining output file path' )
       if title is not None: self.out_file[1] = title;                           # If title is set, place in second element
-      self.new_out_dir = os.path.join(self.out_file[0], self.out_file[1]);      # Update the new_out_dir attribute
-      self.out_file = os.path.join(self.new_out_dir, self.out_file[2]);         # Join file_list input into full path
-#   self.out_file = file_list;                                                  # Update out_file attribute
+      self.out_file    = os.path.join( *self.out_file );
+      self.new_out_dir = os.path.dirname( self.out_file );
     self._create_dirs();                                                        # Create all output directories
 ##############################################################################
   def _create_dirs( self ):
+    self.log.debug( 'Creating output directories' )
     if not os.path.isdir( self.out_dir     ): os.makedirs( self.out_dir );      # Check if the output directory exists, if it does NOT, create the directory
     if not os.path.isdir( self.new_out_dir ): os.makedirs( self.new_out_dir );  # Check if the new output directory exists, if it does NOT, create the directory
     if not self.no_hb_log:                                                      # If HandBrake log files are NOT disabled
@@ -656,29 +659,3 @@ class videoconverter( mediainfo, subprocManager ):
       self.__fileHandler.setLevel(     fileFMT['level']     );                  # Set the logging level for the log file
       self.__fileHandler.setFormatter( fileFMT['formatter'] );                  # Set the log format for the log file
       self.log.addHandler(self.__fileHandler);                                  # Add the file log handler to the logger
-##############################################################################
-  # def set_cpulimit(self, value):
-  #   self._cpulimit = value if self.dependencies.cpulimit else None;
-  # def get_cpulimit(self):
-  #   return self._cpulimit;
-  ########
-  # def set_vobsub(self, value):
-  #   self._vobsub = value if self.dependencies.vobsub else False;
-  # def get_vobsub(self):
-  #   return self._vobsub;
-  ########
-  # def set_srt(self, value):
-  #   self._srt = value if self.dependencies.srt else False;
-  # def get_srt(self):
-  #   return self._srt;
-  # ########
-  # def set_mp4tags(self, value):
-  #   self._mp4tags = value if self.dependencies.MP4Tags else False;
-  # def get_mp4tags(self):
-  #   return self._mp4tags;
-  ########
-  # cpulimit = property(get_cpulimit, set_cpulimit);
-  # vobsub   = property(get_vobsub, set_vobsub);
-  # srt      = property(get_srt, set_srt);
-  # mp4tags  = property(get_mp4tags, set_mp4tags);
-  ########
