@@ -40,7 +40,7 @@ def Plex_DVR_PostProcess(in_file,
       rfh = RotatingFileHandler(logFile, **plexFMT);                            # Set up rotating file handler
       if logFMT is not None:
         rfh.setFormatter( logFMT  );                                            # Set formatter for the handler
-      if logLVL is not None:
+      if logLvl is not None:
         rfh.setLevel(     logLvl  );                                            # Set the logging level
       if logName is not None:
         rfh.set_name(     logName );                                            # Set the log name
