@@ -30,24 +30,28 @@ def Plex_DVR_PostProcess(in_file,
       break;                                                                    # Break for loop
 
   if noHandler:
-    logFile = plexFMT.pop('file');                                              # Pop off file for logging
-    logFMT  = plexFMT.pop('formatter');                                         # Pop off formatter
-    logLvl  = plexFMT.pop('level');                                             # Pop off the logging level
-    logPerm = plexFMT.pop('permissions');                                       # Pop off permissions for the logging file
+    logFile = plexFMT.pop('file',        None);                                 # Pop off file for logging
+    logFMT  = plexFMT.pop('formatter',   None);                                 # Pop off formatter
+    logLvl  = plexFMT.pop('level',       None);                                 # Pop off the logging level
+    logPerm = plexFMT.pop('permissions', None);                                 # Pop off permissions for the logging file
     if verbose: logLvl = logging.DEBUG;                                         # If verbose, then set file handler to DEBUG
     
-    rfh = RotatingFileHandler(logFile, **plexFMT);                              # Set up rotating file handler
-    rfh.setFormatter( logFMT  );                                                # Set formatter for the handler
-    rfh.setLevel(     logLvl  );                                                # Set the logging level
-    rfh.set_name(     logName );                                                # Set the log name
-    log.addHandler( rfh );                                                      # Add hander to the main logger
+    if logFile is not None:
+      rfh = RotatingFileHandler(logFile, **plexFMT);                            # Set up rotating file handler
+      if logFMT is not None:
+        rfh.setFormatter( logFMT  );                                            # Set formatter for the handler
+      if logLVL is not None:
+        rfh.setLevel(     logLvl  );                                            # Set the logging level
+      if logName is not None:
+        rfh.set_name(     logName );                                            # Set the log name
+      log.addHandler( rfh );                                                    # Add hander to the main logger
     
-    info = os.stat( logFile );                                                  # Get information about the log file
-    if (info.st_mode & logPerm) != logPerm:                                     # If the permissions of the file are not those requested
-      try:                                                                      # Try to 
-        os.chmod( logFile, logPerm );                                           # Set the permissions of the log file
-      except:
-        log.info('Failed to change log permissions; this may cause issues')
+      info = os.stat( logFile );                                                # Get information about the log file
+      if (info.st_mode & logPerm) != logPerm:                                   # If the permissions of the file are not those requested
+        try:                                                                    # Try to 
+          os.chmod( logFile, logPerm );                                         # Set the permissions of the log file
+        except:
+          log.info('Failed to change log permissions; this may cause issues')
   
   log.info('Input file: {}'.format( in_file ) );
   file = file_rename( in_file );                                                # Try to rename the input file using standard convention
