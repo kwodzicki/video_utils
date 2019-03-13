@@ -44,9 +44,10 @@ optional utilities are listed below.
 
 This package includes code to tag MP4 video files using data from various 
 websites. These include IMDb, The Movie Database (TMDb), and The TV Database 
-(TVDb). While the default site used to get metadata from movies and TV shows, it
-is always nice to have more options to ensure that the metadata is complete and
-accurate. However, to enable use of TMDb and TVDb, API keys are required. 
+(TVDb). While the default site used to get metadata from movies and TV shows is
+IMDb, it is always nice to have more options to ensure that the metadata is
+complete and accurate. However, to enable use of TMDb and TVDb, API keys are 
+required. 
 
 #### Obtaining API keys
 
@@ -63,16 +64,16 @@ After you have created an account, go to API Access and generate a new key.
 
 #### Installing API keys
 
-After you have generate your own API keys, there are two ways to install them.
+After you have generated your own API keys, there are two ways to install them.
 
 ##### Method 1 - api_keys.py file
 
 This method requires you to create a file named `api_keys.py` in the directory
 where the `video_utils` package installed. If this does not make sense, 
-Method 2 to may be the way to go.
+Method 2 may be the way to go.
 
 After this file is created, you can add your API keys to it. Note that if you
-only registered for one API key, you should only placed that one in the file.
+only registered for one API key, you should only place that one in the file.
 
     tvdb = 'YOUR_TVDb_KEY_HERE'
     tmdb = 'YOUR_TMDb_KEY_HERE'
@@ -82,16 +83,17 @@ to worry about this again!
 
 ##### Method 2 - Environment variables
 
-This method requires you to set environment variables that the video_utils
+This method requires you to set environment variables that the `video_utils`
 package can use to get the API keys. These variables must be set for the user
-that will be running the scripts. To do this, simply add the following lines to your .bashrc or .bash_profile:
+that will be running the scripts. To do this, simply add the following lines to
+your ~/.bashrc or ~/.bash_profile:
 
     export TVDB_API_KEY="YOUR_TVDb_KEY_HERE"
     export TMDB_API_KEY="YOUR_TMDb_KEY_HERE"
 
 If code will be run under a user without a home directory, or you just want
 to make sure that the envrionment variables are defined for all users, you can
-add the environment variable definition to the /etc/profile file the same
+add the environment variable definitions to the /etc/profile file the same
 way you did above. 
 
 To limit the definition of the variables to specifc users,
@@ -109,18 +111,20 @@ could add the following to /etc/profile:
 
 To enable automated commercial skipping, ensure that the [comskip][comskip]
 utility is installed and in your PATH environment variable. To tune how comskip
-detects commerical breaks in files, a .ini file is used. video_utils provides an
-easy way to set the .ini file through an environment variable as discussed below.
+detects commerical breaks in videos, a `.ini` file is used. `video_utils`
+provides an easy way to set the `.ini` file through an environment variable as
+discussed below.
+
 #### Comskip INI file
 
-To easily have comskip use a specific ini file, define a COMSKIP_INI environment
-variable for the user that will be running the scripts. To do this, simply add
-the following line to your .bashrc or .bash_profile:
+To easily have comskip use a specific `.ini` file, define a COMSKIP_INI
+environment variable for the user that will be running the scripts. To do this,
+simply add the following line to your ~/.bashrc or ~/.bash_profile:
 
 	export COMSKIP_INI=/path/to/comskip.ini
 
 If code will be run under a user without a home directory, such as on a
-raspberry pi where Plex typically runs under the plex user, one can add the
+Raspberry Pi where Plex typically runs under the plex user, one can add the
 environment variable definition to the /etc/profile file, which will define it
 for all user on the computer. You can also have it only defined for given users
 based on the uid. For example, if your plex user is uid 456, then you could add
@@ -139,35 +143,36 @@ components.
 
 #### Conversion of MakeMKV Output
 ###### MKV_Cron_Convert
-Automated converting can be done using the `MKV_Cron_Convert` utility. The utility
-is designed to look through one (or more) directory for `.mkv` files and 
+Automated converting can be done using the `MKV_Cron_Convert` utility. The
+utility is designed to look through one (or more) directory for `.mkv` files and 
 transcode them, one at a time, to a designated output directory until no more
 remain in the input directory. All options available in the `videoconverter`
 class can be set in the script. Set up a cron job to call this script and simply 
 place new files into the designated input folder(s) and let your computer take
-care of the rest. For more information use the `--help`
-flag when running the utility.
+care of the rest. For more information use the `--help` flag when running the
+utility.
 
 #### Commercial Removal
 ###### comremove
 Commercials can be removed using the `comremove` utility, which allows for input
-of a Mpeg Transport Stream file (.ts), with some extra options for .ini file
-specification and CPU limiting. For more information use the `--help`
-flag when running the utility.
+of a Mpeg Transport Stream file (.ts), with some extra options for `.ini` file
+specification and CPU limiting. For more information use the `--help` flag when
+running the utility.
 
 #### Tagging of MP4 files
 ###### mp4tagger
-The `mp4tagger` utility tags MP4 files with data from IMDb, TMDb, and TVDb (pending API keys installed)
-either using the IMDb id found in the file name if the file naming convention 
-is used, or using a user supplied IMDb id. For more information use the `--help`
-flag when running the utility.
+The `mp4tagger` utility tags MP4 files with data from IMDb, TMDb, and TVDb
+(pending API keys installed) either using the IMDb id found in the file name if
+the file naming convention is used, or using a user supplied IMDb id. For more
+information use the `--help` flag when running the utility.
 
 #### Post Processing of Plex DVR
 ###### Plex_DVR_PostProcess
 This utility is designed to be used as your Plex DVR post processing script, 
 namely for TV shows. This utility does a few things:
  
- * Attempts to get the the IMDb id of the episode based on the series name, year, and episode title.
+ * Attempts to get the the IMDb id of the episode based on the series name, 
+    year, and episode title.
  * Renames file to match input file naming convention
  * Attempts to remove commercials using `comskip` CLI if installed
  * Attempts to extract subtitles to SRT using `ccextractor` CLI if installed
@@ -190,7 +195,6 @@ of how to use the videoconverter class is below:
 
     # transcode the file
     converter.transcode( file )
-
 
 
 ## License
