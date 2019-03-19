@@ -84,7 +84,7 @@ class mediainfo( object ):
   ##############################################################################
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
-    self.log.info('Running mediainfo command...');                      # If verbose is set, print some output
+    self.log.info('Running mediainfo command...');                              # If verbose is set, print some output
     xmlstr = subproc.check_output( self.cmd  + [self.in_file] );                # Run the command
     root   = ET.fromstring( xmlstr );                                           # Parse xml tree
     data   = {}
@@ -154,25 +154,25 @@ class mediainfo( object ):
       Modified 14 Dec. 2018 by Kyle R. Wodzicki
         Cleans up some code and comments.
     '''
-    self.log.info('Parsing audio information...');                                     # If verbose is set, print some output
+    self.log.info('Parsing audio information...');                              # If verbose is set, print some output
     if self.__mediainfo is None:         
-      self.log.warning('No media information!');                                       # Print a message
+      self.log.warning('No media information!');                                # Print a message
       return None;         
     if 'Audio' not in self.__mediainfo:         
-      self.log.warning('No audio information!');                                       # Print a message
+      self.log.warning('No audio information!');                                # Print a message
       return None;        
-    if not isinstance( language, (list, tuple) ): language = (language,);         # If language input is a scalar, convert to tuple
+    if not isinstance( language, (list, tuple) ): language = (language,);       # If language input is a scalar, convert to tuple
   
-    info = {'a_track'   : [],
-            'a_codec'   : [],
-            'a_mixdown' : [],
-            'a_name'    : [],
-            'a_bitrate' : [],
-            'a_lang'    : [],
-            'file_info' : []};                                                    # Initialize a dictionary for storing audio information
-    track_id = '1';                                                               # Initialize a variable for counting the track number.
-    for lang in language:                                                         # Iterate over all languages
-      for track in self.__mediainfo['Audio']:                                            # Iterate over all audio information
+    info = {'--audio'    : [],
+            '--aencoder' : [],
+            '--mixdown'  : [],
+            '--aname'    : [],
+            '--ab'       : [],
+            'a_lang'     : [],
+            'file_info'  : []};                                                 # Initialize a dictionary for storing audio information
+    track_id = '1';                                                             # Initialize a variable for counting the track number.
+    for lang in language:                                                       # Iterate over all languages
+      for track in self.__mediainfo['Audio']:                                   # Iterate over all audio information
         lang3 = track['Language/String3'] if 'Language/String3' in track else '';
         if lang != lang3 and lang3 != '': continue;                             # If the track language does NOT match the current language AND it is not an empty string
         id    = track['ID']               if 'ID'               in track else '';
@@ -180,39 +180,47 @@ class mediainfo( object ):
         nCH   = track['Channel_s_']       if 'Channel_s_'       in track else '';
         lang1 = track['Language/String']  if 'Language/String'  in track else '';
         lang2 = track['Language/String2'] if 'Language/String2' in track else '';
-        title = track['Title']            if 'Title'            in track else '';
-        if type(nCH) is str: nCH = max( [int(j) for j in nCH.split('/')] );       # If nCH is of type string, split number of channels for the audio stream on forward slash, convert all to integer type, take maximum; some DTS streams have 6 or 7 channel layouts 
-        lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_';                      # Set default language to English
-        info['file_info'].append( lang2 + 'AAC' );                                # Append language and AAC to the file_info list in the dictionary; AAC is always the first audio track
-        info['a_lang'].append( lang2 );                                           # Append language for the AAC stream to the a_lang list
-        if nCH > 2:                                                               # If there are more than 2 audio channels
-          info['a_track'].extend(   [track_id,  track_id] );                      # Append the track number to the a_track list
-          info['a_mixdown'].extend( ['dpl2', 'na'] );                             # Append the audio mixdowns to Dolby Prologic II and a filler of 'na'
-          info['a_codec'].extend(   ['faac', 'copy'] );                           # Append audio codecs to faac and copy
-          info['a_bitrate'].extend( ['192',  'na'] );                             # Append audio codec bit rate. 'na' used for the copy codec
-          info['a_name'].extend(['"Dolby Pro Logic II"','"'+title+' - '+fmt+'"']);# Append  audio track names
-          info['a_lang'].append( lang2 );                                         # Append language for the copied stream to the a_lang list
-          info['file_info'].append( lang2 + fmt );                                # Append the language and format for the second strem, which is a copy of the orignal stream
-        else:                                                                     # Else, there are 2 or fewer channels
-          if fmt != 'AAC':                                                        # If the format of the audio is NOT AAC
-            info['a_track'].append( track_id );                                   # Append track_id to a_track data
-            info['a_codec'].append( 'faac' );                                     # Append faac to a_codec data
-            info['a_bitrate'].append( '192' );                                    # Append 192 to a_bitrate data
-          else:                                                                   # Else, the stream is only 2 channels and is already AAC
-            info['a_track'].append( track_id );                                   # Append track_id to a_track data
-            info['a_codec'].append( 'copy:aac' );                                 # Append copy:aac to a_codec data
-            info['a_bitrate'].append( '' );                                       # Append '' to a_bitrate data
-          if nCH == 2:                                                            # If there are only 2 audio channels
-            info['a_mixdown'].append( 'stereo' );                                 # Append stereo to a_mixdown
-            info['a_name'].append( '"Stereo"' );                                  # Append Stereo to a_name
-          else:                                                                   # Else, must be only a single channel
-            info['a_mixdown'].append( 'mono' );                                   # Append mono to a_mixdown
-            info['a_name'].append( '"Mono"' );                                    # Append Mono to a_name
+        title = track['Title']            if 'Title'            in track else 'Source Track: {}'.format(track_id);
+        if type(nCH) is str: nCH = max( [int(j) for j in nCH.split('/')] );     # If nCH is of type string, split number of channels for the audio stream on forward slash, convert all to integer type, take maximum; some DTS streams have 6 or 7 channel layouts 
+        lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_';                    # Set default language to English
+        info['file_info'].append( lang2 + 'AAC' );                              # Append language and AAC to the file_info list in the dictionary; AAC is always the first audio track
+        info['a_lang'].append( lang2 );                                         # Append language for the AAC stream to the a_lang list
+        if nCH > 2:                                                             # If there are more than 2 audio channels
+          # Downmixed channel information
+          info['--audio'].append(    track_id );                                # Append the track number to the --audio list
+          info['--mixdown'].append(  'dpl2' );                                  # Append the audio mixdowns to Dolby Prologic II and a filler of 'na'
+          info['--aencoder'].append( 'faac' );                                  # Append audio codecs to faac and copy
+          info['--ab'].append(       '192'  );                                  # Append audio codec bit rate. 'na' used for the copy codec
+          info['--aname'].append(    '"Dolby Pro Logic II"');                   # Append  audio track names
+          # Copied channel information
+          info['--audio'].append(    track_id );                                # Append the track number to the --audio list
+          info['--mixdown'].append(  'na' );                                    # Append the audio mixdowns to Dolby Prologic II and a filler of 'na'
+          info['--aencoder'].append( 'copy' );                                  # Append audio codecs to faac and copy
+          info['--ab'].append(       'na' );                                    # Append audio codec bit rate. 'na' used for the copy codec
+          info['--aname'].append(    '"{} - {}"'.format(title,fmt) );           # Append  audio track names
+          # Extra info
+          info['a_lang'].append( lang2 );                                       # Append language for the copied stream to the a_lang list
+          info['file_info'].append( lang2 + fmt );                              # Append the language and format for the second strem, which is a copy of the orignal stream
+        else:                                                                   # Else, there are 2 or fewer channels
+          if fmt != 'AAC':                                                      # If the format of the audio is NOT AAC
+            info['--audio'].append( track_id );                                 # Append track_id to --audio data
+            info['--aencoder'].append( 'faac' );                                # Append faac to --aencoder data
+            info['--ab'].append( '192' );                                       # Append 192 to --ab data
+          else:                                                                 # Else, the stream is only 2 channels and is already AAC
+            info['--audio'].append( track_id );                                 # Append track_id to --audio data
+            info['--aencoder'].append( 'copy:aac' );                            # Append copy:aac to --aencoder data
+            info['--ab'].append( '' );                                          # Append '' to --ab data
+          if nCH == 2:                                                          # If there are only 2 audio channels
+            info['--mixdown'].append( 'stereo' );                               # Append stereo to --mixdown
+            info['--aname'].append( '"Stereo"' );                               # Append Stereo to --aname
+          else:                                                                 # Else, must be only a single channel
+            info['--mixdown'].append( 'mono' );                                 # Append mono to --mixdown
+            info['--aname'].append( '"Mono"' );                                 # Append Mono to --aname
         
-        track_id = str( int(track_id) + 1 );                                      # Increment audio track
+        track_id = str( int(track_id) + 1 );                                    # Increment audio track
   
-    if len(info['a_track']) == 0:                                                 # If the a_track list is NOT empty
-      self.log.warning(  'NO audio stream(s) selected...');                            # If verbose is set, print some output
+    if len(info['--audio']) == 0:                                               # If the --audio list is NOT empty
+      self.log.warning(  'NO audio stream(s) selected...');                     # If verbose is set, print some output
       return None;
     else:
       # The following lines of code remove duplicate audio tracks based on the
@@ -224,20 +232,20 @@ class mediainfo( object ):
       # will remove the DTS downmix (if the Dolby stream is before it and vice
       # versa) so that there is one downmix and two copies of the different
       # streams.
-      i = 0;                                                                      # Set i counter to zero
-      while i < len(info['a_track']):                                             # While i is less than then number of entries in a_track
-        j = i+1;                                                                  # Set j to one more than i
-        while j < len(info['a_track']):                                           # Re loop over all entries in the dictionary lists
-          if info['a_name'][i] == info['a_name'][j] and \
+      i = 0;                                                                    # Set i counter to zero
+      while i < len(info['--audio']):                                           # While i is less than then number of entries in --audio
+        j = i+1;                                                                # Set j to one more than i
+        while j < len(info['--audio']):                                         # Re loop over all entries in the dictionary lists
+          if info['--aname'][i] == info['--aname'][j] and \
              info['a_lang'][i] == info['a_lang'][j]:  
-            for k in info: del info[k][j];                                        # If the name and language for elements i and j of the info dictionary match, remove the information at element j
+            for k in info: del info[k][j];                                      # If the name and language for elements i and j of the info dictionary match, remove the information at element j
           else:  
-            j += 1;                                                               # Else, the language and name do NOT match, so increment j
-        i += 1;                                                                   # Increment i
+            j += 1;                                                             # Else, the language and name do NOT match, so increment j
+        i += 1;                                                                 # Increment i
       for i in info:   
-        delim = '.' if i == 'file_info' else ',';                                 # If i is 'file_info', set the delimiter to period (.), else set it to comma (,)
-        info[i] = delim.join( info[i] );                                          # Join the information using the delimiter
-      return info;                                                                # If audio info was parsed, i.e., the 'a_track' tag is NOT empty, then set the audio_info to the info dictionary      
+        delim = '.' if i == 'file_info' else ',';                               # If i is 'file_info', set the delimiter to period (.), else set it to comma (,)
+        info[i] = delim.join( info[i] );                                        # Join the information using the delimiter
+      return info;                                                              # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
   ################################################################################
   def get_video_info( self, x265 = False ):
     '''
@@ -273,66 +281,63 @@ class mediainfo( object ):
       Modified 14 Dec. 2018 by Kyle R. Wodzicki
         Cleans up some code and comments.
     '''     
-    self.log.info('Parsing video information...');                                # If verbose is set, print some output
+    self.log.info('Parsing video information...');                              # If verbose is set, print some output
     if self.__mediainfo is None:       
-      self.log.warning('No media information!');                                  # Print a message
+      self.log.warning('No media information!');                                # Print a message
       return None;        
     if 'Video' not in self.__mediainfo:        
-      self.log.warning('No video information!');                                  # Print a message
+      self.log.warning('No video information!');                                # Print a message
       return None;              
     if len( self.__mediainfo['Video'] ) > 2:         
-      self.log.error('More than one (1) video stream...Stopping!');               # Print a message
-      return None;                                                                # If the video has multiple streams, return
-    info = {'resolution' : '', \
-            'quality'    : '', \
-            'v_codec'    : '', \
-            'v_level'    : '', \
-            'scan_type'  : 'P'};                                                  # Initialize a dictionary for storing audio information
-    video_tags = self.__mediainfo['Video'][0].keys();                             # Get all keys in the dictionary  
-    if self.__mediainfo['Video'][0]['Height'] <= 1080 and not x265:               # If the video is 1080 or smaller and x265 is NOT set
-      info['v_codec'],info['v_level'],info['v_profile'] = 'x264','4.0','high';    # If video is 1080 or less AND x265 is False, set codec to h264 level to 4.0
-    else:                                                                         # Else, the video is either large or x265 has be requested
-      info['v_codec'],info['v_level'],info['v_profile'] = 'x265','5.0','main';    # If video is greater than 1080, set codec to h265 and level to 5.0
-      if 'Bit_depth' in self.__mediainfo['Video'][0]:
-        if self.__mediainfo['Video'][0]['Bit_depth'] == 10:
-          info['v_profile'] = 'main10';
-        elif self.__mediainfo['Video'][0]['Bit_depth'] == 12:
-          info['v_profile'] = 'main12';
+      self.log.error('More than one (1) video stream...Stopping!');             # Print a message
+      return None;                                                              # If the video has multiple streams, return
+    resolution = None
+    info       = {};                                                            # Initialize a dictionary for storing video information
+    video_data = self.__mediainfo['Video'][0];                                  # Data for only video stream; done so var name is shorter
+    video_tags = video_data.keys();                                             # Get all keys in the dictionary  
+    if video_data['Height'] <= 1080 and not x265:                               # If the video is 1080 or smaller and x265 is NOT set
+      info['--encoder']      = 'x264';                                          # If video is 1080 or less AND x265 is False, set codec to h264 level to 4.0
+      info['--x264-preset']  = 'slow';                                          # Set the video codec preset
+      info['--h264-level']   = '4.0';                                           # Set the video codec level
+      info['--h264-profile'] = 'high';                                          # Set the video codec profile
+    else:                                                                       # Else, the video is either large or x265 has be requested
+      info['--encoder']      = 'x265';                                          # If video is greater than 1080, set codec to h265 and level to 5.0
+      info['--x265-preset']  = 'slow';                                          # Set the video codec preset
+      info['--h265-level']   = '5.0';                                           # Set the video codec level
+      info['--h265-profile'] = 'main';                                          # Set the video codec profile
+      if 'Bit_depth' in video_data:
+        if video_data['Bit_depth'] == 10:
+          info['--h265-profile'] = 'main10';
+        elif video_data['Bit_depth'] == 12:
+          info['--h265-profile'] = 'main12';
     # Set resolution and rate factor based on video height
-    if self.__mediainfo['Video'][0]['Height'] <= 480:
-      info['resolution'], info['quality'] =  '480', '22';
-    elif self.__mediainfo['Video'][0]['Height'] <= 720:
-      info['resolution'], info['quality'] =  '720', '23';
-    elif self.__mediainfo['Video'][0]['Height'] <= 1080:
-      info['resolution'], info['quality'] = '1080', '24';
-    elif self.__mediainfo['Video'][0]['Height'] <= 2160:
-      info['resolution'], info['quality'] = '2160', '26';
-    info['resolution']+='p';
+    if video_data['Height'] <= 480:
+      resolution, info['--quality'] =  480, '22';
+    elif video_data['Height'] <= 720:
+      resolution, info['--quality'] =  720, '23';
+    elif video_data['Height'] <= 1080:
+      resolution, info['--quality'] = 1080, '24';
+    elif video_data['Height'] <= 2160:
+      resolution, info['--quality'] = 2160, '26';
+    if resolution is None: return None;                                         # If resolution is NOT set, return None
+    
     if 'Scan_type' in video_tags and 'Frame_rate_mode' in video_tags:
-      if self.__mediainfo['Video'][0]['Scan_type'].upper() != 'PROGRESSIVE':
-        if self.__mediainfo['Video'][0]['Frame_rate_mode']  == 'CFR': 
-          info['scan_type'] = 'I';                                                # Set scan_type to I, or interlaced. A deinterlace setting will be set based on this
-    info['file_info'] = info['resolution'] + '.' + info['v_codec'];
-    if info['resolution'] == '':
-      return None;
-    elif info['v_codec'] == 'x264':                                               # If we are to encode using the h264 codec
-      info['v_codec_preset']  = '--x264-preset';                                  # Set the video codec preset
-      info['v_codec_level']   = '--h264-level';                                   # Set the video codec level
-      info['v_codec_profile'] = '--h264-profile';                                 # Set the video codec profile
-    elif info['v_codec'] == 'x265':                                               # If we are to encode using the h265 codec
-      info['v_codec_preset']  = '--x265-preset';                                  # Set the video codec preset
-      info['v_codec_level']   = '--h265-level';                                   # Set the video codec level
-      info['v_codec_profile'] = '--h265-profile';                                 # Set the video codec profile
+      if video_data['Scan_type'].upper() != 'PROGRESSIVE':
+        if video_data['Frame_rate_mode']  == 'CFR': 
+          info['--deinterlace=slower'] = '';                                    # Turn on deinterlace
+
+    info['file_info'] = '{}p.{}'.format( resolution, info['--encoder'] );
   
     if 'Display_aspect_ratio' in video_tags and \
        'Original_display_aspect_ratio' in video_tags:
-      if self.__mediainfo['Video'][0]['Display_aspect_ratio'] != \
-         self.__mediainfo['Video'][0]['Original_display_aspect_ratio']:
-        x,y    = self.__mediainfo['Video'][0]['Display_aspect_ratio/String'].split(':'); # Get the x and y values of the display aspect ratio
-        width  = self.__mediainfo['Video'][0]['Height'] * float(x)/float(y);             # Compute new pixel width based on video height times the display ratio
-        width -= (width % 16);                                                    # Ensure pixel width is multiple of 16
-        info['aspect'] = '{:.0f}:{:.0f}'.format(
-          width, self.__mediainfo['Video'][0]['Width']
+      if video_data['Display_aspect_ratio'] != \
+         video_data['Original_display_aspect_ratio']:
+        x,y    = video_data['Display_aspect_ratio/String'].split(':');          # Get the x and y values of the display aspect ratio
+        width  = video_data['Height'] * float(x)/float(y);                      # Compute new pixel width based on video height times the display ratio
+        width -= (width % 16);                                                  # Ensure pixel width is multiple of 16
+        info['--custom-anamorphic'] = '';                                       # Add flag to directly control aspect  
+        info['--pixel-aspect']      = '{:.0f}:{:.0f}'.format(
+          width, video_data['Width']
         )
     return info;
   ################################################################################
@@ -369,14 +374,14 @@ class mediainfo( object ):
       Modified 14 Dec. 2018 by Kyle R. Wodzicki
         Cleans up some code and comments.
     ''' 
-    self.log.info('Parsing text information...');                                 # If verbose is set, print some output
+    self.log.info('Parsing text information...');                               # If verbose is set, print some output
     if self.__mediainfo is None:       
-      self.log.warning('No media information!');                                  # Print a message
+      self.log.warning('No media information!');                                # Print a message
       return None;         
     if 'Text' not in self.__mediainfo:         
-      self.log.warning('No text information!');                                   # Print a message
+      self.log.warning('No text information!');                                 # Print a message
       return None;      
-    if not isinstance( language, (list, tuple) ): language = (language,);         # If language input is a scalar, convert to tuple
+    if not isinstance( language, (list, tuple) ): language = (language,);       # If language input is a scalar, convert to tuple
     
     if self.__mediainfo['General'][0]['Format'] == 'MPEG-TS':
       return self.__parse_mpegTS( language );

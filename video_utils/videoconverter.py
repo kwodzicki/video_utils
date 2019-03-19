@@ -177,10 +177,8 @@ class videoconverter( mediainfo, subprocManager ):
     self.HB_logTime       = None;
 
     self.v_preset         = 'slow';                                             # Set self.handbrake preset to slow
-    self.cpuID            = [];                                                 # Empty list for storing cpulimit PIDs in
     self.fmt              = 'utf-8';                                            # Set encoding format
     self.encode           = type( 'hello'.encode(self.fmt) ) is str;            # Determine if text should be encoded; python2 vs python3
-    self.timeout          = 12 * 60 * 60;                                       # Set timeout to 12 hours
 
     self.__fileHandler    = None;                                               # logging fileHandler 
 ################################################################################
@@ -297,7 +295,7 @@ class videoconverter( mediainfo, subprocManager ):
     ###    TRANSCODE     TRANSCODE     TRANSCODE     TRANSCODE               ###
     ############################################################################
     out_file = '{}.{}'.format( self.out_file, self.container );                 # Set the output file path
-    self.log.info( 'Output file: '.format( out_file ) );                        # Print the output file location
+    self.log.info( 'Output file: {}'.format( out_file ) );                      # Print the output file location
     if os.path.exists( out_file ):                                              # IF the output file already exists
       self.log.info('Output file Exists...Skipping!');                          # Print a message
       if self.remove: os.remove( self.in_file );                                # If remove is set, remove the source file
@@ -306,35 +304,31 @@ class videoconverter( mediainfo, subprocManager ):
     self.hb_err_file  = self.hb_log_file + '.err';                              # Set up path self.handbrake error file
     self.hb_log_file += '.log';                                                 # Set up path self.handbrake log file
   
-    self.hb_cmd = ['HandBrakeCLI', '--optimize', '--markers', '--vfr',
-               '--aencoder', self.audio_info['a_codec'],
-               '--mixdown',  self.audio_info['a_mixdown'],
-               '--ab',       self.audio_info['a_bitrate'],
-               '--audio',    self.audio_info['a_track'],
-               '--aname',    self.audio_info['a_name'],
-               '--format',   self.container, 
-               '--encoder',  self.video_info['v_codec'],
-               '--quality',  self.video_info['quality'],
-               self.video_info['v_codec_preset'],  self.v_preset,
-               self.video_info['v_codec_level'],   self.video_info['v_level'], 
-               self.video_info['v_codec_profile'], self.video_info['v_profile']];
-    if 'aspect' in self.video_info: 
-      self.hb_cmd += ['--custom-anamorphic'];
-      self.hb_cmd += ['--pixel-aspect', self.video_info['aspect']];
-  # encopts = encopts + ':level='+video_info['v_level'];
-  # encopts = encopts + ':profile='+video_info['v_profile'];
+    self.hb_cmd = ['HandBrakeCLI', '--optimize', '--markers', '--vfr' ];        # Base command for HandBrake
+    self.hb_cmd.extend( ['--format', self.container] );                         # Append container flag
+    if self.video_info['--encoder'] == 'x264':                                  # If using the h264 video encoder
+      encopts = 'threads={}';                                                   # Formatting for encoding points string if x264 encoder
+    else:                                                                       # Else, we are using h265 video encdoer
+      encopts = 'pools={}';                                                     # Formatting for encoding points string if x265 encoder
+    self.hb_cmd.extend( ['--encopts', encopts.format( self.threads )] );        # Append encoding options to the self.handbrake command
 
-    if self.video_info['v_codec'] == 'x264':
-      encopts = 'threads=';
-    else:
-      encopts = 'pools=';                                                       # Initialize encoding options string
-    encopts += str(self.threads);                                               # Append number of threads to use to encoding options
+    # Add audio options to command
+    for key, val in self.audio_info.items():                                    # Iterate over all key/value pairs in the audio_info dictionary
+      if key[:2] == '--':                                                       # If the key starts with --
+        self.hb_cmd.append( key );                                              # Append the key to the HandBrake command list
+        if val != '':                                                           # If value is NOT an empty string
+          self.hb_cmd.append( val );                                            # Append the value to the HandBrake commmand list
 
-    self.hb_cmd.extend( ['--encopts', encopts] );                               # Append encoding options to the self.handbrake command
-    if self.video_info['scan_type'] == 'I':                                     # If scan type of video is 'I', then video is interlaced
-      self.hb_cmd.append('--deinterlace=slower');                               # Turn on deinterlace
+    # Add vidoe options to command
+    for key, val in self.video_info.items():                                    # Iterate over all key/value pairs in the video_info dictionary
+      if key[:2] == '--':                                                       # If the key starts with --
+        self.hb_cmd.append( key );                                              # Append the key to the HandBrake command list
+        if val != '':                                                           # If value is NOT an empty string
+          self.hb_cmd.append( val );                                            # Append the value to the HandBrake commmand list
+
     self.hb_cmd.extend(['--input', self.in_file, '--output', out_file]);        # Append input and output file paths to the self.handbrake command
-
+    print(self.hb_cmd)
+    return
     self.log.info( 'Transcoding file...' )
 
     if self.no_hb_log:                                                          # If creation of HandBrake log files is disabled
