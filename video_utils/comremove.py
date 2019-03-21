@@ -120,13 +120,14 @@ class comremove( subprocManager ):
       comStart, comEnd = info.split()[:2];                                      # Get the start and ending times of the commercial
       comStart   = timedelta( seconds = float(comStart) );                      # Get start time of commercial as a time delta
       comEnd     = timedelta( seconds = float(comEnd) );                        # Get the end time of the commercial as a time delta
-      segDura    = comStart - segStart;                                         # Get segment duration as time between current commerical start and last commercial end
-      outFile  = 'tmp_{:03d}.{}'.format(fnum, self.fileExt);                    # Set output file name
-      outFile  = os.path.join(self.outDir, outFile);                            # Get file name for temporary file                           
-      tmpFiles.append( outFile );                                               # Append temporary output file path to tmpFiles list
-      cmd      = cmdBase + ['-ss', str(segStart), '-t', str(segDura)];          # Append start time and duration to cmdBase to start cuting command;
-      cmd     += ['-c', 'copy', '-map', '0', outFile];                          # Append more options to the command
-      self.addProc( cmd, single = True );                                       # Add the command to the subprocManager queue
+      if comStart.total_seconds() > 1.0:                                        # If the start of the commercial is NOT near the very beginning of the file
+        segDura  = comStart - segStart;                                         # Get segment duration as time between current commerical start and last commercial end
+        outFile  = 'tmp_{:03d}.{}'.format(fnum, self.fileExt);                  # Set output file name
+        outFile  = os.path.join(self.outDir, outFile);                          # Get file name for temporary file                           
+        cmd      = cmdBase + ['-ss', str(segStart), '-t', str(segDura)];        # Append start time and duration to cmdBase to start cuting command;
+        cmd     += ['-c', 'copy', outFile];                                     # Append more options to the command
+        tmpFiles.append( outFile );                                             # Append temporary output file path to tmpFiles list
+        self.addProc( cmd, single = True );                                     # Add the command to the subprocManager queue
       segStart = comEnd;                                                        # The start of the next segment of the show is the end time of the current commerical break 
       info     = fid.readline();                                                # Read next line from edl file
       fnum    += 1;                                                             # Increment the file number
