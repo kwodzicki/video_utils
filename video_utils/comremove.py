@@ -132,13 +132,18 @@ class comremove( subprocManager ):
       fnum    += 1;                                                             # Increment the file number
     fid.close();                                                                # Close the edl file
     self.run();                                                                 # Run all the subprocess
-    if sum( self.returncodes ) != 0:
+    if sum( self.returncodes ) != 0:                                            # If one or more of the process failed
       self.log.critical( 'There was an error cutting out commericals!' );
+      for tmp in tmpFiles:                                                      # Iterate over list of temporary files
+        if os.path.isfile( tmp ):                                               # If the file exists
+          try:                                                                  # Try to 
+            os.remove( tmp );                                                   # Delete the file
+          except:                                                               # On exception
+            self.log.warning( 'Error removing file: {}'.format(tmp) );          # Log a warning
       tmpFiles = None;                                                          # Set the tmpFiles variable to None
 
-    if tmpFiles:                                                                # Check the tmpFiles variable
-      self.log.debug('Removing the edl_file');                                  # Debugging information
-      os.remove( edl_file );                                                    # Delete the edl file
+    self.log.debug('Removing the edl_file');                                    # Debugging information
+    os.remove( edl_file );                                                      # Delete the edl file
     return tmpFiles;
   ########################################################
   def comjoin(self, tmpFiles):

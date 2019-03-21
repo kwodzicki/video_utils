@@ -2,7 +2,7 @@ import logging;
 from logging.handlers import RotatingFileHandler;
 import os, stat, time;
 
-from video_utils.utils.file_rename import file_rename;
+from video_utils.utils.plex_utils import plexDVR_Rename;
 from video_utils.comremove import comremove;
 from video_utils.videoconverter import videoconverter;
 from video_utils._logging import plexFMT;
@@ -20,8 +20,29 @@ def Plex_DVR_PostProcess(in_file,
      language  = None,
      verbose   = False,
      no_remove = False,
-     not_srt   = False):
-
+     no_srt    = False):
+  '''
+  Name:
+    Plex_DVR_PostProcess
+  Purpose:
+    A python function to post process Plex DVR files.
+    This function does a few things:
+      - Renames file to match convenction set by video_utils package
+      - Attempts to remove commercials using comskip
+      - Transcodes to h264
+  Inputs:
+    in_file  : Path to file to process
+  Outputs:
+    Returns status of transocde
+  Keywords:
+    logdir    : Directory for any extra log files
+    threads   : Number of threads to use for comskip and transcode
+    cpulimit  : Percentage to limit cpu usage to
+    language  : Language for audio/subtitles
+    verbose   : Increase verbosity
+    no_remove : If set, input file is NOT delete
+    no_srt    : If set, no SRT subtitle files created
+  '''
   noHandler = True;                                                             # Initialize noHandler to True
   for handler in log.handlers:                                                  # Iterate over all handlers
     if handler.get_name() == plexFMT['name']:                                   # If handler name matches plexFMT['name']
@@ -45,16 +66,16 @@ def Plex_DVR_PostProcess(in_file,
         log.info('Failed to change log permissions; this may cause issues')
   
   log.info('Input file: {}'.format( in_file ) );
-  file = file_rename( in_file );                                                # Try to rename the input file using standard convention
+  file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info
   if not file:                                                                  # if the rename fails
     log.critical('Error renaming file');                                        # Log error
-    return 1;                                                                   # Return from function
+    return 1, info;                                                             # Return from function
   
   com_inst = comremove(threads=threads, cpulimit=cpulimit, verbose=verbose);    # Set up comremove instance
   status   = com_inst.process( file );                                          # Try to remove commercials from video
   if not status:                                                                # If comremove failed
     log.cirtical('Error cutting commercials');                                  # Log error
-    return 1;                                                                   # Exit script
+    return 1, info;                                                             # Exit script
   
   inst = videoconverter( 
     log_dir       = logdir,
@@ -67,4 +88,4 @@ def Plex_DVR_PostProcess(in_file,
     srt           = not not_srt);                                               # Set up video converter instance
   
   inst.transcode( file );                                                       # Run the transcode
-  return inst.transcode_status;                                                 # Return transcode status
+  return inst.transcode_status, info;                                           # Return transcode status
