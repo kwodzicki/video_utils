@@ -95,53 +95,71 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
     log.critical( "Did NOT find the 'Plex Media Scanner' command! Exiting!")
     return 1
   
-  plexList = check_output( cmd+['--list'], universal_newlines=True, env=myenv );# Try to get help information from the scanner
-  if plexList == '':                                                            # If an empty string was returned
-    cmd      = ['stdbuf', '-oL', '-eL'] + cmd;                                  # Change the output and error buffering to line buffered or the cmd
-    try:
-      plexList = check_output( cmd+['--list'], universal_newlines=True, env=myenv );# Get the list again
-    except:
-      log.critical( 'Failed to get listing of sections! Exiting' )
-      return 1
-  
-  plexList = plexList.splitlines();
-  section  = None;
-  while (len(plexList) > 0) and (section is None):
-    tmp = plexList.pop();
-    if 'TV' in tmp:
-      section = tmp.split(':')[0].strip();
-  if section is None:
-    log.critical( "Failed to find 'TV' section! Exiting" )
+  cmd_list = cmd + ['--list']
+  try:
+    plexList = check_output( cmd_list, universal_newlines=True, env=myenv );    # Try to get help information from the scanner
+  except:
+    log.critical( 'Failed to get listing of sections! Exiting' )
     return 1
+  else:
+    if plexList == '':                                                          # If an empty string was returned
+      cmd      = ['stdbuf', '-oL', '-eL'] + cmd;                                # Change the output and error buffering to line buffered or the cmd
+      try:
+        plexList = check_output( cmd_list, universal_newlines=True, env=myenv );# Get the list again
+      except:
+        log.critical( 'Failed to get listing of sections! Exiting' )
+        return 1
+  
+  plexList = plexList.splitlines();                                             # Split the string of Plex sections on new line
+  section  = None;                                                              # Set section to None
+  while (len(plexList) > 0) and (section is None):                              # While there are values left in the plexList AND section is None
+    tmp = plexList.pop();                                                       # Pop off a string from the plexList
+    if 'TV' in tmp:                                                             # If TV is in the string
+      section = tmp.split(':')[0].strip();                                      # Get the section number for the Plex section
+  if section is None:                                                           # If section is still None
+    log.critical( "Failed to find 'TV' section! Exiting" )
+    return 1;                                                                   # Return 
 
   cmd      += [ '--scan', '--section', section ];                               # Append scan and section options to command
-  in_base  = os.path.basename( in_file );
 
-  scan_dir = None;
-  lib_dir  = in_file.split('.grab')[0];                                         # Top level directory of the Plex Library
-  show_dir = os.path.join( lib_dir, info[0] )
+  in_base    = os.path.basename( in_file );                                       # Base name of input file
+  lib_dir    = in_file.split('.grab')[0];                                         # Top level directory of the Plex Library
+  show_dir   = os.path.join( lib_dir, info[0] );                                  # Path to show directory based on information from file name
+  season_dir = None
+  orig_file  = None;
+  scan_dir   = None;                                                              # Scan directory of Plex Media Scanner initialized to None
 
   if os.path.isdir( show_dir ):                                                 # If the show directory exists
-    season = re.findall( r'(?:[sS](\d+)[eE]\d+)', info[1] );                    # Attempt to find season number from information
-    if len(season) == 1:
-      season     = int( season[0] )
-      season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );
-      if os.path.isdir( season_dir ):
-        src_file = os.path.join( season_dir, in_base );
-        if os.path.isfile( src_file ):                                          # If the file exists, then we are at the lowest level directory for scanning
+    scan_dir = show_dir;                                                        # Set the directory to scan to the show directory
+    season   = re.findall( r'(?:[sS](\d+)[eE]\d+)', info[1] );                  # Attempt to find season number from information
+    if len(season) == 1:                                                        # If a season number was extracted from information
+      season     = int( season[0] );                                            # Convert season number to integer
+      season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
+      if os.path.isdir( season_dir ):                                           # If the season directory exists
+        orig_file = os.path.join( season_dir, in_base );                        # Path to the 'original' recoding file
+        if os.path.isfile( orig_file ):                                         # If the file exists, then we are at the lowest level directory for scanning
           scan_dir = season_dir;                                                # Set the scan directory to the season directory
   
-  if scan_dir is not None:
+  if scan_dir is not None:                                                      # If scan_dir is NOT still None
     cmd += [ '--directory', scan_dir ];                                         # Append directory to scan to command
+
   log.debug( 'Plex Media Scanner command: {}'.format( ' '.join(cmd) ) )
 
   proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );
   proc.communicate();
 
   if not no_remove:                                                             # If no_remove is False, i.e., want to remove file
-    os.remove( in_file );
-    proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );
-    proc.communicate();
+    if orig_file is None:                                                       # If orig_file is not yet set
+      orig_file = findFile( lib_dir, in_base );                                 # Try to find the file
+
+    if orig_file is not None:                                                   # If the file was found
+      if os.path.isfile( orig_file ):                                           # Check that it exists; redundant, but good habit
+        log.debug('Removing original recoding' );                               # Debug info
+        os.remove( in_file );                                                   # Remove the file
+
+        log.debug( 'Rescanning library' );                                      # Debug info
+        proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );    # Rescan the library; note this is only done IF the file is removed
+        proc.communicate();
   return 0
 
 ################################################################################
@@ -226,3 +244,15 @@ def parse_cmd_lib_dirs( lines ):
   
   # If made here, means nothing found
   return None, None;                                                            # Return None for both
+
+################################################################################
+def findFile( rootDir, filename ):
+  log = logging.getLogger(__name__);
+  for root, dirs, files in os.walk( rootDir ):
+    for file in files:
+      if file == filename:
+        return os.path.join( root, file );
+  log.warning( 
+    'Failed to find file in: {} with name: {}'.format(rootDir, filename)
+  )
+  return None;
