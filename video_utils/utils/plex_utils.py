@@ -95,11 +95,11 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
     log.critical( "Did NOT find the 'Plex Media Scanner' command! Exiting!")
     return 1
   
-  plexList = check_output( cmd + ['--list'], universal_newlines = True );       # Try to get help information from the scanner
+  plexList = check_output( cmd+['--list'], universal_newlines=True, env=myenv );# Try to get help information from the scanner
   if plexList == '':                                                            # If an empty string was returned
     cmd      = ['stdbuf', '-oL', '-eL'] + cmd;                                  # Change the output and error buffering to line buffered or the cmd
     try:
-      plexList = check_output( cmd + ['--list'], universal_newlines = True );   # Get the list again
+      plexList = check_output( cmd+['--list'], universal_newlines=True, env=myenv );# Get the list again
     except:
       log.critical( 'Failed to get listing of sections! Exiting' )
       return 1
@@ -126,19 +126,21 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
     if len(season) == 1:
       season     = int( season[0] )
       season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );
-      if os.path.isdir( season_dir );
+      if os.path.isdir( season_dir ):
         src_file = os.path.join( season_dir, in_base );
         if os.path.isfile( src_file ):                                          # If the file exists, then we are at the lowest level directory for scanning
           scan_dir = season_dir;                                                # Set the scan directory to the season directory
+  
   if scan_dir is not None:
     cmd += [ '--directory', scan_dir ];                                         # Append directory to scan to command
   log.debug( 'Plex Media Scanner command: {}'.format( ' '.join(cmd) ) )
-  proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT );
+
+  proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );
   proc.communicate();
 
   if not no_remove:                                                             # If no_remove is False, i.e., want to remove file
     os.remove( in_file );
-    proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT );
+    proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );
     proc.communicate();
   return 0
 
