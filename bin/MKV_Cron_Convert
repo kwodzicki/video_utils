@@ -24,6 +24,8 @@ import time;
 from threading import Thread;
 from datetime import datetime;
 from subprocess import Popen, PIPE;
+
+from video_utils.version import __version__
 from video_utils.videoconverter import videoconverter;
 
 ##########################################
@@ -274,6 +276,8 @@ if __name__ == "__main__":
   parser.add_argument("-V", "--vobsub",        action = "store_true",   help = "Set to extract VobSub(s)");
   parser.add_argument("-s", "--srt",           action = "store_true",   help = "Set to convert VobSub(s) to SRT");
   parser.add_argument("-d", "--delete-vobsub", action = "store_true",   help = "Set to delete VobSub(s). Usually used with the --srt option.");
+  parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
+  
   args = parser.parse_args();                                                   # Parse the arguments
   inst = MKV_Cron_Convert( args.indir, 
     out_dir       = args.outdir,

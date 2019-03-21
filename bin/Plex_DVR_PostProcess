@@ -2,6 +2,7 @@
 import argparse;
 import os, time;
 
+from video_utils.version import __version__;
 from video_utils.config import plex_dvr;
 from video_utils.Plex_DVR_PostProcess import Plex_DVR_PostProcess;
 from video_utils.utils.plex_utils import plexDVR_Scan;
@@ -25,6 +26,7 @@ if __name__ == "__main__":
   parser.add_argument("-v", "--verbose",       action = "store_true", help = "Increase verbosity");
   parser.add_argument("--no-remove",           action = "store_true", help = "Set to remove input file after transcode");
   parser.add_argument("--no-srt",              action = "store_true", help = "Set to convert VobSub(s) to SRT");
+  parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
   args = parser.parse_args();                                                   # Parse the arguments
 
   while os.path.isfile( plex_dvr['lock_file'] ): time.sleep(1.0);               # While the lock file exists, sleep for 1 second

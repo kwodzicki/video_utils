@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 
+import argparse;                                                              # Import library for parsing
+from video_utils.version   import __version__;
 from video_utils.comremove import comremove;
 
-import argparse;                                                              # Import library for parsing
-parser = argparse.ArgumentParser(description="comskip");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
-parser.add_argument("infile",                type   = str,          help = "Input file to remove commercials from"); 
-parser.add_argument("--ini",                 type   = str,          help = "comskip ini file to use for commercial detection"); 
-parser.add_argument("-t", "--threads",       type   = int,          help = "Set number of threads to use. Default: all the threads");  
-parser.add_argument("-c", "--cpulimit",      type   = int,          help = "Set to limit CPU usage. Default: all the cpu");
-parser.add_argument("-v", "--verbose",       action = "store_true", help = "Increase verbosity (not implemented");
-args = parser.parse_args();                                                   # Parse the arguments
-inst = comremove(
-  ini       = args.ini,
-  threads   = args.threads,
-  cpulimit  = args.cpulimit,
-  verbose   = args.verbose)
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser(description="comskip");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+  parser.add_argument("infile",                type   = str,          help = "Input file to remove commercials from"); 
+  parser.add_argument("--ini",                 type   = str,          help = "comskip ini file to use for commercial detection"); 
+  parser.add_argument("-t", "--threads",       type   = int,          help = "Set number of threads to use. Default: all the threads");  
+  parser.add_argument("-c", "--cpulimit",      type   = int,          help = "Set to limit CPU usage. Default: all the cpu");
+  parser.add_argument("-v", "--verbose",       action = "store_true", help = "Increase verbosity (not implemented");
+  parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
 
-exit( inst.process( args.infile ) );  
+  args = parser.parse_args();                                                   # Parse the arguments
+  inst = comremove(
+    ini       = args.ini,
+    threads   = args.threads,
+    cpulimit  = args.cpulimit,
+    verbose   = args.verbose)
+
+  exit( inst.process( args.infile ) );  
