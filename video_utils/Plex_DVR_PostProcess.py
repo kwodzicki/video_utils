@@ -83,7 +83,7 @@ def Plex_DVR_PostProcess(in_file,
     cpulimit      = cpulimit,
     language      = language,
     remove        = True,
-    srt           = not not_srt);                                               # Set up video converter instance; we want to delete the hardlink
+    srt           = not no_srt);                                               # Set up video converter instance; we want to delete the hardlink
   
   inst.transcode( file );                                                       # Run the transcode
   return inst.transcode_status, info;                                           # Return transcode status

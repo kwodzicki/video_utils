@@ -327,8 +327,6 @@ class videoconverter( mediainfo, subprocManager ):
           self.hb_cmd.append( val );                                            # Append the value to the HandBrake commmand list
 
     self.hb_cmd.extend(['--input', self.in_file, '--output', out_file]);        # Append input and output file paths to the self.handbrake command
-    print(self.hb_cmd)
-    return
     self.log.info( 'Transcoding file...' )
 
     if self.no_hb_log:                                                          # If creation of HandBrake log files is disabled
