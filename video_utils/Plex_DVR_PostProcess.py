@@ -19,7 +19,6 @@ def Plex_DVR_PostProcess(in_file,
      cpulimit  = None,
      language  = None,
      verbose   = False,
-     no_remove = False,
      no_srt    = False):
   '''
   Name:
@@ -40,7 +39,6 @@ def Plex_DVR_PostProcess(in_file,
     cpulimit  : Percentage to limit cpu usage to
     language  : Language for audio/subtitles
     verbose   : Increase verbosity
-    no_remove : If set, input file is NOT delete
     no_srt    : If set, no SRT subtitle files created
   '''
   noHandler = True;                                                             # Initialize noHandler to True
@@ -66,7 +64,7 @@ def Plex_DVR_PostProcess(in_file,
         log.info('Failed to change log permissions; this may cause issues')
   
   log.info('Input file: {}'.format( in_file ) );
-  file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info
+  file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
   if not file:                                                                  # if the rename fails
     log.critical('Error renaming file');                                        # Log error
     return 1, info;                                                             # Return from function
@@ -84,8 +82,8 @@ def Plex_DVR_PostProcess(in_file,
     threads       = threads,
     cpulimit      = cpulimit,
     language      = language,
-    remove        = not no_remove,
-    srt           = not not_srt);                                               # Set up video converter instance
+    remove        = True,
+    srt           = not not_srt);                                               # Set up video converter instance; we want to delete the hardlink
   
   inst.transcode( file );                                                       # Run the transcode
   return inst.transcode_status, info;                                           # Return transcode status

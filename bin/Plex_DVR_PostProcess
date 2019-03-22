@@ -33,13 +33,12 @@ if __name__ == "__main__":
   open(plex_dvr['lock_file'], 'w').close();                                     # Create the new lock file so other processes have to wait
   try:
     status, info = Plex_DVR_PostProcess(args.in_file, 
-        logdir    = args.logdir, 
-        threads   = args.threads, 
-        cpulimit  = args.cpulimit,
-        language  = args.language,
-        verbose   = args.verbose,
-        no_remove = True,
-        no_srt    = args.no_srt);
+        logdir   = args.logdir, 
+        threads  = args.threads, 
+        cpulimit = args.cpulimit,
+        language = args.language,
+        verbose  = args.verbose,
+        no_srt   = args.no_srt);
   except:
     status = 255
 
