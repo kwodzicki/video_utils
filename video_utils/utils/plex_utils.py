@@ -135,7 +135,7 @@ def plexFile_Info( in_file ):
   Inputs:
     in_file : Full path to the file to rename
   Outputs:
-    Returns series name, season/episode or date, and episode title
+    Returns series name, season/episode or date, episode title, and file extension
   Keywords:
     None.
   '''
@@ -145,7 +145,7 @@ def plexFile_Info( in_file ):
   fileBase          = os.path.basename( in_file );                              # Get base name of input file
   fname, ext        = os.path.splitext( fileBase )
   series, se, title = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
-  return series, se, title
+  return series, se, title, ext
 
 ################################################################################
 def plexDVR_Rename( in_file, hardlink = True ):
@@ -163,17 +163,15 @@ def plexDVR_Rename( in_file, hardlink = True ):
     hardlink  : Boolean, if set to True, will rename input file, else
                creates hard link to file. Default is hard link
   '''
-  log               = logging.getLogger(__name__);
-  log.debug( 'Getting information from file name' );
-
-  fileDir           = os.path.dirname(  in_file );
-  series, se, title = plexFile_Info( in_file );
+  log                    = logging.getLogger(__name__);
+  fileDir                = os.path.dirname(  in_file );
+  series, se, title, ext = plexFile_Info( in_file );
 
   if len( se_pattern.findall(se) ) == 1:
     log.warning( 'Season/episode info NOT found; may be date? Things may break' );
 
   log.debug('Attempting to get IMDb ID')
-  imdbId            = getIMDb_ID( series, title, season_ep = se );              # Try to get IMDb id
+  imdbId = getIMDb_ID( series, title, season_ep = se );                         # Try to get IMDb id
 
   if not imdbId: 
     log.warning( 'No IMDb ID! Renaming file without it')

@@ -36,8 +36,6 @@ def getIMDb_ID( series_name, episode_title, season_ep = None ):
     Returns the IMDb ID if found, or None if not found.
   '''
   log = logging.getLogger(__name__);                                            # Initialize logger
-
-  log.debug('Extracting information from file name');
   
   year = yearPat.findall( series_name );                                        # Try to find a year in the series name
   if len(year) == 1:                                                            # If found a year
@@ -48,7 +46,7 @@ def getIMDb_ID( series_name, episode_title, season_ep = None ):
   series_name = series_name.strip();                                            # Remove leading/trailing spaces
   log.debug(
     'Series: {}, Year: {}, Ep #: {}, Title: {}'.format(
-      series_name, year, se, episode_title)
+      series_name, year, season_ep, episode_title)
   )
 
   ###############
