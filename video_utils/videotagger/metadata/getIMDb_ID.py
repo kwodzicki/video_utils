@@ -19,7 +19,7 @@ else:                                                                           
 imdbFMT = 'tt{}';                                                               # Format string for IMDb id
 yearPat = re.compile( r'\(([0-9]{4})\)' );                                      # Pattern for finding year in series name
 
-def getIMDb_ID( in_file ):
+def getIMDb_ID( series_name, episode_title, season_ep = None ):
   '''
   Name:
     getIMDb_ID
@@ -38,33 +38,27 @@ def getIMDb_ID( in_file ):
   log = logging.getLogger(__name__);                                            # Initialize logger
 
   log.debug('Extracting information from file name');
-  fileBase = os.path.basename( in_file );                                       # Get base name of input file
-  try:                                                                          # Try to
-    series, se, title = fileBase.split(' - ');                                  # Split the file name on ' - '; not header information of function
-  except:                                                                       # On exception
-    log.error('Error splitting input file name!');                              # Log an error
-    return None;                                                                # Return None
   
-  title, ext = os.path.splitext( title );                                       # Split title and file extension
-  year       = yearPat.findall( series );                                       # Try to find a year in the series name
+  year = yearPat.findall( series_name );                                        # Try to find a year in the series name
   if len(year) == 1:                                                            # If found a year
     year   = int(year[0]);                                                      # Get year from list
-    series = yearPat.sub('', series);                                           # Replace year in the series name with nothing
+    series_name = yearPat.sub('', series_name);                                 # Replace year in the series name with nothing
   else:                                                                         # Else
     year   = None;                                                              # Set year equal to None
-  series = series.strip();                                                      # Remove leading/trailing spaces
+  series_name = series_name.strip();                                            # Remove leading/trailing spaces
   log.debug(
-    'Series: {}, Year: {}, Ep #: {}, Title: {}'.format(series, year, se, title)
+    'Series: {}, Year: {}, Ep #: {}, Title: {}'.format(
+      series_name, year, se, episode_title)
   )
 
   ###############
   ### IMDb serach
   log.info( 'Attempting to get IMDb ID from IMDb' );               
   imdb = IMDb();                                                                # Initialize IMDb instance
-  res  = imdb.search_episode( title );                                          # Search for the episode title on IMDb
+  res  = imdb.search_episode( episode_title );                                  # Search for the episode title on IMDb
   log.debug( 'IMDb search returned {} matches'.format( len(res) ) );            # Debugging information
   for r in res:                                                                 # Iterate over all the results from IMDb
-    if r['episode of'].lower() in series.lower():                               # If the series name from IMDb is in the series name from the file
+    if r['episode of'].lower() in series_name.lower():                          # If the series name from IMDb is in the series name from the file
       log.debug('Found series with matching name');
       if 'series year' in r and year:                                           # If the 'series year' key is in the result AND the local year is defined
         log.debug('Series has year information');
@@ -82,7 +76,7 @@ def getIMDb_ID( in_file ):
 
   tvdb = TVDb.Search();                                                         # Initialize search for TVDb
   try:                                                                          # Try to
-    res  = tvdb.series( series );                                               # Search for the series on the TVDb
+    res  = tvdb.series_name( series_name );                                     # Search for the series on the TVDb
   except:                                                                       # On exception
     pass;                                                                       # Do nothing
   else:                                                                         # If try was success
@@ -93,9 +87,9 @@ def getIMDb_ID( in_file ):
         eps = TVDb.Series( r['id'] ).Episodes.all();                            # Get list of all episodes in series
         log.debug( 'TVDb returned {} episodes in the series'.format(len(eps)) );# Debugging information
         for ep in eps:                                                          # Iterate over all episodes
-          if (ep['episodeName'].lower() in title.lower()) and ('imdbId' in ep): # If the episode name is in the local title and there is an imdbId in the ep
+          if (ep['episodeName'].lower() in episode_title.lower()):              # If the episode name is in the local title and there is an imdbId in the ep
             log.debug( 'Found episode with same name' );
-            if ep['imdbId'] != '':                                              # If the imdbId tag is NOT empty
+            if ('imdbId' in ep) and (ep['imdbId'] != ''):                       # If imdbId key exists AND imdbId value is NOT empty
               log.info( 'IMDb ID found from TVDb search' )
               return ep['imdbId'];                                              # Return it
   log.warning( 'TVDb search failed' );

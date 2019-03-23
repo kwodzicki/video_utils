@@ -6,49 +6,11 @@ from video_utils.videotagger.metadata.getIMDb_ID import getIMDb_ID;
 plex_server  = 'Plex Media Server'
 plex_scanner = 'Plex Media Scanner'
 
-pgrep        = ['pgrep', '-fa', plex_server];
-LD_pat       = re.compile( r'(?:LD_LIBRARY_PATH=([\w\d\S]+))' );         # Pattern for finding LD_LIBRARY_PATH in command
-splt_pat     = re.compile( r'(?:([^"\s]\S*)|"(.+?)")' )
-
-################################################################################
-def plexDVR_Rename( in_file, hardlink = True ):
-  '''
-  Name:
-    plexDVR_Rename
-  Purpose:
-    A python function to rename Plex DVR files to match 
-    file nameing convetion for video_utils package
-  Inputs:
-    in_file : Full path to the file to rename
-  Outputs:
-    Returns path to renamed file and tuple with parsed file information
-  Keywords:
-    hardlink  : Boolean, if set to True, will rename input file, else
-               creates hard link to file. Default is hard link
-  '''
-  log               = logging.getLogger(__name__);
-  log.debug( 'Getting information from file name' );
-
-  fileDir           = os.path.dirname(  in_file );
-  fileBase          = os.path.basename( in_file );                              # Get base name of input file
-  series, se, title = fileBase.split(' - ');                                    # Split the file name on ' - '; not header information of function
-  title             = title.split('.');                                         # Split the title on period; this is to get file extension
-  ext               = title[-1];                                                # Get the file extension; last element of list
-  title             = '.'.join(title[:-1]);                                     # Join all but last element of title list using period; will rebuild title
-  log.debug('Attempting to get IMDb ID')
-  imdbId            = getIMDb_ID( in_file );                                    # Try to get IMDb id
-
-  if not imdbId: 
-    log.warning( 'No IMDb ID! Renaming file without it')
-    imdbId = '';                                                                # If no IMDb id found, set imdbId to emtpy string
-
-  new = '{} - {}.{}.{}'.format(se.lower(), title, imdbId, ext);                 # Build new file name
-  new = os.path.join( fileDir, new );                                           # Build new file path
-  if hardlink:
-    os.link( in_file, new );                                                    # Create hard link to file with new file name
-  else:
-    os.rename( in_file, new );                                                  # Rename the file
-  return new, (series, se, title);
+pgrep          = ['pgrep', '-fa', plex_server];
+LD_pattern     = re.compile( r'(?:LD_LIBRARY_PATH=([\w\d\S]+))' );         # Pattern for finding LD_LIBRARY_PATH in command
+splt_pattern   = re.compile( r'(?:([^"\s]\S*)|"(.+?)")' )
+se_pattern     = re.compile( r'([sS]\d{1,2}[eE]\d{1,2})' )
+season_pattern = re.compile( r'(?:[sS](\d+)[eE]\d+)' )
 
 ################################################################################
 def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
@@ -131,7 +93,7 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
 
   if os.path.isdir( show_dir ):                                                 # If the show directory exists
     scan_dir = show_dir;                                                        # Set the directory to scan to the show directory
-    season   = re.findall( r'(?:[sS](\d+)[eE]\d+)', info[1] );                  # Attempt to find season number from information
+    season   = season_pattern.findall( info[1] );                               # Attempt to find season number from information
     if len(season) == 1:                                                        # If a season number was extracted from information
       season     = int( season[0] );                                            # Convert season number to integer
       season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
@@ -161,6 +123,71 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
         proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );    # Rescan the library; note this is only done IF the file is removed
         proc.communicate();
   return 0
+
+################################################################################
+def plexFile_Info( in_file ):
+  '''
+  Name:
+    plexFile_Info
+  Purpose:
+    A python function to extract series, season/episode, and episode title
+    information from a file path
+  Inputs:
+    in_file : Full path to the file to rename
+  Outputs:
+    Returns series name, season/episode or date, and episode title
+  Keywords:
+    None.
+  '''
+  log               = logging.getLogger(__name__);
+  log.debug( 'Getting information from file name' );
+
+  fileBase          = os.path.basename( in_file );                              # Get base name of input file
+  fname, ext        = os.path.splitext( fileBase )
+  series, se, title = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
+  return series, se, title
+
+################################################################################
+def plexDVR_Rename( in_file, hardlink = True ):
+  '''
+  Name:
+    plexDVR_Rename
+  Purpose:
+    A python function to rename Plex DVR files to match 
+    file nameing convetion for video_utils package
+  Inputs:
+    in_file : Full path to the file to rename
+  Outputs:
+    Returns path to renamed file and tuple with parsed file information
+  Keywords:
+    hardlink  : Boolean, if set to True, will rename input file, else
+               creates hard link to file. Default is hard link
+  '''
+  log               = logging.getLogger(__name__);
+  log.debug( 'Getting information from file name' );
+
+  fileDir           = os.path.dirname(  in_file );
+  series, se, title = plexFile_Info( in_file );
+
+  if len( se_pattern.findall(se) ) == 1:
+    log.warning( 'Season/episode info NOT found; may be date? Things may break' );
+
+  log.debug('Attempting to get IMDb ID')
+  imdbId            = getIMDb_ID( series, title, season_ep = se );              # Try to get IMDb id
+
+  if not imdbId: 
+    log.warning( 'No IMDb ID! Renaming file without it')
+    imdbId = '';                                                                # If no IMDb id found, set imdbId to emtpy string
+
+  new = '{} - {}.{}.{}'.format(se.lower(), title, imdbId, ext);                 # Build new file name
+  new = os.path.join( fileDir, new );                                           # Build new file path
+  if hardlink:
+    log.debug( 'Creating hard link to input file' )
+    os.link( in_file, new );                                                    # Create hard link to file with new file name
+  else:
+    log.debug( 'Renaming input file' )
+    os.rename( in_file, new );                                                  # Rename the file
+  return new, (series, se, title);
 
 ################################################################################
 def getPlexScannerCMD( ):
@@ -207,7 +234,7 @@ def parseCommands( cmd_list ):
   '''
   cmds = [];                                                                    # Initialze list for all commands
   for cmd in cmd_list:                                                          # Iterate over all cmds in the command list
-    args = splt_pat.findall( cmd );                                             # Split arguments; should return list of tuples
+    args = splt_pattern.findall( cmd );                                         # Split arguments; should return list of tuples
     for i in range(len(args)):                                                  # Iterate over each argument
       index   = ( args[i].index('') + 1 ) % 2;                                  # Each arg is a 2-element tuple where one is empty string, so, locate empty string, add value of 1 to index do modulus to find index of non-empty string
       args[i] = args[i][index]                                                  # Set argument at i to non-empty string
@@ -232,7 +259,7 @@ def parse_cmd_lib_dirs( lines ):
     None.
   '''
   for line in lines:                                                            # Iterate over all the lines in the list
-    lib_path = LD_pat.findall( line );                                          # Attempt to find the LD_LIBRARY_PATH value in the string
+    lib_path = LD_pattern.findall( line );                                      # Attempt to find the LD_LIBRARY_PATH value in the string
     if len(lib_path) == 1:                                                      # If it is found
       return lib_path[0], lib_path[0];                                          # Return this value for both the command parent directory AND the LD_LIBRARY_PATH
   
