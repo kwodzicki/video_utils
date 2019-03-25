@@ -54,24 +54,29 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
 
   cmd, myenv = getPlexScannerCMD();                                             # Attempt to get Plex Media Scanner command
   if cmd is None:
-    log.critical( "Did NOT find the 'Plex Media Scanner' command! Exiting!")
+    log.critical( "Did NOT find the 'Plex Media Scanner' command! Returnning!")
     return 1
   
-  cmd_list = cmd + ['--list']
   try:
-    plexList = check_output( cmd_list, universal_newlines=True, env=myenv );    # Try to get help information from the scanner
+    plexList = check_output( cmd + ['--list'], 
+                      universal_newlines = True, env = myenv );                 # Try to get help information from the scanner
   except:
-    log.critical( 'Failed to get listing of sections! Exiting' )
+    log.critical( 'Failed to get listing of sections! Returnning' )
     return 1
   else:
     if plexList == '':                                                          # If an empty string was returned
-      cmd      = ['stdbuf', '-oL', '-eL'] + cmd;                                # Change the output and error buffering to line buffered or the cmd
+      cmd = ['stdbuf', '-oL', '-eL'] + cmd;                                     # Change the output and error buffering to line buffered or the cmd
       try:
-        plexList = check_output( cmd_list, universal_newlines=True, env=myenv );# Get the list again
+        plexList = check_output( cmd + ['--list'], 
+                          universal_newlines = True, env = myenv );             # Get the list again
       except:
-        log.critical( 'Failed to get listing of sections! Exiting' )
+        log.critical( 'Failed to get listing of sections! Returnning' )
         return 1
-  
+      else:
+        if plexList == '':                                                          # If an empty string was returned
+          log.critical( 'Failed to get listing of sections! Returnning')
+          return 1
+
   plexList = plexList.splitlines();                                             # Split the string of Plex sections on new line
   section  = None;                                                              # Set section to None
   while (len(plexList) > 0) and (section is None):                              # While there are values left in the plexList AND section is None
