@@ -57,6 +57,7 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
     log.critical( "Did NOT find the 'Plex Media Scanner' command! Returnning!")
     return 1
   
+  log.debug( 'Getting list of Plex Libraries' )
   try:
     plexList = check_output( cmd + ['--list'], 
                       universal_newlines = True, env = myenv );                 # Try to get help information from the scanner
@@ -77,6 +78,8 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
           log.critical( 'Failed to get listing of sections! Returnning')
           return 1
 
+  log.debug( "Attemting to find 'TV' section...")
+
   plexList = plexList.splitlines();                                             # Split the string of Plex sections on new line
   section  = None;                                                              # Set section to None
   while (len(plexList) > 0) and (section is None):                              # While there are values left in the plexList AND section is None
@@ -96,7 +99,11 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
   orig_file  = None;
   scan_dir   = None;                                                              # Scan directory of Plex Media Scanner initialized to None
 
-  if os.path.isdir( show_dir ):                                                 # If the show directory exists
+  log.debug( 'Library directory: {}'.format( lib_dir ) )
+  log.debug( 'Show    directory: {}'.format( show_dir ) )
+  if not os.path.isdir( show_dir ):                                             # If the show directory exists
+    log.info('No show directory, will scan entire library')
+  else:
     scan_dir = show_dir;                                                        # Set the directory to scan to the show directory
     season   = season_pattern.findall( info[1] );                               # Attempt to find season number from information
     if len(season) == 1:                                                        # If a season number was extracted from information
@@ -182,7 +189,7 @@ def plexDVR_Rename( in_file, hardlink = True ):
     log.warning( 'No IMDb ID! Renaming file without it')
     imdbId = '';                                                                # If no IMDb id found, set imdbId to emtpy string
 
-  new = '{} - {}.{}.{}'.format(se.lower(), title, imdbId, ext);                 # Build new file name
+  new = '{} - {}.{}{}'.format(se.lower(), title, imdbId, ext);                  # Build new file name
   new = os.path.join( fileDir, new );                                           # Build new file path
   if hardlink:
     log.debug( 'Creating hard link to input file' )
