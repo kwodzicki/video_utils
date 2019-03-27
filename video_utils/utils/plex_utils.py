@@ -49,7 +49,8 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
     after call to os.fork()
   '''
   log = logging.getLogger(__name__);
-  log.debug('Sleeping {} seconds'.format(wait) )
+  log.debug( 'Running as use: {}'.format( os.environ['USER'] ) )
+  log.debug( 'Sleeping {} seconds'.format( wait ) )
   time.sleep( wait );
 
   cmd, myenv = getPlexScannerCMD();                                             # Attempt to get Plex Media Scanner command
@@ -219,11 +220,15 @@ def getPlexScannerCMD( ):
     cmd_dir = [os.path.join( cmd_dir, plex_scanner )]
     if lib_dir is not None:
       log.debug( 'Setting LD_LIBRARY_PATH in environment' )
+      if lib_dir[-1] == os.path.sep: lib_dir = lib_dir[:-1]
       ld_path = myenv.pop( 'LD_LIBRARY_PATH', False)
       if ld_path:
         lib_dir = '{}:{}'.format( ld_path, lib_dir );
+      log.debug( 'New LD_LIBRARY_PATH: {}'.format( lib_dir) )
       myenv['LD_LIBRARY_PATH'] = lib_dir
-
+  
+  log.debug( 'Plex directory: {}'.format( cmd_dir ) )
+  log.debug( 'Environment: {}'.format( myenv ) )
   return cmd_dir, myenv 
 
 ################################################################################
@@ -276,8 +281,8 @@ def parse_cmd_lib_dirs( lines ):
   # If made here, means nothing found in above method
   cmds = parseCommands( lines );                                                # Parse out all argumens from the commands
   for cmd in cmds:                                                              # Iterate over all command argument lists in the cmds list
-    if plex in cmcd[-1]:                                                        # If the 'Plex Media Server' string is in the last argument of the command
-      return os.path.dirname( c[-1] ), None;                                    # Return the parent directory of the command AND None for LD_LIBRARY_PATH
+    if plex_server in cmd[-1]:                                                  # If the 'Plex Media Server' string is in the last argument of the command
+      return os.path.dirname( cmd[-1] ), None;                                  # Return the parent directory of the command AND None for LD_LIBRARY_PATH
   
   # If made here, means nothing found
   return None, None;                                                            # Return None for both
