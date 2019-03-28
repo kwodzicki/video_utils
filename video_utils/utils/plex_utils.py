@@ -205,6 +205,7 @@ def getPlexScannerCMD( ):
   log = logging.getLogger(__name__);
   log.debug( "Trying to locate '{}'".format( plex_scanner ) );
 
+  cmd = myenv = None;
   try:
     lines = check_output( pgrep, universal_newlines=True ).splitlines();
   except:
@@ -217,19 +218,21 @@ def getPlexScannerCMD( ):
   if cmd_dir is None:
     log.error( "'Plex Media Scanner' NOT found!!!" );
   else: 
-    cmd_dir = [os.path.join( cmd_dir, plex_scanner )]
+    cmd = [os.path.join( cmd_dir, plex_scanner )]
     if lib_dir is not None:
       log.debug( 'Setting LD_LIBRARY_PATH in environment' )
       if lib_dir[-1] == os.path.sep: lib_dir = lib_dir[:-1]
       ld_path = myenv.pop( 'LD_LIBRARY_PATH', False)
-      if ld_path:
-        lib_dir = '{}:{}'.format( ld_path, lib_dir );
-      log.debug( 'New LD_LIBRARY_PATH: {}'.format( lib_dir) )
-      myenv['LD_LIBRARY_PATH'] = lib_dir
+      if ld_path:                                                               # If LD_LIBRARY_PATH already in environment
+        if (lib_dir not in ld_path):                                            # If the library directory is NOT in the LD_LIBRARY_PATH variable
+          lib_dir = '{}:{}'.format( ld_path, lib_dir );                         # Update the lib_dir to be the old LD_LIBRARY_PATH with the new path appended
+        else:                                                                   # Else
+          lib_dir = ld_path;                                                    # Set lib_dir to the current LD_LIBRARY_PATH
+      myenv['LD_LIBRARY_PATH'] = lib_dir;                                       # Add/update environment variable
   
-  log.debug( 'Plex directory: {}'.format( cmd_dir ) )
+  log.debug( 'Plex command: {}'.format( cmd ) )
   log.debug( 'Environment: {}'.format( myenv ) )
-  return cmd_dir, myenv 
+  return cmd, myenv 
 
 ################################################################################
 def parseCommands( cmd_list ):

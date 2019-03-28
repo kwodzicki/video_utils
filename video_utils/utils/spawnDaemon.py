@@ -23,6 +23,19 @@ def spawnDaemon( func, *args, **kwargs ):
   else:                                                                         # Else
     if pid > 0:                                                                 # If process is the parent
       return True;                                                              # Return True from function
+
+  # decouple from parent environment
+  os.setsid();
+
+  try:                                                                          # Try to
+    pid = os.fork();                                                            # Fork the process
+  except OSError as e:                                                          # If error occured
+    log.error( 'Fork failed: {} ({})'.format(e.errno, e.strerror) )
+    return False;                                                               # Return False
+  else:                                                                         # Else
+    if pid > 0:                                                                 # If process is the parent
+      return True;                                                              # Return True from function
+
   log.debug( 'Running function' )
   func( *args, **kwargs );                                                      # If made it here, we are in the child so run the function
   exit(0);                                                                      # Exit the child with code zero
