@@ -19,6 +19,7 @@ def Plex_DVR_PostProcess(in_file,
      cpulimit  = None,
      language  = None,
      verbose   = False,
+     no_remove = False,
      no_srt    = False):
   '''
   Name:
@@ -39,6 +40,7 @@ def Plex_DVR_PostProcess(in_file,
     cpulimit  : Percentage to limit cpu usage to
     language  : Language for audio/subtitles
     verbose   : Increase verbosity
+    no_remove : If set, input file will NOT be deleted
     no_srt    : If set, no SRT subtitle files created
   '''
   noHandler = True;                                                             # Initialize noHandler to True
@@ -83,7 +85,17 @@ def Plex_DVR_PostProcess(in_file,
     cpulimit      = cpulimit,
     language      = language,
     remove        = True,
-    srt           = not no_srt);                                               # Set up video converter instance; we want to delete the hardlink
+    srt           = not no_srt);                                                # Set up video converter instance; we want to delete the hardlink
   
-  inst.transcode( file );                                                       # Run the transcode
+  out_file = inst.transcode( file );                                            # Run the transcode
+
+  if os.path.isfile( file ):                                                    # If the renamed; i.e., hardlink to original file, exists
+    os.remove( file );                                                          # Delete it
+
+  if (out_file is not False) and (not no_remove):                               # If a file name was returned AND no_remove is False
+    if os.path.isfile( in_file ) or os.path.islink( in_file ):                  # If the input file exists OR is an symlink
+      os.remove( in_file );                                                     # Remove the input file
+    relpath = os.path.relpath( out_file, start = os.path.dirname( in_file ) );  # Get relative path to output file using directory of the input file as the start path
+    os.symlink( relpath, in_file );                                             # Create a symbolic link from the relative output file path to the input file path; relative link wont break after move
+
   return inst.transcode_status, info;                                           # Return transcode status

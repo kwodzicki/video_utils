@@ -277,12 +277,12 @@ class videoconverter( mediainfo, subprocManager ):
        Modified 14 Jan. 2017 by Kyle R. Wodzicki
           Updated header information for better clarity.
     '''
-    if not self.file_info( in_file ): return;                                   # If there was an issue with the file_info function, just return
+    if not self.file_info( in_file ): return False;                             # If there was an issue with the file_info function, just return
     self._init_logger( log_file );                                              # Run method to initialize logging to file
     if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
       self.log.critical('No video or no audio, transcode cancelled!');          # Print log message
       self.transcode_status = 10;                                               # Set transcode status
-      return;                                                                   # Return
+      return False;                                                             # Return
     try:
       start_time = datetime.now();                                              # Set start date
     except:
@@ -299,7 +299,7 @@ class videoconverter( mediainfo, subprocManager ):
     if os.path.exists( out_file ):                                              # IF the output file already exists
       self.log.info('Output file Exists...Skipping!');                          # Print a message
       if self.remove: os.remove( self.in_file );                                # If remove is set, remove the source file
-      return;                                                                   # Return to halt the function
+      return False;                                                             # Return to halt the function
 
     self.hb_err_file  = self.hb_log_file + '.err';                              # Set up path self.handbrake error file
     self.hb_log_file += '.log';                                                 # Set up path self.handbrake log file
@@ -368,7 +368,7 @@ class videoconverter( mediainfo, subprocManager ):
     if start_time is not None:                                                  # If the start_time is NOT none, then print the computation time
       self.log.info('Duration: {}'.format(datetime.now()-start_time)+'');       # Print compute time
     self.handbrake = None;
-    return True;                                                                # Return True from function, i.e., transcode was success
+    return out_file;                                                            # Return output file from function, i.e., transcode was success
   ##############################################################################
   def file_info( self, in_file ):
     '''

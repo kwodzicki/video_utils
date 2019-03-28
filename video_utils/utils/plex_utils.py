@@ -13,6 +13,74 @@ se_pattern     = re.compile( r'([sS]\d{1,2}[eE]\d{1,2})' )
 season_pattern = re.compile( r'(?:[sS](\d+)[eE]\d+)' )
 
 ################################################################################
+def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
+  '''
+  Name:
+    plexDVR_Cleanup
+  Purpose:
+    A python function that will try to find the new locaiton of the 
+    in_file in the Plex library and remove it in a smart mannor. If 
+    the smart way does NOT work, a brute force search will be
+    performed.
+  Inputs:
+    in_file   : Full path to the file to rename
+    file_info : Information parsed from file name; 
+                 likely from the plexDVR_Rename function
+  Outputs:
+    None
+  Keywords:
+    wait       : Time to wait, in seconds, for the function
+                  to start scanning. Default is 60 seconds
+  Note:
+    This function is intened to be run as a child process, i.e., 
+    after call to os.fork()
+  '''
+  log = logging.getLogger(__name__);
+  log.debug( 'Running as user: {}'.format( os.environ['USER'] ) )
+  log.debug( 'Sleeping {} seconds'.format( wait ) )
+  time.sleep( wait );
+
+  in_base    = os.path.basename( in_file );                                       # Base name of input file
+  lib_dir    = in_file.split('.grab')[0];                                         # Top level directory of the Plex Library
+  show_dir   = os.path.join( lib_dir, info[0] );                                  # Path to show directory based on information from file name
+  scan_dir   = None;
+  moved_file = None;
+
+  log.debug( 'Library directory: {}'.format( lib_dir ) )
+  log.debug( 'Show    directory: {}'.format( show_dir ) )
+
+  if os.path.isdir( show_dir ):                                                 # If the show directory exists
+    scan_dir = show_dir                                                         # Set scan directory to show directory; should cut down find time
+    season   = season_pattern.findall( info[1] );                               # Attempt to find season number from information
+    if len(season) == 1:                                                        # If season number was extracted from information
+      season     = int( season[0] );                                            # Convert season number to integer
+      season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
+      if os.path.isdir( season_dir ):                                           # If the season directory does NOT exist
+        scan_dir = season_dir                                                   # Set scan directory to season directory; should cut down on find time
+        tmp_path = os.path.join( season_dir, in_base );                         # Path to the 'original' recoding file
+        if os.path.isfile( tmp_path ):                                          # If the file does exist
+          moved_file = tmp_path;                                                # Set moved_file to tmp_path 
+  
+  if (moved_file is None) and (scan_dir is not None):                           # If the moved_file varaible is None and scan_dir is NOT None
+    log.info( 'Looking for file in: {}'.format(scan_dir) );                     # Log some info
+    moved_file = findFile( scan_dir, in_base );                                 # Try brute force scan on scan_dir
+
+  if moved_file is None:                                                        # If moved_file is still None
+    log.info( 
+      'Moved file NOT found using smart method, searching library: {}'.format(
+        lib_dir
+      ) 
+    );                                                                          # Log some info
+    moved_file = findFile( lib_dir, in_base );                                  # Try brute force scan on entire library
+
+  if moved_file is None:                                                        # If moved_file IS STILL NONE
+    log.error( 'Failed to find new location of input file!' );                  # Log error
+    return False;                                                               # Return False
+
+  log.info( 'Removing file: {}'.format( moved_file ) )
+  os.remove( moved_file );                                                      # If made here, we found the file so remove it
+  return True;                                                                  #
+################################################################################
 def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
   '''
   Name:
@@ -49,7 +117,7 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
     after call to os.fork()
   '''
   log = logging.getLogger(__name__);
-  log.debug( 'Running as use: {}'.format( os.environ['USER'] ) )
+  log.debug( 'Running as user: {}'.format( os.environ['USER'] ) )
   log.debug( 'Sleeping {} seconds'.format( wait ) )
   time.sleep( wait );
 
@@ -174,7 +242,7 @@ def plexDVR_Rename( in_file, hardlink = True ):
     Returns path to renamed file and tuple with parsed file information
   Keywords:
     hardlink  : Boolean, if set to True, will rename input file, else
-               creates hard link to file. Default is hard link
+               creates hard link to file. Default is to hard link
   '''
   log                    = logging.getLogger(__name__);
   fileDir                = os.path.dirname(  in_file );
