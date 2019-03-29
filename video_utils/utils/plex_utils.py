@@ -37,12 +37,13 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
   '''
   log = logging.getLogger(__name__);
   log.debug( 'Running as user: {}'.format( os.environ['USER'] ) )
+  log.debug( 'Input file: {}'.format( in_file ) )
   log.debug( 'Sleeping {} seconds'.format( wait ) )
   time.sleep( wait );
 
-  in_base    = os.path.basename( in_file );                                       # Base name of input file
-  lib_dir    = in_file.split('.grab')[0];                                         # Top level directory of the Plex Library
-  show_dir   = os.path.join( lib_dir, info[0] );                                  # Path to show directory based on information from file name
+  in_base    = os.path.basename( in_file );                                     # Base name of input file
+  lib_dir    = in_file.split('.grab')[0];                                       # Top level directory of the Plex Library
+  show_dir   = os.path.join( lib_dir, file_info[0] );                           # Path to show directory based on information from file name
   scan_dir   = None;
   moved_file = None;
 
@@ -51,7 +52,7 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
 
   if os.path.isdir( show_dir ):                                                 # If the show directory exists
     scan_dir = show_dir                                                         # Set scan directory to show directory; should cut down find time
-    season   = season_pattern.findall( info[1] );                               # Attempt to find season number from information
+    season   = season_pattern.findall( file_info[1] );                          # Attempt to find season number from information
     if len(season) == 1:                                                        # If season number was extracted from information
       season     = int( season[0] );                                            # Convert season number to integer
       season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
@@ -59,6 +60,7 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
         scan_dir = season_dir                                                   # Set scan directory to season directory; should cut down on find time
         tmp_path = os.path.join( season_dir, in_base );                         # Path to the 'original' recoding file
         if os.path.isfile( tmp_path ):                                          # If the file does exist
+          log.debug( 'Found moved file: {}'.format( tmp_path ) );
           moved_file = tmp_path;                                                # Set moved_file to tmp_path 
   
   if (moved_file is None) and (scan_dir is not None):                           # If the moved_file varaible is None and scan_dir is NOT None
@@ -79,6 +81,8 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
 
   log.info( 'Removing file: {}'.format( moved_file ) )
   os.remove( moved_file );                                                      # If made here, we found the file so remove it
+
+  log.debug('Finished')
   return True;                                                                  #
 ################################################################################
 def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
@@ -163,7 +167,7 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
 
   in_base    = os.path.basename( in_file );                                       # Base name of input file
   lib_dir    = in_file.split('.grab')[0];                                         # Top level directory of the Plex Library
-  show_dir   = os.path.join( lib_dir, info[0] );                                  # Path to show directory based on information from file name
+  show_dir   = os.path.join( lib_dir, file_info[0] );                                  # Path to show directory based on information from file name
   season_dir = None
   orig_file  = None;
   scan_dir   = None;                                                              # Scan directory of Plex Media Scanner initialized to None
@@ -174,7 +178,7 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
     log.info('No show directory, will scan entire library')
   else:
     scan_dir = show_dir;                                                        # Set the directory to scan to the show directory
-    season   = season_pattern.findall( info[1] );                               # Attempt to find season number from information
+    season   = season_pattern.findall( file_info[1] );                               # Attempt to find season number from information
     if len(season) == 1:                                                        # If a season number was extracted from information
       season     = int( season[0] );                                            # Convert season number to integer
       season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
@@ -248,7 +252,7 @@ def plexDVR_Rename( in_file, hardlink = True ):
   fileDir                = os.path.dirname(  in_file );
   series, se, title, ext = plexFile_Info( in_file );
 
-  if len( se_pattern.findall(se) ) == 1:
+  if len( se_pattern.findall(se) ) != 1:
     log.warning( 'Season/episode info NOT found; may be date? Things may break' );
 
   log.debug('Attempting to get IMDb ID')

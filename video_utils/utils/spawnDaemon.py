@@ -19,10 +19,10 @@ def spawnDaemon( func, *args, **kwargs ):
     pid = os.fork();                                                            # Fork the process
   except OSError as e:                                                          # If error occured
     log.error( 'Fork failed: {} ({})'.format(e.errno, e.strerror) )
-    return False;                                                               # Return False
+    exit(1);                                                                    # Exit with code one (1)
   else:                                                                         # Else
     if pid > 0:                                                                 # If process is the parent
-      return True;                                                              # Return True from function
+      exit(0);                                                                  # Exit with code zero (0)
 
   # decouple from parent environment
   os.setsid();
@@ -31,10 +31,10 @@ def spawnDaemon( func, *args, **kwargs ):
     pid = os.fork();                                                            # Fork the process
   except OSError as e:                                                          # If error occured
     log.error( 'Fork failed: {} ({})'.format(e.errno, e.strerror) )
-    return False;                                                               # Return False
+    exit(1);                                                                    # Exit with code one (1)
   else:                                                                         # Else
     if pid > 0:                                                                 # If process is the parent
-      return True;                                                              # Return True from function
+      exit(0);                                                                  # Exit with code zero (0)
 
   log.debug( 'Running function' )
   func( *args, **kwargs );                                                      # If made it here, we are in the child so run the function
