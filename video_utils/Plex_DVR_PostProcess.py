@@ -95,7 +95,7 @@ def Plex_DVR_PostProcess(in_file,
   if (out_file is not False) and (not no_remove):                               # If a file name was returned AND no_remove is False
     if os.path.isfile( in_file ) or os.path.islink( in_file ):                  # If the input file exists OR is an symlink
       os.remove( in_file );                                                     # Remove the input file
-    relpath = os.path.relpath( out_file, start = os.path.dirname( in_file ) );  # Get relative path to output file using directory of the input file as the start path
-    os.symlink( relpath, in_file );                                             # Create a symbolic link from the relative output file path to the input file path; relative link wont break after move
-
+    # relpath = os.path.relpath( out_file, start = os.path.dirname( in_file ) );  # Get relative path to output file using directory of the input file as the start path
+    # os.symlink( relpath, in_file );                                             # Create a symbolic link from the relative output file path to the input file path; relative link wont break after move
+    os.link( out_file, in_file );                                               # Create hard link to the transcoded file using input file name
   return inst.transcode_status, info;                                           # Return transcode status
