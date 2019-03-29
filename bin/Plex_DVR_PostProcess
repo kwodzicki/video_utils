@@ -5,7 +5,8 @@ import os, time;
 from video_utils.version import __version__;
 from video_utils.config import plex_dvr;
 from video_utils.Plex_DVR_PostProcess import Plex_DVR_PostProcess;
-from video_utils.utils.plex_utils import plexDVR_Cleanup;
+# from video_utils.utils.plex_utils import plexDVR_Cleanup;
+from video_utils.utils.plex_utils import plexDVR_Scan;
 from video_utils.utils.spawnDaemon import spawnDaemon;
 
 '''
@@ -47,5 +48,6 @@ if __name__ == "__main__":
     os.remove( plex_dvr['lock_file'] )
 
   if (status == 0) and (not args.no_remove):                                    # If the status is zero (0) AND no_remove flag NOT set
-    spawnDaemon( plexDVR_Cleanup, args.in_file, info );                         # Clean up the files
+    # spawnDaemon( plexDVR_Cleanup, args.in_file, info );                         # Clean up the files
+    spawnDaemon( plexDVR_Scan, args.in_file, info );                            # Scan for another files and what not
   exit( status );  
