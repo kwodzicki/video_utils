@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import logging;
 import argparse;
 import os, time;
 
@@ -18,6 +19,7 @@ get mad.
 '''
 
 if __name__ == "__main__":
+  log    = logging.getLogger('video_utils');
   parser = argparse.ArgumentParser(description="Plex DVR Post Processor");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
   parser.add_argument("in_file",               type   = str,          help = "Input file to process"); 
   parser.add_argument("-l", "--logdir",        type   = str,          help = "Log file directory. Default: Same as input file"); 
@@ -42,6 +44,7 @@ if __name__ == "__main__":
         no_remove = args.no_remove,
         no_srt    = args.no_srt);
   except:
+    log.exception('Something went wrong!')
     status = 255
 
   if os.path.isfile( plex_dvr['lock_file'] ): 
