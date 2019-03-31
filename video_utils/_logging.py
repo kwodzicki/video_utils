@@ -1,5 +1,5 @@
 import logging;
-import stat;
+import stat, os;
 '''Settings for screen logger and file logger'''
 screenFMT  = { 
   'name'      : 'main',
@@ -16,9 +16,10 @@ fileFMT    = {
 }
 
 plexFMT    = {
-  'file'        : '/tmp/Plex_DVR_PostProcess.log',
+  'file'        : os.path.join( os.path.expanduser('~'), 
+                               'Library', 'Logs', 'Plex_DVR_PostProcess.log'),
   'name'        : 'plex_dvr',
-  'maxBytes'    : 10 * 1024**2,
+  'maxBytes'    : 5 * 1024**2,
   'backupCount' : 4,
   'level'       : logging.DEBUG,
   'formatter'   : logging.Formatter( 

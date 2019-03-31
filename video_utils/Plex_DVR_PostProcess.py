@@ -49,7 +49,10 @@ def Plex_DVR_PostProcess(in_file,
       noHandler = False;                                                        # Set no handler false
       break;                                                                    # Break for loop
 
-  if noHandler:    
+  if noHandler:
+    logDir = os.path.dirname( plexFMT['file'] );
+    if not os.path.isdir( logDir ):
+      os.makedirs( logDir )
     rfh = RotatingFileHandler(plexFMT['file'], 
             backupCount = plexFMT['backupCount'],
             maxBytes    = plexFMT['maxBytes']);                                 # Set up rotating file handler
