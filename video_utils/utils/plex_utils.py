@@ -124,8 +124,15 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
   log.debug( 'Running as user: {}'.format( os.environ['USER'] ) )
   log.debug( 'Sleeping {} seconds'.format( wait ) )
   time.sleep( wait );
+  log.debug('Finished sleeping')
 
-  cmd, myenv = getPlexScannerCMD();                                             # Attempt to get Plex Media Scanner command
+  try:
+    cmd, myenv = getPlexScannerCMD();                                             # Attempt to get Plex Media Scanner command
+  except:
+    log.exception('Something went wrong finding Plex commands')
+    return 1
+
+
   if cmd is None:
     log.critical( "Did NOT find the 'Plex Media Scanner' command! Returning!")
     return 1
@@ -283,7 +290,7 @@ def getPlexScannerCMD( ):
     lines = check_output( pgrep, universal_newlines=True ).splitlines();
   except:
     log.critical( "Failed to find '{}' process".format(plex_server) )
-    return None, None
+    return cmd, myenv
 
   myenv            = os.environ.copy()
   cmd_dir, lib_dir = parse_cmd_lib_dirs( lines )
@@ -296,7 +303,7 @@ def getPlexScannerCMD( ):
       cmd_dir = os.path.dirname( cnd_dir );                                     # Reset cmd_dir to directory name of command dir; i.e., go up one (1) directory
       cmd     = os.path.join( cmd_dir, plex_scanner );                          # Set Plex Scanner path to new cmd_dir plus scanner name
 
-    if (not os.path.isfile( cmd )):                                             # If command is not found after while loop break
+    if not os.path.isfile( cmd ):                                               # If command is not found after while loop break
       cmd = None;                                                               # Set cmd to None
     else:                                                                       # Else, we found the command
       cmd = [cmd];                                                              # Set command to list containing only the command
