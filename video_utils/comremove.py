@@ -63,7 +63,7 @@ class comremove( subprocManager ):
       successfully, then None is returned.
     '''
     self.log.info( 'Running comskip to locate commercial breaks')
-    cmd = self._comskip;
+    cmd = self._comskip.copy();
     if self.threads:
       cmd.append( '--threads={}'.format(self.threads) );
     if self.ini:
