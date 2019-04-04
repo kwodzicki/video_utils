@@ -8,7 +8,7 @@ from video_utils.config import plex_dvr;
 from video_utils.Plex_DVR_PostProcess import Plex_DVR_PostProcess;
 # from video_utils.utils.plex_utils import plexDVR_Cleanup;
 from video_utils.utils.plex_utils import plexDVR_Scan;
-from video_utils.utils.spawnDaemon import spawnDaemon;
+# from video_utils.utils.spawnDaemon import spawnDaemon;
 
 '''
 Note for file removing;
@@ -47,10 +47,44 @@ if __name__ == "__main__":
     log.exception('Something went wrong!')
     status = 255
 
-  if os.path.isfile( plex_dvr['lock_file'] ): 
-    os.remove( plex_dvr['lock_file'] )
-
   if (status == 0) and (not args.no_remove):                                    # If the status is zero (0) AND no_remove flag NOT set
-    # spawnDaemon( plexDVR_Cleanup, args.in_file, info );                         # Clean up the files
-    spawnDaemon( plexDVR_Scan, args.in_file, info );                            # Scan for another files and what not
+    '''
+    Here we are going to create a completely separate process using the
+    so-called 'double-fork' method, where we create a child using fork,
+    then create a child from that child; both parents are exited. When
+    we are in the fully new process, we will run a utility that tries to
+    update Plex so that the new, transcoded file is recognized as a second
+    version of the original recording. The original file will then be removed
+    and Plex re-updated to realized the original is gone. Any code after this
+    if block will only run in the remaining child as all other processes are
+    exited within this block
+    '''
+    try:                                                                        # Try to
+      pid = os.fork();                                                          # Fork the process
+    except OSError as e:                                                        # If error occured
+      log.error( 'First fork failed: {} ({})'.format(e.errno, e.strerror) )
+      exit(0);                                                                  # Exit with code zero (0) so Plex doesn't have a fit
+    else:                                                                       # Else
+      if pid > 0:                                                               # If process is the parent
+        exit(0);                                                                # Exit with code zero (0); Plex will think we are done, but we aren't!
+
+    os.setsid();                                                                # decouple from parent environment
+
+    try:                                                                        # Try to
+      pid = os.fork();                                                          # Fork the process
+    except OSError as e:                                                        # If error occured
+      log.error( 'Second fork failed: {} ({})'.format(e.errno, e.strerror) )
+      exit(1);                                                                  # Exit with code one (1), Plex doesn't care at this point
+    else:                                                                       # Else
+      if pid > 0:                                                               # If process is the parent
+        exit(0);                                                                # Exit with code zero (0); we only want the fully decoupled process
+    
+    try:
+      plexDVR_Scan( args.in_file, info );                                       # Run plexDVR_Scan function
+    except:
+      log.exception( 'Somthing went wrong when updating Plex' )
+
+  if os.path.isfile( plex_dvr['lock_file'] ):                                   # If the log file exists
+    os.remove( plex_dvr['lock_file'] );                                         # Remove it
+
   exit( status );  
