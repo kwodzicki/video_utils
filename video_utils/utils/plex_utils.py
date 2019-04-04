@@ -300,7 +300,7 @@ def getPlexScannerCMD( ):
   else: 
     cmd = os.path.join( cmd_dir, plex_scanner )
     while (not os.path.isfile(cmd)) and (cmd_dir != os.path.dirname(cmd_dir)):  # While the command has NOT been found and we are NOT at the top level directory
-      cmd_dir = os.path.dirname( cnd_dir );                                     # Reset cmd_dir to directory name of command dir; i.e., go up one (1) directory
+      cmd_dir = os.path.dirname( cmd_dir );                                     # Reset cmd_dir to directory name of command dir; i.e., go up one (1) directory
       cmd     = os.path.join( cmd_dir, plex_scanner );                          # Set Plex Scanner path to new cmd_dir plus scanner name
 
     if not os.path.isfile( cmd ):                                               # If command is not found after while loop break
