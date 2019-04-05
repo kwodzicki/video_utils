@@ -1,6 +1,42 @@
 #!/usr/bin/env python3
 import sys, os;
 from subprocess import Popen, STDOUT, DEVNULL;
+
+# Panning settings for Dolby Pro Logic and Dolby Pro Logic II
+_panning = {
+  'PLII' : {
+    'L' : 'FL + 0.707*FC - 0.8165*BL - 0.5774*BR',
+    'R' : 'FR + 0.707*FC + 0.5774*BL + 0.8165*BR'
+  },
+  'PL'  : {
+    'L' : 'FL + 0.707*FC - 0.707*BL - 0.707*BR',
+    'R' : 'FR + 0.707*FC + 0.707*BL + 0.707*BR'
+  }
+}
+
+
+################################################################################
+def getDownmixFilter( PLII = True ):
+  '''
+  Name:
+    getDownmixFilter
+  Purpose:
+    A python function to return an filter string for FFmpeg audio filter
+    to downmix surround audio channels to Dolby Pro Logic or Dolby Pro Logic II
+  Inputs:
+    None.
+  Outputs:
+    Returns filter string
+  Keywords:
+    PLII    : Set to use Dolby Pro Logic II downmix. This is the default
+  '''
+  if PLII:                                                                      # If PLII is True
+    L, R = _panning['PLII']['L'], _panning['PLII']['R'];                        # Panning for right channel in PLII downmix
+  else:                                                                         # Else
+    L, R = _panning['PL']['L'], _panning['PL']['R'];                            # Panning for right channel in ProLogic downmix
+  return '|'.join( [ "pan=stereo", 'FL<{}'.format(L), 'FR<{}'.format(R) ] );    # Create string for filter option
+
+################################################################################
 def DolbyDownmix( inFile, outDir = None, PLII = True, AAC = False, FLAC = False, time = None ):
 	'''
 	Name:
@@ -52,14 +88,7 @@ def DolbyDownmix( inFile, outDir = None, PLII = True, AAC = False, FLAC = False,
 # 		slev = 0.500;
 # 		L = 'FL+{:05.3f}*FC+{:05.3f}*BL'.foramt(clev, slev);
 # 		R = 'FR+{:05.3f}*FC+{:05.3f}*BR'.foramt(clev, slev);
-	if PLII:                                                                      # If PLII is True
-		L = 'FL + 0.707*FC - 0.8165*BL - 0.5774*BR';                                # Panning for left channel in PLII downmix
-		R = 'FR + 0.707*FC + 0.5774*BL + 0.8165*BR';                                # Panning for right channel in PLII downmix
-	else:                                                                         # Else
-		L = 'FL + 0.707*FC - 0.707*BL - 0.707*BR';                                  # Panning for left channel in ProLogic downmix
-		R = 'FR + 0.707*FC + 0.707*BL + 0.707*BR';                                  # Panning for right channel in ProLogic downmix
-	L, R = 'FL<' + L, 'FR<' + R;                                                  # Prepend info to L and R, the '<' symbol normalizes tracks 
-	opts.extend( ['-af', '|'.join( ["pan=stereo", L, R] ) ] );                    # Append panning options to opts list
+	opts.extend( ['-af', getDownmixFilter(PLII) ] );                              # Append panning options to opts list
 	cmd = base + opts;                                                            # Join base and opts into command
 	if time is not None:                                                          # If time is set
 		cmd.extend( ['-t', str(time)] );                                            # Append time to command

@@ -3,6 +3,8 @@ import re;
 import subprocess as subproc;
 from xml.etree import ElementTree as ET;
 
+from video_utils.audio.DolbyDownmix import getDownmixFilter;
+
 cmd  = ['mediainfo', '--version']
 proc = subproc.Popen( cmd, stdout = subproc.PIPE, stderr = subproc.PIPE );
 stdout, stderr = proc.communicate()
@@ -126,7 +128,7 @@ class mediainfo( object ):
   ################################################################################
   def __eq__(self, other): return self.__mediainfo == other;
   ################################################################################
-  def get_audio_info( self, language ):
+  def get_audio_info( self, language, PLII = True ):
     '''
     Name:
       get_audio_info
@@ -142,7 +144,8 @@ class mediainfo( object ):
       Returns a dictionary with information in a format for input into 
       the HandBrakeCLI command.
     Keywords:
-      None.
+      PLII    : Toggles downmix format; If True (default), will use
+                 Dolby Pro Logic II, if False, will use Dolby Pro Logic
     Dependencies:
       logging
     Author and History:
@@ -163,19 +166,22 @@ class mediainfo( object ):
       return None;        
     if not isinstance( language, (list, tuple) ): language = (language,);       # If language input is a scalar, convert to tuple
   
-    info = {'--audio'    : [],
-            '--aencoder' : [],
-            '--mixdown'  : [],
-            '--aname'    : [],
-            '--ab'       : [],
+    info = {'-map'       : [],
+            '-codec'     : [],
+            '-filter'    : [],
+            '-b'         : [],
+            '-title'     : [],
+            '-language'  : [],
+            'order'      : ('-map', '-filter', '-codec', '-b', '-title', '-language'),
             'a_lang'     : [],
             'file_info'  : []};                                                 # Initialize a dictionary for storing audio information
-    track_id = '1';                                                             # Initialize a variable for counting the track number.
+    track_id  = '1';                                                             # Initialize a variable for counting the track number.
+    track_num = 0;
     for lang in language:                                                       # Iterate over all languages
       for track in self.__mediainfo['Audio']:                                   # Iterate over all audio information
         lang3 = track['Language/String3'] if 'Language/String3' in track else '';
         if lang != lang3 and lang3 != '': continue;                             # If the track language does NOT match the current language AND it is not an empty string
-        id    = track['ID']               if 'ID'               in track else '';
+        # id    = track['ID']               if 'ID'               in track else '';
         fmt   = track['Format']           if 'Format'           in track else '';
         nCH   = track['Channel_s_']       if 'Channel_s_'       in track else '';
         lang1 = track['Language/String']  if 'Language/String'  in track else '';
@@ -185,41 +191,53 @@ class mediainfo( object ):
         lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_';                    # Set default language to English
         info['file_info'].append( lang2 + 'AAC' );                              # Append language and AAC to the file_info list in the dictionary; AAC is always the first audio track
         info['a_lang'].append( lang2 );                                         # Append language for the AAC stream to the a_lang list
+        mapping = ':'.join(track['StreamOrder'].split('-') );                   # Determine mapping of stream from input
         if nCH > 2:                                                             # If there are more than 2 audio channels
           # Downmixed channel information
-          info['--audio'].append(    track_id );                                # Append the track number to the --audio list
-          info['--mixdown'].append(  'dpl2' );                                  # Append the audio mixdowns to Dolby Prologic II and a filler of 'na'
-          info['--aencoder'].append( 'faac' );                                  # Append audio codecs to faac and copy
-          info['--ab'].append(       '192'  );                                  # Append audio codec bit rate. 'na' used for the copy codec
-          info['--aname'].append(    '"Dolby Pro Logic II"');                   # Append  audio track names
+          dMixTitle = 'Dolby Pro Logic II' if PLII else 'Dolby Pro Logic';      # Track title based on PLII keyword
+          info['-map'].extend(   ['-map', mapping]                         );   # Append the track number to the --audio list
+          info['-codec'].extend( ['-c:a:{}'.format(track_num), 'aac']      );   # Append audio codecs to faac and copy
+          info['-b'].extend(     ['-b:a:{}'.format(track_num), '192k']     );   # Append audio codec bit rate. 'na' used for the copy codec
+          info['-filter'].append( '-filter:a:{}'.format(track_num)         );   # Append the audio mixdowns to Dolby Prologic II and a filler of 'na'
+          info['-filter'].append( getDownmixFilter( PLII = PLII )          );   # Set filte for downmixing
+          info['-title'].append( '-metadata:s:a:{}'.format(track_num)      );   # Append  audio track names
+          info['-title'].append( 'title={}'.format( dMixTitle )            );
+          info['-language'].append( '-metadata:s:a:{}'.format(track_num)   );   # Append  audio track names
+          info['-language'].append( 'language={}'.format(lang3)            );
+          track_num += 1
+
           # Copied channel information
-          info['--audio'].append(    track_id );                                # Append the track number to the --audio list
-          info['--mixdown'].append(  'na' );                                    # Append the audio mixdowns to Dolby Prologic II and a filler of 'na'
-          info['--aencoder'].append( 'copy' );                                  # Append audio codecs to faac and copy
-          info['--ab'].append(       'na' );                                    # Append audio codec bit rate. 'na' used for the copy codec
-          info['--aname'].append(    '"{} - {}"'.format(title,fmt) );           # Append  audio track names
+          info['-map'].extend(    ['-map', mapping]                        );   # Append the track number to the --audio list
+          info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']    );   # Append audio codecs to faac and copy
+          info['-title'].append( '-metadata:s:a:{}'.format(track_num)      );   # Append  audio track names
+          info['-title'].append( 'title={} - {}'.format(title, fmt)        );
+          info['-language'].append( '-metadata:s:a:{}'.format(track_num)   );   # Append  audio track names
+          info['-language'].append( 'language={}'.format(lang3)            );
+
           # Extra info
           info['a_lang'].append( lang2 );                                       # Append language for the copied stream to the a_lang list
           info['file_info'].append( lang2 + fmt );                              # Append the language and format for the second strem, which is a copy of the orignal stream
         else:                                                                   # Else, there are 2 or fewer channels
           if fmt != 'AAC':                                                      # If the format of the audio is NOT AAC
-            info['--audio'].append( track_id );                                 # Append track_id to --audio data
-            info['--aencoder'].append( 'faac' );                                # Append faac to --aencoder data
-            info['--ab'].append( '192' );                                       # Append 192 to --ab data
+            info['-map'].extend(   ['-map', mapping]                       );   # Append the track number to the --audio list
+            info['-codec'].extend( ['-c:a:{}'.format(track_num), 'aac']    );   # Append audio codecs to faac and copy
+            info['-b'].extend(     ['-b:a:{}'.format(track_num), '192k']   );   # Append audio codec bit rate. 'na' used for the copy codec
           else:                                                                 # Else, the stream is only 2 channels and is already AAC
-            info['--audio'].append( track_id );                                 # Append track_id to --audio data
-            info['--aencoder'].append( 'copy:aac' );                            # Append copy:aac to --aencoder data
-            info['--ab'].append( '' );                                          # Append '' to --ab data
+            info['-map'].extend(    ['-map', mapping]                      );   # Append the track number to the --audio list
+            info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']  );   # Append audio codecs to faac and copy
+
+          info['-title'].append( '-metadata:s:a:{}'.format(track_num) );     # Append  audio track names
           if nCH == 2:                                                          # If there are only 2 audio channels
-            info['--mixdown'].append( 'stereo' );                               # Append stereo to --mixdown
-            info['--aname'].append( '"Stereo"' );                               # Append Stereo to --aname
+            info['-title'].append( 'title=stereo' );
           else:                                                                 # Else, must be only a single channel
-            info['--mixdown'].append( 'mono' );                                 # Append mono to --mixdown
-            info['--aname'].append( '"Mono"' );                                 # Append Mono to --aname
-        
+            info['-title'].append( 'title=mono'   );
+
+          info['-language'].append( '-metadata:s:a:{}'.format(track_num) );     # Append  audio track names
+          info['-language'].append( 'language={}'.format(lang3)          );
+
         track_id = str( int(track_id) + 1 );                                    # Increment audio track
-  
-    if len(info['--audio']) == 0:                                               # If the --audio list is NOT empty
+        track_num += 1;
+    if len(info['-map']) == 0:                                                  # If the --audio list is NOT empty
       self.log.warning(  'NO audio stream(s) selected...');                     # If verbose is set, print some output
       return None;
     else:
@@ -233,18 +251,19 @@ class mediainfo( object ):
       # versa) so that there is one downmix and two copies of the different
       # streams.
       i = 0;                                                                    # Set i counter to zero
-      while i < len(info['--audio']):                                           # While i is less than then number of entries in --audio
-        j = i+1;                                                                # Set j to one more than i
-        while j < len(info['--audio']):                                         # Re loop over all entries in the dictionary lists
-          if info['--aname'][i] == info['--aname'][j] and \
-             info['a_lang'][i] == info['a_lang'][j]:  
-            for k in info: del info[k][j];                                      # If the name and language for elements i and j of the info dictionary match, remove the information at element j
+      while i < len(info['-map']):                                              # While i is less than then number of entries in --audio
+        j = i+2;                                                                # Set j to one more than i
+        while j < len(info['-map']):                                            # Re loop over all entries in the dictionary lists
+          if info['-title'][i+1] == info['-title'][j+1] and \
+             info['a_lang'][i+1] == info['a_lang'][j+1]:  
+            for k in info: 
+              del info[k][j];                                                   # If the name and language for elements i and j of the info dictionary match, remove the information at element j
+              del info[k][j];                                                   # If the name and language for elements i and j of the info dictionary match, remove the information at element j
           else:  
-            j += 1;                                                             # Else, the language and name do NOT match, so increment j
-        i += 1;                                                                 # Increment i
-      for i in info:   
-        delim = '.' if i == 'file_info' else ',';                               # If i is 'file_info', set the delimiter to period (.), else set it to comma (,)
-        info[i] = delim.join( info[i] );                                        # Join the information using the delimiter
+            j += 2;                                                             # Else, the language and name do NOT match, so increment j
+        i += 2;                                                                 # Increment i
+      
+      info['file_info'] = '.'.join( info['file_info'] )
       return info;                                                              # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
   ################################################################################
   def get_video_info( self, x265 = False ):
@@ -291,42 +310,58 @@ class mediainfo( object ):
     if len( self.__mediainfo['Video'] ) > 2:         
       self.log.error('More than one (1) video stream...Stopping!');             # Print a message
       return None;                                                              # If the video has multiple streams, return
-    resolution = None
-    info       = {};                                                            # Initialize a dictionary for storing video information
+    encoder    = '';
+    filters    = [];
+    resolution = None;
     video_data = self.__mediainfo['Video'][0];                                  # Data for only video stream; done so var name is shorter
     video_tags = video_data.keys();                                             # Get all keys in the dictionary  
+    mapping    = ':'.join(video_data['StreamOrder'].split('-') );               # Determine mapping of stream from input
+
+    info       = { 'order' : ('-map', '-filter', '-opts') }
+    for tag in info['order']: info[tag] = [];
+
+    info['-map'].extend( ['-map', mapping] );                                    # Initialize a dictionary for storing video information
+
     if video_data['Height'] <= 1080 and not x265:                               # If the video is 1080 or smaller and x265 is NOT set
-      info['--encoder']      = 'x264';                                          # If video is 1080 or less AND x265 is False, set codec to h264 level to 4.0
-      info['--x264-preset']  = 'slow';                                          # Set the video codec preset
-      info['--h264-level']   = '4.0';                                           # Set the video codec level
-      info['--h264-profile'] = 'high';                                          # Set the video codec profile
+      encoder = 'x264'
+      info['-opts'].extend( ['-c:v',       'libx264'] );
+      info['-opts'].extend( ['-preset',    'slow']    );                        # Set the video codec preset
+      info['-opts'].extend( ['-profile:v', 'high']    );                        # Set the video codec profile
+      info['-opts'].extend( ['-level',     '4.0']     );                        # Set the video codec level
     else:                                                                       # Else, the video is either large or x265 has be requested
-      info['--encoder']      = 'x265';                                          # If video is greater than 1080, set codec to h265 and level to 5.0
-      info['--x265-preset']  = 'slow';                                          # Set the video codec preset
-      info['--h265-level']   = '5.0';                                           # Set the video codec level
-      info['--h265-profile'] = 'main';                                          # Set the video codec profile
+      encoder = 'x265'
+      info['-opts'].extend( ['-c:v',      'libx265'] );
+      info['-opts'].extend( ['-preset',   'slow']    );                          # Set the video codec preset
       if 'Bit_depth' in video_data:
         if video_data['Bit_depth'] == 10:
-          info['--h265-profile'] = 'main10';
+          info['-opts'].extend( ['-profile:v', 'main10']    );                  # Set the video codec profile
         elif video_data['Bit_depth'] == 12:
-          info['--h265-profile'] = 'main12';
+          info['-opts'].extend( ['-profile:v', 'main12']    );                  # Set the video codec profile
+      else:
+        info['-opts'].extend( ['-profile:v', 'main']    );                      # Set the video codec profile
+      info['-opts'].extend( ['-level',    '5.0']     );                          # Set the video codec level
+
     # Set resolution and rate factor based on video height
     if video_data['Height'] <= 480:
-      resolution, info['--quality'] =  480, '22';
+      resolution = 480
+      info['-opts'].extend( ['-crf', '22'] );
     elif video_data['Height'] <= 720:
-      resolution, info['--quality'] =  720, '23';
+      resolution =  720;
+      info['-opts'].extend( ['-crf', '23'] );
     elif video_data['Height'] <= 1080:
-      resolution, info['--quality'] = 1080, '24';
+      resolution = 1080;
+      info['-opts'].extend( ['-crf', '24'] );
     elif video_data['Height'] <= 2160:
-      resolution, info['--quality'] = 2160, '26';
+      resolution = 2160;
+      info['-opts'].extend( ['-crf', '26'] );
     if resolution is None: return None;                                         # If resolution is NOT set, return None
     
     if 'Scan_type' in video_tags and 'Frame_rate_mode' in video_tags:
       if video_data['Scan_type'].upper() != 'PROGRESSIVE':
         if video_data['Frame_rate_mode']  == 'CFR': 
-          info['--deinterlace=slower'] = '';                                    # Turn on deinterlace
+          info['-filter'].append( 'yadif' )
 
-    info['file_info'] = '{}p.{}'.format( resolution, info['--encoder'] );
+    info['file_info'] = '{}p.{}'.format( resolution, encoder );
   
     if 'Display_aspect_ratio' in video_tags and \
        'Original_display_aspect_ratio' in video_tags:
@@ -335,10 +370,12 @@ class mediainfo( object ):
         x,y    = video_data['Display_aspect_ratio/String'].split(':');          # Get the x and y values of the display aspect ratio
         width  = video_data['Height'] * float(x)/float(y);                      # Compute new pixel width based on video height times the display ratio
         width -= (width % 16);                                                  # Ensure pixel width is multiple of 16
-        info['--custom-anamorphic'] = '';                                       # Add flag to directly control aspect  
-        info['--pixel-aspect']      = '{:.0f}:{:.0f}'.format(
-          width, video_data['Width']
+        info['-fitler'].append(
+          'setsar={:.0f}:{:.0f}'.format(width, video_data['Width'])
         )
+
+    if len(info['-filter']) > 0:
+      info['-filter'] = ['-vf', ','.join(info['-filter'])];
     return info;
   ################################################################################
   def get_text_info( self, language ):

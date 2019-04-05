@@ -304,29 +304,37 @@ class videoconverter( mediainfo, subprocManager ):
     self.hb_err_file  = self.hb_log_file + '.err';                              # Set up path self.handbrake error file
     self.hb_log_file += '.log';                                                 # Set up path self.handbrake log file
   
-    self.hb_cmd = ['HandBrakeCLI', '--optimize', '--markers', '--vfr' ];        # Base command for HandBrake
-    self.hb_cmd.extend( ['--format', self.container] );                         # Append container flag
-    if self.video_info['--encoder'] == 'x264':                                  # If using the h264 video encoder
-      encopts = 'threads={}';                                                   # Formatting for encoding points string if x264 encoder
-    else:                                                                       # Else, we are using h265 video encdoer
-      encopts = 'pools={}';                                                     # Formatting for encoding points string if x265 encoder
-    self.hb_cmd.extend( ['--encopts', encopts.format( self.threads )] );        # Append encoding options to the self.handbrake command
+    self.hb_cmd  = ['ffmpeg', '-nostdin', '-i', self.in_file]
+    self.hb_cmd.extend( ['-tune', 'zerolatency', '-map_chapters', '0'] );       # Base command for HandBrake
+    self.hb_cmd.extend( ['-f', self.container] );                               # Append container flag
+    self.hb_cmd.extend( ['-threads', str(self.threads)] );
+    
+    videoKeys = self._videoKeys();
+    audioKeys = self._audioKeys();
+    avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
+    
+    while any( avOpts ):                                                        # While any options left
+      try:
+        key = next( videoKeys )
+      except:
+        avOpts[0] = False;
+      else:
+        self.hb_cmd.extend( self.video_info[ key ] );                           # Add data to the ffmpeg command
+        if key == '-filter':                                                    # If the key is -'filter', we also want the next tag, which is codec
+          self.hb_cmd.extend( self.video_info[ next(videoKeys) ] );             # Add next options to ffmpeg
+      try:
+        key = next( audioKeys )
+      except:
+        avOpts[1] = False;
+      else:
+        self.hb_cmd.extend( self.audio_info[ key ] );                           # Add data to the ffmpeg command
+        if key == '-filter':                                                    # If the key is -'filter', we also want the next tag, which is codec
+          self.hb_cmd.extend( self.audio_info[ next(audioKeys) ] );             # Add next options to ffmpeg
 
-    # Add audio options to command
-    for key, val in self.audio_info.items():                                    # Iterate over all key/value pairs in the audio_info dictionary
-      if key[:2] == '--':                                                       # If the key starts with --
-        self.hb_cmd.append( key );                                              # Append the key to the HandBrake command list
-        if val != '':                                                           # If value is NOT an empty string
-          self.hb_cmd.append( val );                                            # Append the value to the HandBrake commmand list
+    self.hb_cmd.append( out_file );                                             # Append input and output file paths to the self.handbrake command
 
-    # Add vidoe options to command
-    for key, val in self.video_info.items():                                    # Iterate over all key/value pairs in the video_info dictionary
-      if key[:2] == '--':                                                       # If the key starts with --
-        self.hb_cmd.append( key );                                              # Append the key to the HandBrake command list
-        if val != '':                                                           # If value is NOT an empty string
-          self.hb_cmd.append( val );                                            # Append the value to the HandBrake commmand list
-
-    self.hb_cmd.extend(['--input', self.in_file, '--output', out_file]);        # Append input and output file paths to the self.handbrake command
+    print( self.hb_cmd )
+    return
     self.log.info( 'Transcoding file...' )
 
     if self.no_hb_log:                                                          # If creation of HandBrake log files is disabled
@@ -624,14 +632,48 @@ class videoconverter( mediainfo, subprocManager ):
       self.out_file    = os.path.join( *self.out_file );
       self.new_out_dir = os.path.dirname( self.out_file );
     self._create_dirs();                                                        # Create all output directories
-##############################################################################
+  ##############################################################################
+  def _videoKeys(self):
+    '''
+    Name:
+      _videoKeys
+    Purpose:
+      A generator method to produce next ordered key from video_info
+      attribute
+    Inputs:
+      None.
+    Outputs:
+      Key for the video_info attribute
+    Keywords:
+      None.
+    '''
+    for i in range( len(self.video_info['order']) ):                            # Iterate over all values in the 'order' tuple
+      yield self.video_info['order'][i];                                        # Yield the key
+  ##############################################################################
+  def _audioKeys(self):
+    '''
+    Name:
+      _audioKeys
+    Purpose:
+      A generator method to produce next ordered key from audio_info
+      attribute
+    Inputs:
+      None.
+    Outputs:
+      Key for the audio_info attribute
+    Keywords:
+      None.
+    '''
+    for i in range( len(self.audio_info['order']) ):                            # Iterate over all values in the 'order' tuple
+      yield self.audio_info['order'][i];                                        # Yield the key
+  ##############################################################################
   def _create_dirs( self ):
     self.log.debug( 'Creating output directories' )
     if not os.path.isdir( self.out_dir     ): os.makedirs( self.out_dir );      # Check if the output directory exists, if it does NOT, create the directory
     if not os.path.isdir( self.new_out_dir ): os.makedirs( self.new_out_dir );  # Check if the new output directory exists, if it does NOT, create the directory
     if not self.no_hb_log:                                                      # If HandBrake log files are NOT disabled
       if not os.path.isdir( self.log_dir     ): os.makedirs( self.log_dir );    # Create log directory if it does NOT exist
-##############################################################################
+  ##############################################################################
   def _init_logger(self, log_file = None):
     '''
     Function to set up the logger for the package

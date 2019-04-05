@@ -4,7 +4,7 @@ from .version import __version__;
 from subprocess import call, DEVNULL, STDOUT;
 
 # Check for required CLIs
-for i in ['HandBrakeCLI', 'ffmpeg', 'mediainfo']:
+for i in ['ffmpeg', 'mediainfo']:
   if call(['which', i], stdout = DEVNULL, stderr = STDOUT ) != 0: 
     raise Exception( 
       "The following required command line utility was NOT found." +
