@@ -88,6 +88,7 @@ def Plex_DVR_PostProcess(in_file,
     cpulimit      = cpulimit,
     language      = language,
     remove        = True,
+    subfolder     = False,
     srt           = not no_srt);                                                # Set up video converter instance; we want to delete the hardlink
   
   out_file = inst.transcode( file );                                            # Run the transcode
@@ -101,4 +102,4 @@ def Plex_DVR_PostProcess(in_file,
     # relpath = os.path.relpath( out_file, start = os.path.dirname( in_file ) );  # Get relative path to output file using directory of the input file as the start path
     # os.symlink( relpath, in_file );                                             # Create a symbolic link from the relative output file path to the input file path; relative link wont break after move
     os.link( out_file, in_file );                                               # Create hard link to the transcoded file using input file name
-  return inst.transcode_status, info;                                           # Return transcode status
+  return inst.transcode_status, out_file, info;                                 # Return transcode status, new file path, and info

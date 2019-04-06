@@ -35,7 +35,7 @@ if __name__ == "__main__":
   while os.path.isfile( plex_dvr['lock_file'] ): time.sleep(1.0);               # While the lock file exists, sleep for 1 second
   open(plex_dvr['lock_file'], 'w').close();                                     # Create the new lock file so other processes have to wait
   try:
-    status, info = Plex_DVR_PostProcess(args.in_file, 
+    status, new_file, info = Plex_DVR_PostProcess(args.in_file, 
         logdir    = args.logdir, 
         threads   = args.threads, 
         cpulimit  = args.cpulimit,
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         exit(0);                                                                # Exit with code zero (0); we only want the fully decoupled process
     
     try:
-      plexDVR_Scan( args.in_file, info );                                       # Run plexDVR_Scan function
+      plexDVR_Scan( args.in_file, new_file, info );                             # Run plexDVR_Scan function
     except:
       log.exception( 'Somthing went wrong when updating Plex' )
 

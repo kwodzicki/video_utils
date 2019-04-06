@@ -85,7 +85,8 @@ class videoconverter( mediainfo, subprocManager ):
                container     = 'mp4',
                cpulimit      = 75, 
                x265          = False,
-               remove        = False, 
+               remove        = False,
+               subfolder     = True, 
                vobsub        = False, 
                srt           = False,
                vobsub_delete = False,
@@ -113,6 +114,10 @@ class videoconverter( mediainfo, subprocManager ):
                         DEFAULT: 75 per cent.
                         TO DISABLE LIMITING - set to 0.
        remove        : Set to True to remove mkv file after transcode
+       subfolder     : If True, when subtitles are extracted/downloaded, all
+                        files will be placed in a subfolder under the out_dir
+                        path. This is the default behavior. To disable this
+                        behavior, set to False.
        vobsub        : Set to extract VobSub file(s). If SRT is set, then
                         this keyword is also set. Setting this will NOT
                         enable downloading from opensubtitles.org as the
@@ -157,6 +162,7 @@ class videoconverter( mediainfo, subprocManager ):
     self.miss_lang     = [];
     self.x265          = x265;      
     self.remove        = remove;       
+    self.subfolder     = subfolder;
     self.vobsub_delete = vobsub_delete;
     self.username      = username;
     self.userpass      = userpass;
@@ -636,7 +642,8 @@ class videoconverter( mediainfo, subprocManager ):
     '''
     if isinstance(self.out_file, list):                                         # If the out_file is a list instance
       self.log.debug( 'Joining output file path' )
-      if title is not None: self.out_file[1] = title;                           # If title is set, place in second element
+      if (title is not None) and self.subfolder:                                # If title is set and subfolder is requested
+        self.out_file[1] = title;                                               # Place ttle in second element
       self.out_file    = os.path.join( *self.out_file );
       self.new_out_dir = os.path.dirname( self.out_file );
     self._create_dirs();                                                        # Create all output directories

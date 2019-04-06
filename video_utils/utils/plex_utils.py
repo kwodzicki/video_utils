@@ -85,7 +85,7 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
   log.debug('Finished')
   return True;                                                                  #
 ################################################################################
-def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
+def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
   '''
   Name:
     plexDVR_Scan
@@ -108,6 +108,7 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
     file and NOT a duplicate (I think)
   Inputs:
     in_file   : Full path to the file to rename
+    new_file  : Full path to the transcoded file
     file_info : Information parsed from file name; 
                  likely from the plexDVR_Rename function
   Outputs:
@@ -191,10 +192,32 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
       season     = int( season[0] );                                            # Convert season number to integer
       season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
       if os.path.isdir( season_dir ):                                           # If the season directory exists
-        orig_file = os.path.join( season_dir, in_base );                        # Path to the 'original' recoding file
-        if os.path.isfile( orig_file ):                                         # If the file exists, then we are at the lowest level directory for scanning
-          scan_dir = season_dir;                                                # Set the scan directory to the season directory
+        file_path = os.path.join( season_dir, in_base );                        # Path to the 'original' recoding file
+        if os.path.isfile( file_path ):                                         # If the file exists, then we are at the lowest level directory for scanning
+          scan_dir  = season_dir;                                               # Set the scan directory to the season directory
+          orig_file = file_path;                                                # Set orig_file to file_path
+
+  if orig_file is None:                                                         # If orig_file is not yet set
+    orig_file = findFile( lib_dir, in_base );                                   # Try to find the file
+    if orig_file is None:                                                       # If the file was found
+      log.critical( 'Cannot find the original recording!!! Perhaps it is in a different library?' )
+      return 1;
+    scan_dir = os.path.dirname( orig_file );                                    # Set directory to scan to directory original recording is in
   
+  '''
+  Try to find a file with the same base name as the transcoded file in the
+  directory where the original recording has been moved to. If no transcoded
+  file is found, then we return from fuction, skipping scanning of Plex
+  library to find transcoded file AND original file deletion because if we
+  delete the original file then we likely won't have any file for that 
+  content any more
+  '''
+  new_file = os.path.basename(new_file);                                        # Get base name of transcoded file
+  new_file = findFile( scan_dir, new_file );                                    # Find the file in the directory where orig_file is
+  if new_file is None:                                                          # If did NOT find the transcoded file near the original recording
+    log.critical( 'Cannot find transcoded file near original recording!!!' );   # Log critical problem
+    return 1;                                                                   # Return 1
+
   if scan_dir is not None:                                                      # If scan_dir is NOT still None
     cmd += [ '--directory', scan_dir ];                                         # Append directory to scan to command
 
@@ -204,17 +227,12 @@ def plexDVR_Scan( in_file, file_info, no_remove = False, wait = 60 ):
   proc.communicate();
 
   if not no_remove:                                                             # If no_remove is False, i.e., want to remove file
-    if orig_file is None:                                                       # If orig_file is not yet set
-      orig_file = findFile( lib_dir, in_base );                                 # Try to find the file
+    log.debug('Removing original recoding' );                                   # Debug info
+    os.remove( orig_file );                                                     # Remove the original recording file
 
-    if orig_file is not None:                                                   # If the file was found
-      if os.path.isfile( orig_file ):                                           # Check that it exists; redundant, but good habit
-        log.debug('Removing original recoding' );                               # Debug info
-        os.remove( in_file );                                                   # Remove the file
-
-        log.debug( 'Rescanning library' );                                      # Debug info
-        proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );    # Rescan the library; note this is only done IF the file is removed
-        proc.communicate();
+    log.debug( 'Rescanning library' );                                          # Debug info
+    proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );        # Rescan the library; note this is only done IF the file is removed
+    proc.communicate();
   return 0
 
 ################################################################################
