@@ -83,7 +83,7 @@ def Plex_DVR_PostProcess(in_file,
   inst = videoconverter( 
     log_dir       = logdir,
     in_place      = True,
-    no_hb_log     = True,
+    no_ffmpeg_log = True,
     threads       = threads,
     cpulimit      = cpulimit,
     language      = language,

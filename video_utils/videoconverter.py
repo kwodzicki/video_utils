@@ -6,6 +6,7 @@ from datetime import datetime;
 
 # Parent classes
 from .mediainfo import mediainfo;
+from .utils.ffmpeg_utils   import cropdetect;
 from .utils.subprocManager import subprocManager;
 
 # Subtitle imports
@@ -78,7 +79,7 @@ class videoconverter( mediainfo, subprocManager ):
                out_dir       = None,
                log_dir       = None,
                in_place      = False, 
-               no_hb_log     = False,
+               no_ffmpeg_log = False,
                language      = None, 
                threads       = None, 
                container     = 'mp4',
@@ -99,7 +100,7 @@ class videoconverter( mediainfo, subprocManager ):
        in_place      : Set to transcode file in place; i.e., do NOT create a 
                          new path to file such as with TV, where
                          ./Series/Season XX/ directories are created
-       no_hb_log     : Set to suppress the creation of stdout and stderr log
+       no_ffmpeg_log : Set to suppress the creation of stdout and stderr log
                         files for HandBrakeCLI and instead pipe the output to
                         /dev/null
        language      : Comma separated string of ISO 639-2 codes for 
@@ -151,7 +152,7 @@ class videoconverter( mediainfo, subprocManager ):
     self.out_dir       = out_dir;
     self.log_dir       = log_dir;
     self.in_place      = in_place;                                              # Set the in_place attribute based on input value
-    self.no_hb_log     = no_hb_log;                                             # Set the no_hb_log attribute based on the input value
+    self.no_ffmpeg_log = no_ffmpeg_log;                                         # Set the no_ffmpeg_log attribute based on the input value
     self.language      = ['eng'] if language is None else language.split(',');  # Set default language to None, i.e., use all languages  
     self.miss_lang     = [];
     self.x265          = x265;      
@@ -174,7 +175,7 @@ class videoconverter( mediainfo, subprocManager ):
     self.IMDb_ID          = None;
     self.metaData         = None;
     self.metaKeys         = None;
-    self.HB_logTime       = None;
+    self.ffmpeg_logTime       = None;
 
     self.v_preset         = 'slow';                                             # Set self.handbrake preset to slow
     self.fmt              = 'utf-8';                                            # Set encoding format
@@ -288,7 +289,7 @@ class videoconverter( mediainfo, subprocManager ):
     except:
       start_time = None;                                                        # If datetime CANNOT be imported, set start time to None
     self.transcode_status = None;                                               # Reset transcode status to None
-    self.HB_logTime       = None;
+    self.ffmpeg_logTime   = None;
     self.get_subtitles( );                                                      # Extract subtitles
 
     ############################################################################
@@ -301,47 +302,54 @@ class videoconverter( mediainfo, subprocManager ):
       if self.remove: os.remove( self.in_file );                                # If remove is set, remove the source file
       return False;                                                             # Return to halt the function
 
-    self.hb_err_file  = self.hb_log_file + '.err';                              # Set up path self.handbrake error file
-    self.hb_log_file += '.log';                                                 # Set up path self.handbrake log file
-  
-    self.hb_cmd  = ['ffmpeg', '-nostdin', '-i', self.in_file]
-    self.hb_cmd.extend( ['-tune', 'zerolatency', '-map_chapters', '0'] );       # Base command for HandBrake
-    self.hb_cmd.extend( ['-f', self.container] );                               # Append container flag
-    self.hb_cmd.extend( ['-threads', str(self.threads)] );
+    self.ffmpeg_err_file  = self.ffmpeg_log_file + '.err';                      # Set up path self.handbrake error file
+    self.ffmpeg_log_file += '.log';                                             # Set up path self.handbrake log file
+
+    self.ffmpeg_cmd  = ['ffmpeg', '-nostdin', '-i', self.in_file]
+    self.ffmpeg_cmd.extend( ['-tune', 'zerolatency', '-map_chapters', '0'] );   # Base command for HandBrake
+    self.ffmpeg_cmd.extend( ['-f', self.container] );                           # Append container flag
+    self.ffmpeg_cmd.extend( ['-threads', str(self.threads)] );                  # Set number of threads to use
     
-    videoKeys = self._videoKeys();
-    audioKeys = self._audioKeys();
+    cropVals  = cropdetect( self.in_file );                                     # Attempt to detect cropping
+    videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info
+    audioKeys = self._audioKeys();                                              # Generator for orderer keys in audio_info
     avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
     
     while any( avOpts ):                                                        # While any options left
-      try:
-        key = next( videoKeys )
-      except:
-        avOpts[0] = False;
-      else:
-        self.hb_cmd.extend( self.video_info[ key ] );                           # Add data to the ffmpeg command
+      try:                                                                      # Try to
+        key = next( videoKeys );                                                # Get the next video_info key
+      except:                                                                   # On exception, no more keys to get
+        avOpts[0] = False;                                                      # Set avOpts[0] to False because done with video options
+      else:                                                                     # Else, we got a key
+        self.ffmpeg_cmd.extend( self.video_info[ key ] );                       # Add data to the ffmpeg command
+        if key == '-filter':                                                    # If the key is '-filter', we also want the next tag, which is codec
+          if cropVals is not None:                                              # If cropVals is NOT None
+            if len(self.video_info[key]) != 0:                                  # If not an empty list
+              self.ffmpeg_cmd[-1] = '{},{}'.format(
+                self.ffmpeg_cmd[-1], cropVals
+              );                                                                # Add cropping to video filter
+            else:                                                               # Else, must add the '-vf' flag
+              self.ffmpeg_cmd.extend( ['-vf', cropVals] );                      # Add cropping values
+          self.ffmpeg_cmd.extend( self.video_info[ next(videoKeys) ] );         # Add next options to ffmpeg
+      try:                                                                      # Try to
+        key = next( audioKeys );                                                # Get the next audio_info key
+      except:                                                                   # On exception, no more keys to get
+        avOpts[1] = False;                                                      # Set avOpts[1] to False because done with audio options
+      else:                                                                     # Else, we got a key
+        self.ffmpeg_cmd.extend( self.audio_info[ key ] );                       # Add data to the ffmpeg command
         if key == '-filter':                                                    # If the key is -'filter', we also want the next tag, which is codec
-          self.hb_cmd.extend( self.video_info[ next(videoKeys) ] );             # Add next options to ffmpeg
-      try:
-        key = next( audioKeys )
-      except:
-        avOpts[1] = False;
-      else:
-        self.hb_cmd.extend( self.audio_info[ key ] );                           # Add data to the ffmpeg command
-        if key == '-filter':                                                    # If the key is -'filter', we also want the next tag, which is codec
-          self.hb_cmd.extend( self.audio_info[ next(audioKeys) ] );             # Add next options to ffmpeg
+          self.ffmpeg_cmd.extend( self.audio_info[ next(audioKeys) ] );         # Add next options to ffmpeg
 
-    self.hb_cmd.append( out_file );                                             # Append input and output file paths to the self.handbrake command
+    self.ffmpeg_cmd.append( out_file );                                         # Append input and output file paths to the self.handbrake command
 
-    print( self.hb_cmd )
-    return
+    print( self.ffmpeg_cmd )
     self.log.info( 'Transcoding file...' )
 
-    if self.no_hb_log:                                                          # If creation of HandBrake log files is disabled
-      self.addProc( self.hb_cmd );                                              # Start the HandBrakeCLI command and direct all output to /dev/null
+    if self.no_ffmpeg_log:                                                      # If creation of HandBrake log files is disabled
+      self.addProc( self.ffmpeg_cmd );                                          # Start the HandBrakeCLI command and direct all output to /dev/null
     else:                                                                       # Else
-      self.addProc( self.hb_cmd, 
-        stdout = self.hb_log_file, stderr = self.hb_err_file
+      self.addProc( self.ffmpeg_cmd, 
+        stdout = self.ffmpeg_log_file, stderr = self.ffmpeg_err_file
       );                                                                        # Start the HandBrakeCLI command and direct all output to /dev/null
     self.run();
     self.transcode_status = self.returncodes[0];                                # Set transcode_status      
@@ -415,7 +423,7 @@ class videoconverter( mediainfo, subprocManager ):
     else:
       self.log.info('MP4 tagging is disabled.');
 
-#   self.new_out_dir = self.out_dir;                                          # Reset output directory to original directory
+#   self.new_out_dir = self.out_dir;                                            # Reset output directory to original directory
     self.file_base  = os.path.basename(self.in_file);                           # Get the base name of the file
     file_split      = self.file_base.split('.')[:-1];                           # Split base name on period and ignore extension 
     self.title      = file_split[0];                                            # Get title of movie or TV show
@@ -482,8 +490,8 @@ class videoconverter( mediainfo, subprocManager ):
 
     self.file_name = '.'.join(self.file_name)
     self.log.debug( 'File name: {}'.format( self.file_name) )
-    # Generate file paths for the output file and the self.handbrake log files
-    self.hb_log_file = os.path.join(self.log_dir, self.file_name);              # Set the self.handbrake log file path without extension
+    # Generate file paths for the output file and the ffmpeg log files
+    self.ffmpeg_log_file = os.path.join(self.log_dir, self.file_name);          # Set the self.handbrake log file path without extension
     if self.in_place: self.new_out_dir = self.out_dir;                          # If the in_place keyword was set, then overwrite the new_out_dir with the input files directory path
     self.out_file    = [self.new_out_dir, '', self.file_name];                  # Set the output file path without extension
     return True;
@@ -671,7 +679,7 @@ class videoconverter( mediainfo, subprocManager ):
     self.log.debug( 'Creating output directories' )
     if not os.path.isdir( self.out_dir     ): os.makedirs( self.out_dir );      # Check if the output directory exists, if it does NOT, create the directory
     if not os.path.isdir( self.new_out_dir ): os.makedirs( self.new_out_dir );  # Check if the new output directory exists, if it does NOT, create the directory
-    if not self.no_hb_log:                                                      # If HandBrake log files are NOT disabled
+    if not self.no_ffmpeg_log:                                                      # If HandBrake log files are NOT disabled
       if not os.path.isdir( self.log_dir     ): os.makedirs( self.log_dir );    # Create log directory if it does NOT exist
   ##############################################################################
   def _init_logger(self, log_file = None):
