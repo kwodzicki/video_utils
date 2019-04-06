@@ -76,7 +76,7 @@ def getMetaData( IMDb_ID, attempts = None ):
         try:                                                                    # Try to
           info = IMDb[key];                                                     # Get info from IMDb using; in try because has broken before
         except:                                                                 # If failed to get key
-          self.log.debug( 'Failed to get IMDb key: {}'.format(key) );
+          log.debug( 'Failed to get IMDb key: {}'.format(key) );
         else:                                                                   # If was success
           TMDb.set_item( key, info );                                           # Add the key from IMDb to TMDb
     return TMDb;                                                                # Return TMDb object

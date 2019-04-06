@@ -1,1 +1,1 @@
-__version__ = "0.1.39_ffmpeg";
+__version__ = "0.1.40_ffmpeg";
