@@ -29,9 +29,8 @@ while other are optional as they add extra functionality. The required and
 optional utilities are listed below.
 
 #### Required
-* [HandBrakeCLI][handbrake] - Performs the transcoding
-* [ffmpeg][ffmpeg]          - Used for cutting comercials, audio downmixing, etc.
-* [MediaInfo][mediainfo]    - Used to get stream information for transcode settings
+* [ffmpeg][ffmpeg]        - Used for transcoding, cutting comercials, audio downmixing, etc.
+* [MediaInfo][mediainfo]  - Used to get stream information for transcode settings
 
 #### Optional
 * [comskip][comskip]       - Used to locate commercials in DVRed TV files
@@ -201,7 +200,6 @@ of how to use the videoconverter class is below:
 
 video_utils is released under the terms of the GNU GPL v3 license.
 
-[handbrake]: https://handbrake.fr/downloads2.php
 [ffmpeg]: https://www.ffmpeg.org/
 [mediainfo]: https://mediaarea.net/en/MediaInfo
 [cpu]: https://github.com/opsengine/cpulimit
