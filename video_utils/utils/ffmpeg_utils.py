@@ -1,7 +1,7 @@
 import logging;
 import os, time, re;
 import numpy as np;
-from datetime import timedelta;
+from datetime import datetime, timedelta;
 from subprocess import Popen, PIPE, STDOUT;
 
 _progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' );                     # Regex pattern for locating file duration in ffmpeg ouput 
@@ -9,7 +9,7 @@ _durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' );                
 _cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' );                         # Regex pattern for extracting crop information
 _resPat  = re.compile( r'(\d{3,5}x\d{3,5})' );                                  # Regex pattern for video resolution
 
-_info    = 'Time Remaining: {} - Time Elapsed: {} - Converted {} of {}';        # String formatter for conversion progress
+_info    = 'Estimated Completion Time: {}';                                     # String formatter for conversion progress
 
 _toSec   = np.array( [3600, 60, 1], dtype = np.float32 );                       # Array for conversion of hour/minutes/seconds to total seconds
 _chunk   = np.full( (128, 4), np.nan );                                         # Base numpy chunk
@@ -114,7 +114,7 @@ def prettyTime( *args, timeFMT = '%H:%M:%S' ):
     return [time.strftime( timeFMT, time.gmtime( i ) ) for i in args];          # Interate over each argument and convert to string time, returning the list
 
 ###############################################################################
-def progress( proc, interval = 300.0, nintervals = None ):
+def progress( proc, interval = 60.0, nintervals = None ):
     '''
     Name:
       progess
@@ -132,6 +132,7 @@ def progress( proc, interval = 300.0, nintervals = None ):
       that in calling function
     Keywords:
       interval   : The update interval, in seconds, to log time remaining info.
+                    Default is sixty (60) seconds, or 1 minute.
       nintervals : Set to number of updates you would like to be logged about
                     progress. Default is to log as many updates as it takes
                     at the interval requested. Setting this keyword will 
@@ -150,14 +151,12 @@ def progress( proc, interval = 300.0, nintervals = None ):
         return;                                                                 # Return
 
     t0 = t1 = time.time();                                                      # Initialize t0 and t1 to the same time; i.e., now
-    infoFMT = _info;                                                            # Local copy of the _info format string
     dur     = None;                                                             # Initialize dur to None; this is the file duration
     line    = proc.stdout.readline();                                           # Read a line from stdout for while loop start
     while (line != ''):                                                         # While the line is NOT empty
         if dur is None:                                                         # If the file duration has NOT been set yet
             tmp = _durPat.findall( line );                                      # Try to find the file duration pattern in the line
             if len(tmp) == 1:                                                   # If the pattern is found
-                infoFMT = infoFMT.format( '{}', '{}', '{}', tmp[0] );           # Update the information formatting string as the duration of the file never changes
                 dur     = totalSeconds( tmp[0] )[0];                            # Compute the total number of seconds in the file, take element zero as returns list
         elif (time.time()-t1) >= interval:                                      # Else, if the amount of time between the last logging and now is greater or equal to the interval
             t1  = time.time();                                                  # Update the time at which we are logging
@@ -167,9 +166,8 @@ def progress( proc, interval = 300.0, nintervals = None ):
                 prog    = totalSeconds( tmp[0] )[0]                             # Compute total number of seconds comverted so far, take element zero as returns list
                 ratio   = elapsed / prog;                                       # Ratio of real-time seconds per seconds of video processed
                 remain  = ratio * (dur - prog);                                 # Multiply ratio by the number of seconds of video left to convert
-                log.info( 
-                    infoFMT.format( *prettyTime(remain,elapsed), tmp[0] )
-                );                                                              # Log information
+                endTime = datetime.now() + timedelta( seconds=remain );         # Compute estimated completion time
+                log.info( _info.format( endTime ) );                            # Log information
                 if (nintervals is not None) and (nintervals > 0):               # If the adaptive interval keyword is set AND nn is greater than zero
                     nintervals -= 1;                                            # Decrement nintervals
                     interval    = remain / float(nintervals);                   # Set interval to remaining time divided by nn

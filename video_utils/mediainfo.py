@@ -191,7 +191,11 @@ class mediainfo( object ):
         lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_';                    # Set default language to English
         info['file_info'].append( lang2 + 'AAC' );                              # Append language and AAC to the file_info list in the dictionary; AAC is always the first audio track
         info['a_lang'].append( lang2 );                                         # Append language for the AAC stream to the a_lang list
-        mapping = ':'.join(track['StreamOrder'].split('-') );                   # Determine mapping of stream from input
+        try:
+            mapping = track['StreamOrder'].split('-');                          # Try to split StreamOrder on hyphen
+        except:
+            mapping = ['0', str(track['StreamOrder'])];                         # On exception, assume StreamOrder is integer; convert to string and create own mapping
+        mapping = ':'.join( mapping );                                          # Join mapping list on colon
         if nCH > 2:                                                             # If there are more than 2 audio channels
           # Downmixed channel information
           dMixTitle = 'Dolby Pro Logic II' if PLII else 'Dolby Pro Logic';      # Track title based on PLII keyword
@@ -315,7 +319,11 @@ class mediainfo( object ):
     resolution = None;
     video_data = self.__mediainfo['Video'][0];                                  # Data for only video stream; done so var name is shorter
     video_tags = video_data.keys();                                             # Get all keys in the dictionary  
-    mapping    = ':'.join(video_data['StreamOrder'].split('-') );               # Determine mapping of stream from input
+    try:
+        mapping = video_data['StreamOrder'].split('-');                         # Try to split the StreamOrder data on hyphen
+    except:
+        mapping = ['0', str( video_data['StreamOrder'] )];                      # If there is an exception, assume StreamOrder is an integer and create mapping
+    mapping = ':'.join( mapping );                                              # Join mapping using colon
 
     info       = { 'order' : ('-map', '-filter', '-opts') }
     for tag in info['order']: info[tag] = [];

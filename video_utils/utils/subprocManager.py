@@ -95,6 +95,29 @@ class subprocManager(object):
     self.__nProcs = 0;                                                          # Reste number of processes to zero (0)
     return True;                                                                # Return True by default
   ##############################################################################
+  def applyFunc(self, func, args=(), kwargs={}):
+    '''
+    Purpose:
+      Method to apply given function to Popen instance.
+      Only applicable when one (1) process running
+    Inputs:
+      func  : Function to apply
+    Keywords:
+      args   : Tuple or list of arguments, besides Popen instance, to
+               apply to function
+      kwargs : Dictionary of keyword arguments to apply to input function
+    '''
+    self.log.debug('Attempting to apply function to process')
+    if len(self.__procs) != 1: time.sleep(0.5);                                 # If no processes running, sleep for 500 ms to see if one will start
+    if len(self.__procs) != 1:                                                  # If there is NOT one process running
+      if len(self.__procs) == 0:                                                # Check if no processes running
+        self.log.error('No processes running!');                                # Log error
+      else:                                                                     # Else, more than one
+        self.log.error('More than one (1) process running!');                   # Log error
+      return False;                                                             # Return False
+    func( self.__procs[0][0], *args, **kwargs );                                # Apply the function to the only running process
+    return True;                                                                # Return True
+  ##############################################################################
   def __thread(self):
     '''
     Private method for actually running all the process.

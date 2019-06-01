@@ -2,11 +2,11 @@
 import logging;
 import os, re;
 from datetime import datetime;
-
+from subprocess import PIPE, STDOUT;
 
 # Parent classes
 from .mediainfo import mediainfo;
-from .utils.ffmpeg_utils   import cropdetect;
+from .utils.ffmpeg_utils   import cropdetect, progress;
 from .utils.subprocManager import subprocManager;
 
 # Subtitle imports
@@ -350,16 +350,22 @@ class videoconverter( mediainfo, subprocManager ):
 
     self.ffmpeg_cmd.append( out_file );                                         # Append input and output file paths to the self.handbrake command
 
-    print( self.ffmpeg_cmd )
     self.log.info( 'Transcoding file...' )
 
-    if self.no_ffmpeg_log:                                                      # If creation of HandBrake log files is disabled
-      self.addProc( self.ffmpeg_cmd );                                          # Start the HandBrakeCLI command and direct all output to /dev/null
+    if self.no_ffmpeg_log:                                                      # If creation of ffmpeg log files is disabled
+      self.addProc( self.ffmpeg_cmd, 
+              stdout             = PIPE, 
+              stderr             = STDOUT,
+              universal_newlines = True);                                       # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
     else:                                                                       # Else
       self.addProc( self.ffmpeg_cmd, 
         stdout = self.ffmpeg_log_file, stderr = self.ffmpeg_err_file
       );                                                                        # Start the HandBrakeCLI command and direct all output to /dev/null
-    self.run();
+    self.run(block = False);                                                    # Run process with block set to False so that method returns right away
+    if self.no_ffmpeg_log:                                                      # If ffmpeg log files are disabled, we want to know a little bit about what is going on
+        self.applyFunc( progress, kwargs= {'nintervals' : 10} )                 # Apply the 'progess' function to the process to monitor ffmpeg progress
+    self.wait();                                                                # Call wait method to ensure that process has finished
+    
     self.transcode_status = self.returncodes[0];                                # Set transcode_status      
 
     if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
