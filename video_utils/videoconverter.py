@@ -31,6 +31,8 @@ from .videotagger.mp4Tags import mp4Tags;
 # Logging formatter
 from ._logging import fileFMT;
 
+_sePat = re.compile( r'[sS]\d{2,}[eE]\d{2,} - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
+
 class videoconverter( mediainfo, subprocManager ):
   '''
   Name:
@@ -438,15 +440,16 @@ class videoconverter( mediainfo, subprocManager ):
     ### Determine if the file is an episode of a TV show, or a movie. TV episodes
     ### files begin with the patter 'sXXeXX - ', where XX is a number for the
     ### seasons and episode
-    re_test = re.match(re.compile(r's\d{2}e\d{2} - '), self.file_base);         # Test for if the file name starts with a specific pattern, then it is an episode
+    
     if self.metaKeys is None:                                                   # If the metaKeys attribute is None
       se_test = False;                                                          # Then the se_test is False
     else:                                                                       # Else, the metaKeys attribute is not None
-      se_test = ('series title' in self.metaKeys or \
-                  'seriesName'  in self.metaKeys) and \
-                  'season'      in self.metaKeys and \
-                  'episode'     in self.metaKeys;                               # Test if there is a series title AND season AND episode tag in the imdb information
-    if re_test or se_test:                                                      # If either the pattern test (re_test) OR the IMDb information test (se_test) is true, assume it's an episode
+      se_test = ('series title' in self.metaKeys);                              # Check that 'series title' key in metaKeys
+      se_test = ('seriesName'   in self.metaKeys) or  se_test;                  # Check that 'seriesName' key in metaKeys OR previous criteria
+      se_test = ('episode'      in self.metaKeys) and se_test;                  # Check that 'episode' key in metaKeys AND previous criteria
+      se_test = ('season'       in self.metaKeys) and se_test;                  # Check that 'season'  key in metaKeys AND previous criteria
+
+    if _sePat.match(self.file_base) or se_test:                                 # If either the pattern test (regex match to _sePat) OR the IMDb information test (se_test) is true, assume it's an episode
       self.is_episode  = True;                                                  # Set is_episode to True
       self.year        = None;
       self.new_out_dir = self.tv_dir;                                           # Reset output directory to original directory
@@ -462,7 +465,7 @@ class videoconverter( mediainfo, subprocManager ):
         if self.encode: st = st.encode(self.fmt);                               # Encode if python2
         for n in range( len(self.illegal) ):                                    # Iterate over all illegal characters
           if self.illegal[n] in st:                                             # If an illegal character is found in the string
-              st = st.replace(self.illegal[n], self.legal[n]);                    # Replace the character with a legal character
+              st = st.replace(self.illegal[n], self.legal[n]);                  # Replace the character with a legal character
         self.new_out_dir = os.path.join(self.new_out_dir, st);                  # Set Series directory name
         sn = 'Season {:02d}'.format(self.metaData['season']);                   # Set up name for Season Directory
         self.new_out_dir = os.path.join(self.new_out_dir, sn);                  # Add the season directory to the output directory
