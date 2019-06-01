@@ -114,7 +114,7 @@ def prettyTime( *args, timeFMT = '%H:%M:%S' ):
     return [time.strftime( timeFMT, time.gmtime( i ) ) for i in args];          # Interate over each argument and convert to string time, returning the list
 
 ###############################################################################
-def progress( proc, interval = 300.0 ):
+def progress( proc, interval = 300.0, nintervals = None ):
     '''
     Name:
       progess
@@ -131,7 +131,15 @@ def progress( proc, interval = 300.0 ):
       Returns nothing. Does NOT wait for the process to finish so MUST handle
       that in calling function
     Keywords:
-      interval : The update interval, in seconds, to log time remaining info.
+      interval   : The update interval, in seconds, to log time remaining info.
+      nintervals : Set to number of updates you would like to be logged about
+                    progress. Default is to log as many updates as it takes
+                    at the interval requested. Setting this keyword will 
+                    override the value set in the interval keyword.
+                    Note that the value of interval will be used until the
+                    first log, after which point the interval will be updated
+                    based on the remaing conversion time and the requested
+                    number of updates
     '''
     log = logging.getLogger(__name__);                                          # Initialize logger for the function
     if proc.stdout is None:                                                     # If the stdout of the process is None
@@ -162,8 +170,10 @@ def progress( proc, interval = 300.0 ):
                 log.info( 
                     infoFMT.format( *prettyTime(remain,elapsed), tmp[0] )
                 );                                                              # Log information
+                if (nintervals is not None) and (nintervals > 0):               # If the adaptive interval keyword is set AND nn is greater than zero
+                    nintervals -= 1;                                            # Decrement nintervals
+                    interval    = remain / float(nintervals);                   # Set interval to remaining time divided by nn
         line = proc.stdout.readline();                                          # Read the next line
-    log.info( 'Finishing up' );                                                 # Log information
     return
 
 ###############################################################################
@@ -181,7 +191,7 @@ def _testFile():
     cmd     += [outfile]              
     print( ' '.join(cmd) )
     proc = Popen( cmd, stdout = PIPE, stderr = STDOUT, universal_newlines=True) 
-    progress( proc, interval = 10.0 );                                    
+    progress( proc, interval = 10.0, nintervals = None); 
     proc.communicate()                                                          
 
 ###############################################################################
