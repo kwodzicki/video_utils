@@ -3,14 +3,14 @@ import os, re, time;
 from subprocess import check_output, Popen, PIPE, STDOUT, DEVNULL
 from video_utils.videotagger.metadata.getIMDb_ID import getIMDb_ID;
 
-plex_server  = 'Plex Media Server'
-plex_scanner = 'Plex Media Scanner'
+_plex_server  = 'Plex Media Server';                                            # Name of the Plex server command
+_plex_scanner = 'Plex Media Scanner';                                           # Name of the Plex scanner command
 
-pgrep          = ['pgrep', '-fa', plex_server];
-LD_pattern     = re.compile( r'(?:LD_LIBRARY_PATH=([\w\d\S]+))' );         # Pattern for finding LD_LIBRARY_PATH in command
-splt_pattern   = re.compile( r'(?:([^"\s]\S*)|"(.+?)")' )
-se_pattern     = re.compile( r'([sS]\d{1,2}[eE]\d{1,2})' )
-season_pattern = re.compile( r'(?:[sS](\d+)[eE]\d+)' )
+_pgrep          = ['pgrep', '-fa', _plex_server];                               # Command for getting information about runnin Plex Server, if any
+_LD_pattern     = re.compile( r'(?:LD_LIBRARY_PATH=([\w\d\S]+))' );             # Pattern for finding LD_LIBRARY_PATH in command
+_splt_pattern   = re.compile( r'(?:([^"\s]\S*)|"(.+?)")' );                     # Pattern for spliting output of the pgrep command
+_se_pattern     = re.compile( r'([sS]\d{2,}[eE]\d{2,})' );                      # Pattern for locating season/episode numbering
+_season_pattern = re.compile( r'(?:[sS](\d+)[eE]\d+)' );                        # Pattern for extracting season number from season/episode numbering      
 
 ################################################################################
 def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
@@ -52,7 +52,7 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
 
   if os.path.isdir( show_dir ):                                                 # If the show directory exists
     scan_dir = show_dir                                                         # Set scan directory to show directory; should cut down find time
-    season   = season_pattern.findall( file_info[1] );                          # Attempt to find season number from information
+    season   = _season_pattern.findall( file_info[1] );                          # Attempt to find season number from information
     if len(season) == 1:                                                        # If season number was extracted from information
       season     = int( season[0] );                                            # Convert season number to integer
       season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
@@ -156,7 +156,7 @@ def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
         log.exception( 'Exception while running command' )
         return 1
       else:
-        if plexList == '':                                                          # If an empty string was returned
+        if plexList == '':                                                      # If an empty string was returned
           log.critical( 'Failed to get listing of sections! Returning')
           return 1
 
@@ -174,12 +174,12 @@ def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
 
   cmd      += [ '--scan', '--section', section ];                               # Append scan and section options to command
 
-  in_base    = os.path.basename( in_file );                                       # Base name of input file
-  lib_dir    = in_file.split('.grab')[0];                                         # Top level directory of the Plex Library
-  show_dir   = os.path.join( lib_dir, file_info[0] );                                  # Path to show directory based on information from file name
+  in_base    = os.path.basename( in_file );                                     # Base name of input file
+  lib_dir    = in_file.split('.grab')[0];                                       # Top level directory of the Plex Library
+  show_dir   = os.path.join( lib_dir, file_info[0] );                           # Path to show directory based on information from file name
   season_dir = None
   orig_file  = None;
-  scan_dir   = None;                                                              # Scan directory of Plex Media Scanner initialized to None
+  scan_dir   = None;                                                            # Scan directory of Plex Media Scanner initialized to None
 
   log.debug( 'Library directory: {}'.format( lib_dir ) )
   log.debug( 'Show    directory: {}'.format( show_dir ) )
@@ -187,7 +187,7 @@ def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
     log.info('No show directory, will scan entire library')
   else:
     scan_dir = show_dir;                                                        # Set the directory to scan to the show directory
-    season   = season_pattern.findall( file_info[1] );                               # Attempt to find season number from information
+    season   = _season_pattern.findall( file_info[1] );                         # Attempt to find season number from information
     if len(season) == 1:                                                        # If a season number was extracted from information
       season     = int( season[0] );                                            # Convert season number to integer
       season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
@@ -278,7 +278,7 @@ def plexDVR_Rename( in_file, hardlink = True ):
   fileDir                = os.path.dirname(  in_file );
   series, se, title, ext = plexFile_Info( in_file );
 
-  if len( se_pattern.findall(se) ) != 1:
+  if len( _se_pattern.findall(se) ) != 1:
     log.warning( 'Season/episode info NOT found; may be date? Things may break' );
 
   log.debug('Attempting to get IMDb ID')
@@ -301,13 +301,13 @@ def plexDVR_Rename( in_file, hardlink = True ):
 ################################################################################
 def getPlexScannerCMD( ):
   log = logging.getLogger(__name__);
-  log.debug( "Trying to locate '{}'".format( plex_scanner ) );
+  log.debug( "Trying to locate '{}'".format( _plex_scanner ) );
 
   cmd = myenv = None;
   try:
-    lines = check_output( pgrep, universal_newlines=True ).splitlines();
+    lines = check_output( _pgrep, universal_newlines=True ).splitlines();
   except:
-    log.critical( "Failed to find '{}' process".format(plex_server) )
+    log.critical( "Failed to find '{}' process".format(_plex_server) )
     return cmd, myenv
 
   myenv            = os.environ.copy()
@@ -316,10 +316,10 @@ def getPlexScannerCMD( ):
   if cmd_dir is None:
     log.error( "'Plex Media Scanner' NOT found!!!" );
   else: 
-    cmd = os.path.join( cmd_dir, plex_scanner )
+    cmd = os.path.join( cmd_dir, _plex_scanner )
     while (not os.path.isfile(cmd)) and (cmd_dir != os.path.dirname(cmd_dir)):  # While the command has NOT been found and we are NOT at the top level directory
       cmd_dir = os.path.dirname( cmd_dir );                                     # Reset cmd_dir to directory name of command dir; i.e., go up one (1) directory
-      cmd     = os.path.join( cmd_dir, plex_scanner );                          # Set Plex Scanner path to new cmd_dir plus scanner name
+      cmd     = os.path.join( cmd_dir, _plex_scanner );                         # Set Plex Scanner path to new cmd_dir plus scanner name
 
     if not os.path.isfile( cmd ):                                               # If command is not found after while loop break
       cmd = None;                                                               # Set cmd to None
@@ -360,7 +360,7 @@ def parseCommands( cmd_list ):
   '''
   cmds = [];                                                                    # Initialze list for all commands
   for cmd in cmd_list:                                                          # Iterate over all cmds in the command list
-    args = splt_pattern.findall( cmd );                                         # Split arguments; should return list of tuples
+    args = _splt_pattern.findall( cmd );                                        # Split arguments; should return list of tuples
     for i in range(len(args)):                                                  # Iterate over each argument
       index   = ( args[i].index('') + 1 ) % 2;                                  # Each arg is a 2-element tuple where one is empty string, so, locate empty string, add value of 1 to index do modulus to find index of non-empty string
       args[i] = args[i][index]                                                  # Set argument at i to non-empty string
@@ -385,14 +385,14 @@ def parse_cmd_lib_dirs( lines ):
     None.
   '''
   for line in lines:                                                            # Iterate over all the lines in the list
-    lib_path = LD_pattern.findall( line );                                      # Attempt to find the LD_LIBRARY_PATH value in the string
+    lib_path = _LD_pattern.findall( line );                                     # Attempt to find the LD_LIBRARY_PATH value in the string
     if len(lib_path) == 1:                                                      # If it is found
       return lib_path[0], lib_path[0];                                          # Return this value for both the command parent directory AND the LD_LIBRARY_PATH
   
   # If made here, means nothing found in above method
   cmds = parseCommands( lines );                                                # Parse out all argumens from the commands
   for cmd in cmds:                                                              # Iterate over all command argument lists in the cmds list
-    if plex_server in cmd[-1]:                                                  # If the 'Plex Media Server' string is in the last argument of the command
+    if _plex_server in cmd[-1]:                                                 # If the 'Plex Media Server' string is in the last argument of the command
       return os.path.dirname( cmd[-1] ), None;                                  # Return the parent directory of the command AND None for LD_LIBRARY_PATH
   
   # If made here, means nothing found
