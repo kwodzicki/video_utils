@@ -4,6 +4,8 @@ import numpy as np;
 from datetime import datetime, timedelta;
 from subprocess import Popen, PIPE, STDOUT;
 
+from video_utils import _killEvent
+
 _progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' );                     # Regex pattern for locating file duration in ffmpeg ouput 
 _durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' );                # Regex pattern for locating file processing location
 _cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' );                         # Regex pattern for extracting crop information
@@ -44,7 +46,7 @@ def cropdetect( infile, dt = 20 ):
   log.debug( 'Detecting crop using chunks of length {}'.format( dt ) );
 
   detect = True;                                                                # Set detect to True; flag for crop detected
-  while detect:                                                                 # While detect is True, keep iterating
+  while detect and (not _killEvent.is_set()):                                   # While detect is True, keep iterating
     detect = False;                                                             # Set detect to False; i.e., at beginning of iteration, assume no crop found
     log.debug( 'Checking crop starting at {}'.format( ss ) );
     cmd[3] = str(ss);                                                           # Set the start offset in the video

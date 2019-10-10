@@ -1,8 +1,10 @@
 import logging
-import os, time, signal
+import os, time
 from subprocess import call, Popen, STDOUT, DEVNULL
 from threading import Thread, Event
 from multiprocessing import cpu_count
+
+from video_utils import _killEvent                                              # Import kill event
 
 nthreads = cpu_count() // 2                                                     # Set global nthreads as half the number of cpus
 cpulimitInstalled = True;                                                       # Set global cpulimitInstalled flag to True
@@ -41,11 +43,9 @@ class subprocManager(object):
     self.__procs       = [];                                                    # Empty list for Popen handles for process
     self.__returncodes = [];
     self.__cpuProcs    = [];                                                    # Empty list for Popen handles from cpulimit instances
+    self.__exitID      = None
     self.__threadID    = None;                                                  # Set _threadID attribute to None
-    self.__kill        = Event()
-
-    signal.signal(signal.SIGINT,  self.__exit)
-    signal.signal(signal.SIGTERM, self.__exit)
+    self.__runEvent    = Event()
 
   ##############################################################################
   def addProc(self, args, **kwargs):
@@ -79,8 +79,11 @@ class subprocManager(object):
                  more processes the to process queue. You can then use
                  the .wait() method to wait for processes to finish.
     '''
+    self.__runEvent.set()
     self.__returncodes = [];                                                    # Reset __return codes to empty list
+    self.__exitID      = Thread( target = self.__exit )
     self.__threadID    = Thread( target = self.__thread );                      # Initialize Thread class
+    self.__exitID.start()
     self.__threadID.start();                                                    # Start the thread
     if block: self.wait();                                                      # If block (default), wait for processes to complete
 
@@ -133,13 +136,14 @@ class subprocManager(object):
     user can keep adding processes to the queue if they want
     '''
     self.__n = 0;                                                               # Ensure the counter is at zero
-    while (not self.__kill.is_set()) and (len(self.__queue) > 0):               # While there are commands in the queue
+    while (not _killEvent.is_set()) and (len(self.__queue) > 0):               # While there are commands in the queue
       if len(self.__procs) == self.threads:                                     # If the number of allowable subprocess are running
         self.__procCheck();                                                     # Wait for a process to finish
       args, kwargs = self.__queue.pop(0);                                       # Pop off first element of the _queue
       self.__Popen( args, **kwargs );                                           # Call method to start a new subprocess
-    while (not self.__kill.is_set()) and (len(self.__procs) > 0):               # While there are processes running
+    while (not _killEvent.is_set()) and (len(self.__procs) > 0):               # While there are processes running
       self.__procCheck();                                                       # Wait for a process to finish
+    self.__runEvent.clear()                                                     # Clear the run event so the __exit thread quits
 
   ##############################################################################
   def __Popen( self, args, **kwargs ):    
@@ -150,7 +154,7 @@ class subprocManager(object):
     Keywords:
       All kwargs from Popen
     '''      
-    if self.__kill.is_set(): return
+    if _killEvent.is_set(): return
     self.__n += 1;                                                              # Increment n by one
     single = kwargs.pop('single', False);                                       # Pop off the 'single' keyword argument, or get False if not keyword
     stdout = kwargs.pop('stdout', DEVNULL);                                     # Set default stdout to DEVNULL
@@ -243,9 +247,10 @@ class subprocManager(object):
     Private method for killing everything (cleanly). 
     Intended to be called when SIGINT or something else occurs
     '''
-    self.log.warning('Kill processes!')
-    self.__kill.set()
-    for proc in self.__procs: proc[0].terminate()                               # Terminate all of the processes 
+    while self.__runEvent.is_set():
+      if _killEvent.wait( timeout = 0.5 ):
+        self.__runEvent.clear()
+        for proc in self.__procs: proc[0].terminate()                               # Terminate all of the processes 
 
   ##############################################################################
   @property
@@ -270,6 +275,7 @@ class subprocManager(object):
   def interval(self, value):
     self.__interval = 0.5 if (value is None) else float(value);                 # Set _interval to default if value is None, else set to float of value
     if self.__interval < 0.01: self.__interval = 0.01;                          # If _interval is less than 0.01, set to 0.01
+    if self.__interval > 0.50: self.__interval = 0.50;                          # If _interval is greater than 0.5, set to 0.5; we want things to stay responsive
   ##############################################################################
   @property
   def returncodes(self):

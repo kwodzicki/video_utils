@@ -31,6 +31,8 @@ from .videotagger.mp4Tags import mp4Tags;
 # Logging formatter
 from ._logging import fileFMT;
 
+from video_utils import _killEvent
+
 _sePat = re.compile( r'[sS]\d{2,}[eE]\d{2,} - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
 class videoconverter( mediainfo, subprocManager ):
@@ -294,6 +296,7 @@ class videoconverter( mediainfo, subprocManager ):
        Modified 14 Jan. 2017 by Kyle R. Wodzicki
           Updated header information for better clarity.
     '''
+    _killEvent.clear()                                                          # Clear the 'global' kill event that may have been set by SIGINT
     if not self.file_info( in_file ): return False;                             # If there was an issue with the file_info function, just return
     self._init_logger( log_file );                                              # Run method to initialize logging to file
     if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
@@ -349,8 +352,11 @@ class videoconverter( mediainfo, subprocManager ):
     if self.no_ffmpeg_log:                                                      # If ffmpeg log files are disabled, we want to know a little bit about what is going on
         self.applyFunc( progress, kwargs= {'nintervals' : 10} )                 # Apply the 'progess' function to the process to monitor ffmpeg progress
     self.wait();                                                                # Call wait method to ensure that process has finished
-    
-    self.transcode_status = self.returncodes[0];                                # Set transcode_status      
+
+    try: 
+      self.transcode_status = self.returncodes[0];                                # Set transcode_status      
+    except:
+      self.transcode_status = -1
 
     if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
       self.log.info( 'Transcode SUCCESSFUL!' );                                 # Print information
