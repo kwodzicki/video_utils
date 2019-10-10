@@ -168,6 +168,8 @@ class videoconverter( mediainfo, subprocManager ):
     self.username      = username;
     self.userpass      = userpass;
     
+    self.chapterFile      = None
+
     self.video_info       = None;                                               # Set video_info to None by default
     self.audio_info       = None;                                               # Set audio_info to None by default
     self.text_info        = None;                                               # Set text_info to None by default
@@ -353,8 +355,11 @@ class videoconverter( mediainfo, subprocManager ):
         self.applyFunc( progress, kwargs= {'nintervals' : 10} )                 # Apply the 'progess' function to the process to monitor ffmpeg progress
     self.wait();                                                                # Call wait method to ensure that process has finished
 
+    if os.path.isfile( self.chapterFile ): os.remove( self.chapterFile )        # If the cahpter file exists, delete it
+    self.chapterFile = None                                                     # Set chapter file to None for safe measure
+
     try: 
-      self.transcode_status = self.returncodes[0];                                # Set transcode_status      
+      self.transcode_status = self.returncodes[0];                              # Set transcode_status      
     except:
       self.transcode_status = -1
 
@@ -388,13 +393,23 @@ class videoconverter( mediainfo, subprocManager ):
 
   ##############################################################################
   def _ffmpeg_command(self, out_file): 
-    cmd = self._ffmpeg_base()                                                    # Call method to generate base command for ffmpeg
-    
+    '''
+    Purpose
+      A method to generate full ffmpeg command list
+    Inputs:
+      out_file  : Full output file path that ffmpeg will create
+    Outputs:
+      Returns list containing full ffmpeg command to run
+    Keywords:
+      None.
+    '''
+    cmd = self._ffmpeg_base( )                                                  # Call method to generate base command for ffmpeg
+
     cropVals  = cropdetect( self.in_file );                                     # Attempt to detect cropping
     videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info
     audioKeys = self._audioKeys();                                              # Generator for orderer keys in audio_info
     avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
-    
+
     while any( avOpts ):                                                        # While any options left
       try:                                                                      # Try to
         key = next( videoKeys );                                                # Get the next video_info key
@@ -423,10 +438,28 @@ class videoconverter( mediainfo, subprocManager ):
 
   ##############################################################################
   def _ffmpeg_base(self):
+    '''
+    Purpose
+      A method to generate basic ffmpeg command
+    Inputs:
+      None.
+    Outputs:
+      Returns list containing command
+    Keywords:
+      None.
+    '''
     cmd  = ['ffmpeg', '-nostdin', '-i', self.in_file]
-    cmd += ['-f', self.container, '-threads', str(self.threads)]    
-    cmd += ['-tune', 'zerolatency', '-map_chapters', '0']   # Base command for HandBrake
-    return cmd 
+
+    if os.path.isfile(self.chapterFile):                                        # If the chapter file exits
+      self.log.info( 'Adding chapters from file : {}'.format(self.chapterFile) )
+      cmd += ['-i', self.chapterFile, '-map_metadata', '1']                     # Append to command and set meta data mapping from file
+    else:
+      cmd += ['-map_chapters', '0']                                             # Else, enable mapping of chapters from source file
+
+    cmd += ['-tune', 'zerolatency']                                             # Enable faster streaming
+    cmd += ['-f', self.container, '-threads', str(self.threads)]                # Set container and number of threads to use
+
+    return cmd                                                                  # Return command
 
   ##############################################################################
   def _write_tags(self, out_file):
@@ -450,7 +483,7 @@ class videoconverter( mediainfo, subprocManager ):
     '''
     self.log.info('Setting up some file information...');
 
-    self.mp4tags = (self.container == 'mp4');
+    self.mp4tags     = (self.container == 'mp4');
     
     # Set up file/directory information
     self.in_file  = in_file if os.path.exists( in_file ) else None;             # Set the in_file attribute for the class to the file input IF it exists, else, set the in_file to None
@@ -458,7 +491,10 @@ class videoconverter( mediainfo, subprocManager ):
       self.log.info( 'File requested does NOT exist. Exitting...' );
       self.log.info( '   ' + in_file );
       return False;                                                             # Return, which stops the program
+
     self.log.info( 'Input file: '   + self.in_file );                           # Print out the path to the input file
+    self.chapterFile = os.path.splitext( self.in_file )[0] + '.chap'            # Set chapter file name; same name as source file, but with .chap extension; should be generated by comremove.comchapters()
+
     if self.out_dir is None: self.out_dir = os.path.dirname(in_file);           # Set the output directory based on input file OR on output directory IF input
     if self.log_dir is None: self.log_dir = os.path.join(self.out_dir, 'logs'); # Set log_dir to input directory if NOT set on init, else set to log_dir value
     self.tv_dir  = os.path.join( self.out_dir, 'TV Shows');                     # Generate output path for TV Shows
@@ -518,10 +554,10 @@ class videoconverter( mediainfo, subprocManager ):
         self.new_out_dir = os.path.join(self.new_out_dir, st);                  # Set Series directory name
         sn = 'Season {:02d}'.format(self.metaData['season']);                   # Set up name for Season Directory
         self.new_out_dir = os.path.join(self.new_out_dir, sn);                  # Add the season directory to the output directory
-        if re_test is False:                                                    # If the re_test is False
-          self.file_name[0] = 's{:02d}e{:02d} - {}'.format(
-            self.metaData['season'], self.metaData['episode'], self.file_name[0]
-          )
+#        if re_test is False:                                                    # If the re_test is False
+#          self.file_name[0] = 's{:02d}e{:02d} - {}'.format(
+#            self.metaData['season'], self.metaData['episode'], self.file_name[0]
+#          )
     else:                                                                       # Else the file is a movie
       self.is_episode  = False;                                                 # Set is_episode to False
       self.new_out_dir = self.mov_dir;                                          # Reset output directory to original directory

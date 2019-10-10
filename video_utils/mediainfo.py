@@ -195,6 +195,8 @@ class mediainfo( object ):
         except:
             mapping = ['0', str(track['StreamOrder'])];                         # On exception, assume StreamOrder is integer; convert to string and create own mapping
         mapping = ':'.join( mapping );                                          # Join mapping list on colon
+        info['file_info'].append( lang2 + fmt );                              # Append the language and format for the second strem, which is a copy of the orignal stream
+
         if nCH > 2:                                                             # If there are more than 2 audio channels
           info['-map'].extend(    ['-map', mapping]                        );   # Append the track number to the --audio list
           info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']    );   # Append audio codecs to faac and copy
@@ -202,9 +204,6 @@ class mediainfo( object ):
           info['-title'].append( 'title={} - {}'.format(title, fmt)        );
           info['-language'].append( '-metadata:s:a:{}'.format(track_num)   );   # Append  audio track names
           info['-language'].append( 'language={}'.format(lang3)            );
-
-          # Extra info
-          info['file_info'].append( lang2 + fmt );                              # Append the language and format for the second strem, which is a copy of the orignal stream
         else:                                                                   # Else, there are 2 or fewer channels
           info['-map'].extend(    ['-map', mapping]                      );   # Append the track number to the --audio list
           info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']  );   # Append audio codecs to faac and copy
@@ -226,6 +225,7 @@ class mediainfo( object ):
 
     info['file_info'] = '.'.join( info['file_info'] )
     return info;                                                              # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
+
   ################################################################################
   def get_video_info( self, x265 = False ):
     '''
@@ -342,6 +342,7 @@ class mediainfo( object ):
     if len(info['-filter']) > 0:
       info['-filter'] = ['-vf', ','.join(info['-filter'])];
     return info;
+
   ################################################################################
   def get_text_info( self, language ):
     '''
@@ -450,6 +451,7 @@ class mediainfo( object ):
         return info;                                                              # Return the info dictionary
       else:                                                                       # Else
         return None;                                                              # Return None
+
   ##############################################################################
   def __parse_mpegTS(self, language):
     '''

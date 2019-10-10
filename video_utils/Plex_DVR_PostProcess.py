@@ -14,13 +14,14 @@ for handler in log.handlers:                                                    
     break;                                                                      # Break for loop to save some iterations
 
 def Plex_DVR_PostProcess(in_file, 
-     logdir    = None, 
-     threads   = None, 
-     cpulimit  = None,
-     language  = None,
-     verbose   = False,
-     no_remove = False,
-     no_srt    = False):
+     logdir      = None, 
+     threads     = None, 
+     cpulimit    = None,
+     language    = None,
+     verbose     = False,
+     destructive = False,
+     no_remove   = False,
+     no_srt      = False):
   '''
   Name:
     Plex_DVR_PostProcess
@@ -35,13 +36,19 @@ def Plex_DVR_PostProcess(in_file,
   Outputs:
     Returns status of transocde
   Keywords:
-    logdir    : Directory for any extra log files
-    threads   : Number of threads to use for comskip and transcode
-    cpulimit  : Percentage to limit cpu usage to
-    language  : Language for audio/subtitles
-    verbose   : Increase verbosity
-    no_remove : If set, input file will NOT be deleted
-    no_srt    : If set, no SRT subtitle files created
+    logdir      : Directory for any extra log files
+    threads     : Number of threads to use for comskip and transcode
+    cpulimit    : Percentage to limit cpu usage to
+    language    : Language for audio/subtitles
+    verbose     : Increase verbosity
+    destructive : If set, will cut commercials out of file. Note that
+                   commercial identification is NOT perfect, so this could
+                   lead to missing pieces of content. 
+                   By default, will add chapters to output file marking
+                   commercial breaks. This enables easy skipping, and does
+                   not delete content if commercials misidentified
+    no_remove   : If set, input file will NOT be deleted
+    no_srt      : If set, no SRT subtitle files created
   '''
   noHandler = True;                                                             # Initialize noHandler to True
   for handler in log.handlers:                                                  # Iterate over all handlers
@@ -68,6 +75,7 @@ def Plex_DVR_PostProcess(in_file,
       except:
         log.info('Failed to change log permissions; this may cause issues')
   
+  in_file = os.path.realpath( in_file )                                         # Get real input file path 
   log.info('Input file: {}'.format( in_file ) );
   file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
   if not file:                                                                  # if the rename fails
@@ -75,7 +83,7 @@ def Plex_DVR_PostProcess(in_file,
     return 1, info;                                                             # Return from function
   
   com_inst = comremove(threads=threads, cpulimit=cpulimit, verbose=verbose);    # Set up comremove instance
-  status   = com_inst.process( file );                                          # Try to remove commercials from video
+  status   = com_inst.process( file, chapters = not destructive )               # Try to remove commercials from video
   if not status:                                                                # If comremove failed
     log.cirtical('Error cutting commercials');                                  # Log error
     return 1, info;                                                             # Exit script

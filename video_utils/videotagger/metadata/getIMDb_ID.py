@@ -12,7 +12,7 @@ if tvdb_key:                                                                    
   import tvdbsimple as TVDb;                                                    # Import tvdbsimple as tvdb; this will make if tvdb: return True
   TVDb.KEYS.API_KEY = tvdb_key;                                                 # Set the API_KEY for the tvdbsimple
 else:                                                                           # Else, get a logger and log an error
-  logging.getLogger(__name__).error( 
+  logging.getLogger(__name__).warning( 
     "API key for TVDb could NOT be imported!"
   );
 
@@ -49,22 +49,40 @@ def getIMDb_ID( series_name, episode_title, season_ep = None ):
       series_name, year, season_ep, episode_title)
   )
 
+  try:
+    s, e = [int(i) for i in season_ep.split('S')[-1].split('E')]
+  except:
+    s = e = None
+
   ###############
   ### IMDb serach
   log.info( 'Attempting to get IMDb ID from IMDb' );               
   imdb = IMDb();                                                                # Initialize IMDb instance
-  res  = imdb.search_episode( episode_title );                                  # Search for the episode title on IMDb
+  res  = imdb.search_movie( series_name );                                      # Search for the episode title on IMDb
   log.debug( 'IMDb search returned {} matches'.format( len(res) ) );            # Debugging information
   for r in res:                                                                 # Iterate over all the results from IMDb
-    if r['episode of'].lower() in series_name.lower():                          # If the series name from IMDb is in the series name from the file
+    if r['kind'].lower() == 'tv series':                                        # If object is a tv series 
       log.debug('Found series with matching name');
-      if 'series year' in r and year:                                           # If the 'series year' key is in the result AND the local year is defined
+      if 'year' in r and year:                                                  # If the 'series year' key is in the result AND the local year is defined
         log.debug('Series has year information');
-        if r['series year'] != year: 
+        if r['year'] != year: 
           log.debug('Series year did NOT match');
           continue;                                                             # If the result series year NOT match the local series year, skip series
-      log.info( 'IMDb ID found from IMDb search')
-      return imdbFMT.format( r.getID() );                                       # Return the IMDb id
+
+      log.info('Getting list of episodes from IMDb.com')
+      imdb.update( r, 'episodes' )                                              # Get information for all episodes
+      if (s is not None):                                                       # If s is not None, that means season and episode numbers should have been parsed from file name
+        if (s in r['episodes']) and (e in r['episodes'][s]):                    # If the season number is in the episodes dictionary AND the episode number is in the season
+          if r['episodes'][s][e]['title'].lower() in episode_title.lower():     # Check that the titles are the same
+            log.info( 'IMDb ID found from IMDb search')
+            return imdbFMT.format( r['episodes'][s][e].getID() );               # Return the IMDb id
+      else:                                                                     # Else.... we need to iterate
+        for s in r['episodes']:                                                 # Iterate over all the seasons in the episodes dictionary
+          for e in r['episodes'][s]:                                            # Iterate over all the episodes in the season
+            if r['episodes'][s][e]['title'].lower() in episode_title.lower():   # Check that the titles are the same
+              log.info( 'IMDb ID found from IMDb search')
+              return imdbFMT.format( r['episodes'][s][e].getID() );             # Return the IMDb id
+             
   log.warning( 'IMDb search failed' )
   
   ###############

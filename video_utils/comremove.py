@@ -18,6 +18,8 @@ class comremove( subprocManager ):
   _comskip = ['comskip'];
   _comcut  = ['ffmpeg', '-nostdin', '-y', '-i'];
   _comjoin = ['ffmpeg', '-nostdin', '-y', '-i'];
+
+  ########################################################
   def __init__(self, ini = None, threads = None, cpulimit = None, verbose = None):
     super().__init__();
     self.log      = logging.getLogger(__name__);
@@ -27,8 +29,22 @@ class comremove( subprocManager ):
     self.verbose  = verbose;
     self.outDir   = None;
     self.fileExt  = None;
+
   ########################################################
-  def process(self, in_file ):
+  def process(self, in_file, chapters = False ):
+    '''
+    Purpose:
+      Main method for commercial identification and removal.
+    Inputs:
+      in_file  : Full path of file to run commercial removal on
+    Outputs:
+      boolean
+    Kewords:
+      chapters : Set for non-destructive commercial 'removal'.
+                  If set, will generate .chap file containing
+                  Show segment and commercial break chapter info
+                  for FFmpeg.
+    '''
     self.outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
     self.fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
     edl_file     = None;
@@ -37,18 +53,23 @@ class comremove( subprocManager ):
 
     edl_file     = self.comskip( in_file );                                     # Attempt to run comskip and get edl file path
     if edl_file:                                                                # If eld file path returned
-      tmp_Files  = self.comcut( in_file, edl_file );                            # Run the comcut method to extract just show segments; NOT comercials
+      if chapters:
+        self.comchapter( in_file, edl_file )
+        os.remove(edl_file)
+      else:
+        tmp_Files  = self.comcut( in_file, edl_file );                            # Run the comcut method to extract just show segments; NOT comercials
 
-    if tmp_Files:                                                               # If status is True
-      cut_File   = self.comjoin( tmp_Files );                                   # Attempt to join the files and update status using return code from comjoin
+        if tmp_Files:                                                               # If status is True
+          cut_File   = self.comjoin( tmp_Files );                                   # Attempt to join the files and update status using return code from comjoin
 
-    if cut_File:                                                                # If status is True
-      self.check_size( in_file, cut_File );
+        if cut_File:                                                                # If status is True
+          self.check_size( in_file, cut_File );
 
     self.outDir  = None;                                                        # Reset attribute
     self.fileExt = None;                                                        # Reset attribute
 
     return True;                                                                # Return the status 
+
   ########################################################
   def comskip(self, in_file):
     '''
@@ -63,6 +84,9 @@ class comremove( subprocManager ):
       successfully, then None is returned.
     '''
     self.log.info( 'Running comskip to locate commercial breaks')
+    if (self.outDir  is None): self.outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
+    if (self.fileExt is None): self.fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
+    
     cmd = self._comskip.copy();
     if self.threads:
       cmd.append( '--threads={}'.format(self.threads) );
@@ -76,6 +100,7 @@ class comremove( subprocManager ):
     
     cmd.append( '--output={}'.format(self.outDir) );
     cmd.extend( [in_file, self.outDir] );
+    
     self.log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
     if self.verbose:
       self.addProc(cmd, stdout = log, stderr = err);
@@ -96,6 +121,61 @@ class comremove( subprocManager ):
     else:
       self.log.warning('There was an error with comskip')
       return None;
+
+  ########################################################
+  def comchapter(self, in_file, edl_file):
+    '''
+    Purpose:
+      Method to create an ffmpeg metadata file that
+      contains chatper information marking commercials.
+      These metadata will be written to in_file
+    Inputs:
+      in_file  : Full path of file to run comskip on
+      edl_file : Full path of .edl file produced by
+    Outputs:
+      Boolean, True if success, False if failed
+    '''
+    self.log.info('Generating metadata file')
+    chpFMT      = '[CHAPTER]\nTIMEBASE=1/1000\nSTART={}\nEND={}\ntitle={}\n'
+
+    fDir, fBase = os.path.split( in_file )                                              # Split file path to get directory path and file name
+    fName, fExt = os.path.splitext( fBase )                                             # Split file name and extension
+    metaFile    = os.path.join( fDir, '{}.chap'.format(fName) )                 # Generate file name for chapter metadata
+
+    segment     = 1
+    commercial  = 1
+
+    mid         = open(metaFile, 'w')                                                   # Open metadata file for writing
+    mid.write( ';FFMETADATA1\n' )                                                       # Write header to file
+
+    segStart    = timedelta( seconds = 0.0 );                                      # Initial start time of the show segment; i.e., the beginning of the recording
+    fid         = open(edl_file, 'r');                                             # Open edl_file for reading
+    info        = fid.readline();                                                  # Read first line from the edl file
+    while info:                                                                 # While the line is NOT empty
+      comStart, comEnd = info.split()[:2];                                      # Get the start and ending times of the commercial
+      comStart   = timedelta( seconds = float(comStart) );                      # Get start time of commercial as a time delta
+      comEnd     = timedelta( seconds = float(comEnd) );                        # Get the end time of the commercial as a time delta
+      if comStart.total_seconds() > 1.0:                                        # If the start of the commercial is NOT near the very beginning of the file
+        # From segStart to comStart is NOT commercial
+        sTime    = int(segStart.total_seconds() * 1000)
+        eTime    = int(comStart.total_seconds() * 1000)
+        mid.write( chpFMT.format(sTime, eTime, 'Show Segment \#{}'.format(segment)) )
+        self.log.debug( 'Show segment {} - {} to {} micros'.format(segment, sTime, eTime) ) 
+        # From comStart to comEnd is commercail
+        sTime    = eTime
+        eTime    = int(comEnd.total_seconds() * 1000)
+        mid.write(chpFMT.format(sTime, eTime, 'Commercial Break \#{}'.format(commercial)) )
+        self.log.debug( 'Commercial {} - {} to {} micros'.format(commercial, sTime, eTime) ) 
+        # Increment counters
+        segment    += 1
+        commercial += 1
+      segStart = comEnd;                                                        # The start of the next segment of the show is the end time of the current commerical break 
+      info     = fid.readline();                                                # Read next line from edl file
+    
+    fid.close()
+    mid.close()
+    return True 
+
   ########################################################
   def comcut(self, in_file, edl_file):
     '''
@@ -146,6 +226,7 @@ class comremove( subprocManager ):
     self.log.debug('Removing the edl_file');                                    # Debugging information
     os.remove( edl_file );                                                      # Delete the edl file
     return tmpFiles;
+
   ########################################################
   def comjoin(self, tmpFiles):
     '''
@@ -179,6 +260,7 @@ class comremove( subprocManager ):
       except:
         pass;
       return None;
+
   ########################################################
   def check_size(self, in_file, cut_file):
     '''
@@ -216,6 +298,7 @@ class comremove( subprocManager ):
       os.rename( cut_file, in_file );
     else:
       os.remove( cut_file );
+
   ########################################################
   def convertTXT( self, txt_file, edl_file ):
     if os.stat(txt_file).st_size == 0:
@@ -232,6 +315,7 @@ class comremove( subprocManager ):
           edl.write( '{:0.2f} {:0.2f} 0\n'.format( start, end ) );              # Write out information to edl file
           line = txt.readline();                                                # Read next line
     return edl_file;                                                            # Return edl_file path
+
   ########################################################
   def __size_fmt(self, num, suffix='B'):
     '''

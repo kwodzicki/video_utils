@@ -171,7 +171,7 @@ def progress( proc, interval = 60.0, nintervals = None ):
                 remain  = ratio * (dur - prog);                                 # Multiply ratio by the number of seconds of video left to convert
                 endTime = datetime.now() + timedelta( seconds=remain );         # Compute estimated completion time
                 log.info( _info.format( endTime ) );                            # Log information
-                if (nintervals is not None) and (nintervals > 0):               # If the adaptive interval keyword is set AND nn is greater than zero
+                if (nintervals is not None) and (nintervals > 1):               # If the adaptive interval keyword is set AND nn is greater than zero
                     nintervals -= 1;                                            # Decrement nintervals
                     interval    = remain / float(nintervals);                   # Set interval to remaining time divided by nn
         line = proc.stdout.readline();                                          # Read the next line
