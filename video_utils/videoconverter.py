@@ -381,8 +381,8 @@ class videoconverter( mediainfo, subprocManager ):
     return out_file;                                                            # Return output file from function, i.e., transcode was success
 
   ##############################################################################
-  def _ffmpeg_command(self, outfile): 
-    cmd = self.ffmpeg_base()                                                    # Call method to generate base command for ffmpeg
+  def _ffmpeg_command(self, out_file): 
+    cmd = self._ffmpeg_base()                                                    # Call method to generate base command for ffmpeg
     
     cropVals  = cropdetect( self.in_file );                                     # Attempt to detect cropping
     videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info

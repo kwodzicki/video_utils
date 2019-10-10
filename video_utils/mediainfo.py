@@ -125,10 +125,12 @@ class mediainfo( object ):
           except:
             data[tag][order][cur_tag] = elem.text;
     self.__mediainfo = None if len(data) == 0 else data;
+
   ################################################################################
   def __eq__(self, other): return self.__mediainfo == other;
+
   ################################################################################
-  def get_audio_info( self, language, PLII = True ):
+  def get_audio_info( self, language ):
     '''
     Name:
       get_audio_info
@@ -144,6 +146,8 @@ class mediainfo( object ):
       Returns a dictionary with information in a format for input into 
       the HandBrakeCLI command.
     Keywords:
+      downmix : Toggles downmix if no mono/stereo tracks found.
+                 Default is to only copy tracks from source
       PLII    : Toggles downmix format; If True (default), will use
                  Dolby Pro Logic II, if False, will use Dolby Pro Logic
     Dependencies:
@@ -168,12 +172,9 @@ class mediainfo( object ):
   
     info = {'-map'       : [],
             '-codec'     : [],
-            '-filter'    : [],
-            '-b'         : [],
             '-title'     : [],
             '-language'  : [],
-            'order'      : ('-map', '-filter', '-codec', '-b', '-title', '-language'),
-            'a_lang'     : [],
+            'order'      : ('-map', '-codec', '-title', '-language'),
             'file_info'  : []};                                                 # Initialize a dictionary for storing audio information
     track_id  = '1';                                                             # Initialize a variable for counting the track number.
     track_num = 0;
@@ -189,28 +190,12 @@ class mediainfo( object ):
         title = track['Title']            if 'Title'            in track else 'Source Track: {}'.format(track_id);
         if type(nCH) is str: nCH = max( [int(j) for j in nCH.split('/')] );     # If nCH is of type string, split number of channels for the audio stream on forward slash, convert all to integer type, take maximum; some DTS streams have 6 or 7 channel layouts 
         lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_';                    # Set default language to English
-        info['file_info'].append( lang2 + 'AAC' );                              # Append language and AAC to the file_info list in the dictionary; AAC is always the first audio track
-        info['a_lang'].append( lang2 );                                         # Append language for the AAC stream to the a_lang list
         try:
             mapping = track['StreamOrder'].split('-');                          # Try to split StreamOrder on hyphen
         except:
             mapping = ['0', str(track['StreamOrder'])];                         # On exception, assume StreamOrder is integer; convert to string and create own mapping
         mapping = ':'.join( mapping );                                          # Join mapping list on colon
         if nCH > 2:                                                             # If there are more than 2 audio channels
-          # Downmixed channel information
-          dMixTitle = 'Dolby Pro Logic II' if PLII else 'Dolby Pro Logic';      # Track title based on PLII keyword
-          info['-map'].extend(   ['-map', mapping]                         );   # Append the track number to the --audio list
-          info['-codec'].extend( ['-c:a:{}'.format(track_num), 'aac']      );   # Append audio codecs to faac and copy
-          info['-b'].extend(     ['-b:a:{}'.format(track_num), '192k']     );   # Append audio codec bit rate. 'na' used for the copy codec
-          info['-filter'].append( '-filter:a:{}'.format(track_num)         );   # Append the audio mixdowns to Dolby Prologic II and a filler of 'na'
-          info['-filter'].append( getDownmixFilter( PLII = PLII )          );   # Set filte for downmixing
-          info['-title'].append( '-metadata:s:a:{}'.format(track_num)      );   # Append  audio track names
-          info['-title'].append( 'title={}'.format( dMixTitle )            );
-          info['-language'].append( '-metadata:s:a:{}'.format(track_num)   );   # Append  audio track names
-          info['-language'].append( 'language={}'.format(lang3)            );
-          track_num += 1
-
-          # Copied channel information
           info['-map'].extend(    ['-map', mapping]                        );   # Append the track number to the --audio list
           info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']    );   # Append audio codecs to faac and copy
           info['-title'].append( '-metadata:s:a:{}'.format(track_num)      );   # Append  audio track names
@@ -219,17 +204,10 @@ class mediainfo( object ):
           info['-language'].append( 'language={}'.format(lang3)            );
 
           # Extra info
-          info['a_lang'].append( lang2 );                                       # Append language for the copied stream to the a_lang list
           info['file_info'].append( lang2 + fmt );                              # Append the language and format for the second strem, which is a copy of the orignal stream
         else:                                                                   # Else, there are 2 or fewer channels
-          if fmt != 'AAC':                                                      # If the format of the audio is NOT AAC
-            info['-map'].extend(   ['-map', mapping]                       );   # Append the track number to the --audio list
-            info['-codec'].extend( ['-c:a:{}'.format(track_num), 'aac']    );   # Append audio codecs to faac and copy
-            info['-b'].extend(     ['-b:a:{}'.format(track_num), '192k']   );   # Append audio codec bit rate. 'na' used for the copy codec
-          else:                                                                 # Else, the stream is only 2 channels and is already AAC
-            info['-map'].extend(    ['-map', mapping]                      );   # Append the track number to the --audio list
-            info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']  );   # Append audio codecs to faac and copy
-
+          info['-map'].extend(    ['-map', mapping]                      );   # Append the track number to the --audio list
+          info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']  );   # Append audio codecs to faac and copy
           info['-title'].append( '-metadata:s:a:{}'.format(track_num) );     # Append  audio track names
           if nCH == 2:                                                          # If there are only 2 audio channels
             info['-title'].append( 'title=stereo' );
@@ -241,34 +219,13 @@ class mediainfo( object ):
 
         track_id = str( int(track_id) + 1 );                                    # Increment audio track
         track_num += 1;
+
     if len(info['-map']) == 0:                                                  # If the --audio list is NOT empty
       self.log.warning(  'NO audio stream(s) selected...');                     # If verbose is set, print some output
       return None;
-    else:
-      # The following lines of code remove duplicate audio tracks based on the
-      # audio track name and language. This is done primarily so that there
-      # are not multiple downmixed tracks in the same language. For example.
-      # if a movie has both Dolby and DTS 5.1 surround tracks, the code above
-      # will set to have a Dolby Pro Logic II downmix of both the Dolby and DTS
-      # streams, as well as direct copies of them. However, the below code
-      # will remove the DTS downmix (if the Dolby stream is before it and vice
-      # versa) so that there is one downmix and two copies of the different
-      # streams.
-      i = 0;                                                                    # Set i counter to zero
-      while i < len(info['-map']):                                              # While i is less than then number of entries in --audio
-        j = i+2;                                                                # Set j to one more than i
-        while j < len(info['-map']):                                            # Re loop over all entries in the dictionary lists
-          if info['-title'][i+1] == info['-title'][j+1] and \
-             info['a_lang'][i+1] == info['a_lang'][j+1]:  
-            for k in info: 
-              del info[k][j];                                                   # If the name and language for elements i and j of the info dictionary match, remove the information at element j
-              del info[k][j];                                                   # If the name and language for elements i and j of the info dictionary match, remove the information at element j
-          else:  
-            j += 2;                                                             # Else, the language and name do NOT match, so increment j
-        i += 2;                                                                 # Increment i
-      
-      info['file_info'] = '.'.join( info['file_info'] )
-      return info;                                                              # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
+
+    info['file_info'] = '.'.join( info['file_info'] )
+    return info;                                                              # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
   ################################################################################
   def get_video_info( self, x265 = False ):
     '''
