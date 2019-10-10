@@ -1,6 +1,6 @@
 # Built-in imports
 import logging;
-import os, re;
+import os, re, time;
 from datetime import datetime;
 from subprocess import PIPE, STDOUT;
 
@@ -48,8 +48,7 @@ class videoconverter( mediainfo, subprocManager ):
      used for all videos with resolution greater than 1080P. 
      The H265 codec can be enabled for lower resolution videos.
   Dependencies:
-     os, re
-     HandBrakeCLI
+     ffmpeg, mediainfo
   Author and History:
      Kyle R. Wodzicki     Created 24 Jul. 2017
      
@@ -139,9 +138,7 @@ class videoconverter( mediainfo, subprocManager ):
     super().__init__();
     self.log = logging.getLogger( __name__ );                                   # Set log to root logger for all instances
 
-    self.container    = container.lower();
-    self.mp4tags      = (self.container == 'mp4');
-
+    self.container = container
     if vobsub_extract is None:
       self.log.warning('VobSub extraction is DISABLED! Check that mkvextract is installed and in your PATH');
       self.vobsub = False;
@@ -169,7 +166,6 @@ class videoconverter( mediainfo, subprocManager ):
     self.username      = username;
     self.userpass      = userpass;
     
-    self.handbrake        = None;
     self.video_info       = None;                                               # Set video_info to None by default
     self.audio_info       = None;                                               # Set audio_info to None by default
     self.text_info        = None;                                               # Set text_info to None by default
@@ -183,14 +179,26 @@ class videoconverter( mediainfo, subprocManager ):
     self.IMDb_ID          = None;
     self.metaData         = None;
     self.metaKeys         = None;
-    self.ffmpeg_logTime       = None;
+    self.ffmpeg_logTime   = None;
 
-    self.v_preset         = 'slow';                                             # Set self.handbrake preset to slow
+    self.mp4tags          = False
+
+    self.v_preset         = 'slow';                                             # Set x264/5 preset to slow
     self.fmt              = 'utf-8';                                            # Set encoding format
     self.encode           = type( 'hello'.encode(self.fmt) ) is str;            # Determine if text should be encoded; python2 vs python3
 
     self.__fileHandler    = None;                                               # logging fileHandler 
-################################################################################
+    self.__kill           = False;
+  
+  @property
+  def container(self):
+    return self.__container
+  @container.setter
+  def container(self, val):
+    self.__container = val.lower();
+
+      
+  ################################################################################
   def transcode( self, in_file, log_file = None ):
     '''
     Name:
@@ -203,7 +211,7 @@ class videoconverter( mediainfo, subprocManager ):
        the file. A non-exhaustive list of options chosen are:
             - Set quality rate factor for x264/x265 based on video 
                resolution and the recommended settings found here:
-                   https://self.handbrake.fr/docs/en/latest/workflow/
+                   https://handbrake.fr/docs/en/latest/workflow/
                    adjust-quality.html
             - Used variable frame rate, which 'preserves the source timing
             - Uses x264 codec for all video 1080P or lower, uses x265 for
@@ -292,10 +300,7 @@ class videoconverter( mediainfo, subprocManager ):
       self.log.critical('No video or no audio, transcode cancelled!');          # Print log message
       self.transcode_status = 10;                                               # Set transcode status
       return False;                                                             # Return
-    try:
-      start_time = datetime.now();                                              # Set start date
-    except:
-      start_time = None;                                                        # If datetime CANNOT be imported, set start time to None
+    start_time = datetime.now();                                              # Set start date
     self.transcode_status = None;                                               # Reset transcode status to None
     self.ffmpeg_logTime   = None;
     self.get_subtitles( );                                                      # Extract subtitles
@@ -303,52 +308,30 @@ class videoconverter( mediainfo, subprocManager ):
     ############################################################################
     ###    TRANSCODE     TRANSCODE     TRANSCODE     TRANSCODE               ###
     ############################################################################
-    out_file = '{}.{}'.format( self.out_file, self.container );                 # Set the output file path
+    out_file  = '{}.{}'.format( self.out_file, self.container );                # Set the output file path
+    prog_file = self._inprogress_file( out_file )                               # Get file name for inprogress conversion; maybe a previous conversion was cancelled
+
     self.log.info( 'Output file: {}'.format( out_file ) );                      # Print the output file location
     if os.path.exists( out_file ):                                              # IF the output file already exists
-      self.log.info('Output file Exists...Skipping!');                          # Print a message
-      if self.remove: os.remove( self.in_file );                                # If remove is set, remove the source file
-      return False;                                                             # Return to halt the function
+      if not os.path.exists( prog_file ):                                       # If the inprogress file does NOT exists, then conversion completed in previous attempt
+        self.log.info('Output file Exists...Skipping!');                        # Print a message
+        if self.remove: os.remove( self.in_file );                              # If remove is set, remove the source file
+        return False;                                                           # Return to halt the function
+      elif self._being_converted( out_file ):                                   # Inprogress file exists, check if output file size is changing
+        self.log.info('It seems another process is creating the output file')   # The output file size is changing, so assume another process is interacting with it
+        return False;
+      else:
+        msg  = 'It looks like there was a previous attempt to transcode ' + \
+               'the file. Re-attempting transcode...' 
+        self.log.info( msg )                                                    # The output file size is changing, so assume another process is interacting with it
+        os.remove( out_file )                                                   # Delete the output file for another tyr
 
-    self.ffmpeg_err_file  = self.ffmpeg_log_file + '.err';                      # Set up path self.handbrake error file
-    self.ffmpeg_log_file += '.log';                                             # Set up path self.handbrake log file
+    open(prog_file, 'a').close()                                                # Touch inprogress file, acts as a kind of lock
 
-    self.ffmpeg_cmd  = ['ffmpeg', '-nostdin', '-i', self.in_file]
-    self.ffmpeg_cmd.extend( ['-tune', 'zerolatency', '-map_chapters', '0'] );   # Base command for HandBrake
-    self.ffmpeg_cmd.extend( ['-f', self.container] );                           # Append container flag
-    self.ffmpeg_cmd.extend( ['-threads', str(self.threads)] );                  # Set number of threads to use
-    
-    cropVals  = cropdetect( self.in_file );                                     # Attempt to detect cropping
-    videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info
-    audioKeys = self._audioKeys();                                              # Generator for orderer keys in audio_info
-    avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
-    
-    while any( avOpts ):                                                        # While any options left
-      try:                                                                      # Try to
-        key = next( videoKeys );                                                # Get the next video_info key
-      except:                                                                   # On exception, no more keys to get
-        avOpts[0] = False;                                                      # Set avOpts[0] to False because done with video options
-      else:                                                                     # Else, we got a key
-        self.ffmpeg_cmd.extend( self.video_info[ key ] );                       # Add data to the ffmpeg command
-        if key == '-filter':                                                    # If the key is '-filter', we also want the next tag, which is codec
-          if cropVals is not None:                                              # If cropVals is NOT None
-            if len(self.video_info[key]) != 0:                                  # If not an empty list
-              self.ffmpeg_cmd[-1] = '{},{}'.format(
-                self.ffmpeg_cmd[-1], cropVals
-              );                                                                # Add cropping to video filter
-            else:                                                               # Else, must add the '-vf' flag
-              self.ffmpeg_cmd.extend( ['-vf', cropVals] );                      # Add cropping values
-          self.ffmpeg_cmd.extend( self.video_info[ next(videoKeys) ] );         # Add next options to ffmpeg
-      try:                                                                      # Try to
-        key = next( audioKeys );                                                # Get the next audio_info key
-      except:                                                                   # On exception, no more keys to get
-        avOpts[1] = False;                                                      # Set avOpts[1] to False because done with audio options
-      else:                                                                     # Else, we got a key
-        self.ffmpeg_cmd.extend( self.audio_info[ key ] );                       # Add data to the ffmpeg command
-        if key == '-filter':                                                    # If the key is -'filter', we also want the next tag, which is codec
-          self.ffmpeg_cmd.extend( self.audio_info[ next(audioKeys) ] );         # Add next options to ffmpeg
+    self.ffmpeg_err_file  = self.ffmpeg_log_file + '.err';                      # Set up path for ffmpeg error file
+    self.ffmpeg_log_file += '.log';                                             # Set up path for ffmpeg log file
 
-    self.ffmpeg_cmd.append( out_file );                                         # Append input and output file paths to the self.handbrake command
+    self.ffmpeg_cmd = self._ffmpeg_command( out_file );                         # Generate ffmpeg command list
 
     self.log.info( 'Transcoding file...' )
 
@@ -362,6 +345,7 @@ class videoconverter( mediainfo, subprocManager ):
         stdout = self.ffmpeg_log_file, stderr = self.ffmpeg_err_file
       );                                                                        # Start the HandBrakeCLI command and direct all output to /dev/null
     self.run(block = False);                                                    # Run process with block set to False so that method returns right away
+
     if self.no_ffmpeg_log:                                                      # If ffmpeg log files are disabled, we want to know a little bit about what is going on
         self.applyFunc( progress, kwargs= {'nintervals' : 10} )                 # Apply the 'progess' function to the process to monitor ffmpeg progress
     self.wait();                                                                # Call wait method to ensure that process has finished
@@ -374,16 +358,7 @@ class videoconverter( mediainfo, subprocManager ):
       self.log.critical( 'All transcode attempts failed!!!' );                  # Log critical information
       return False;                                                             # Return False from function, i.e., transcode failed
 
-    if self.metaKeys is None:                                                   # If the metaKeys attribute is None
-      self.log.warning('No metadata to write!!!');                              # Print message that not data to write
-    elif self.mp4tags:                                                          # If mp4tags attribute is True
-      self.mp4tags_status = mp4Tags( out_file, metaData = self.metaData );      # Write information to ONLY movie files
-      if self.mp4tags_status == 0:
-        self.log.info('MP4 Tags written.');                                     # Print message if status IS 0
-      else:
-        self.log.warning('MP4 Tags NOT written!!!');                            # Print message if status is NOT zero
-    else:
-      self.log.warning('MP4 Tagging disabled!!!');                              # If mp4tags attribute is False, print message
+    self._write_tags( out_file )
 
     inSize  = os.stat(self.in_file).st_size;                                    # Size of in_file
     outSize = os.stat(out_file).st_size;                                        # Size of out_file
@@ -395,10 +370,72 @@ class videoconverter( mediainfo, subprocManager ):
     if self.remove:                                                             # If remove is set
       self.log.info( 'Removing the input file...' );                            # Log some information
       os.remove( self.in_file );                                                # Delete the input file if remove is true
-    if start_time is not None:                                                  # If the start_time is NOT none, then print the computation time
-      self.log.info('Duration: {}'.format(datetime.now()-start_time)+'');       # Print compute time
-    self.handbrake = None;
+
+    try:
+      os.remove( prog_file )
+    except:
+      pass
+
+    self.log.info('Duration: {}'.format(datetime.now()-start_time))             # Print compute time
+
     return out_file;                                                            # Return output file from function, i.e., transcode was success
+
+  ##############################################################################
+  def _ffmpeg_command(self, outfile): 
+    cmd = self.ffmpeg_base()                                                    # Call method to generate base command for ffmpeg
+    
+    cropVals  = cropdetect( self.in_file );                                     # Attempt to detect cropping
+    videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info
+    audioKeys = self._audioKeys();                                              # Generator for orderer keys in audio_info
+    avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
+    
+    while any( avOpts ):                                                        # While any options left
+      try:                                                                      # Try to
+        key = next( videoKeys );                                                # Get the next video_info key
+      except:                                                                   # On exception, no more keys to get
+        avOpts[0] = False;                                                      # Set avOpts[0] to False because done with video options
+      else:                                                                     # Else, we got a key
+        cmd.extend( self.video_info[ key ] );                                   # Add data to the ffmpeg command
+        if key == '-filter':                                                    # If the key is '-filter', we also want the next tag, which is codec
+          if cropVals is not None:                                              # If cropVals is NOT None
+            if len(self.video_info[key]) != 0:                                  # If not an empty list
+              cmd[-1] = '{},{}'.format(cmd[-1], cropVals);                      # Add cropping to video filter
+            else:                                                               # Else, must add the '-vf' flag
+              cmd.extend( ['-vf', cropVals] );                                  # Add cropping values
+          cmd.extend( self.video_info[ next(videoKeys) ] );                     # Add next options to ffmpeg
+      try:                                                                      # Try to
+        key = next( audioKeys );                                                # Get the next audio_info key
+      except:                                                                   # On exception, no more keys to get
+        avOpts[1] = False;                                                      # Set avOpts[1] to False because done with audio options
+      else:                                                                     # Else, we got a key
+        cmd.extend( self.audio_info[ key ] );                                   # Add data to the ffmpeg command
+        if key == '-filter':                                                    # If the key is -'filter', we also want the next tag, which is codec
+          cmd.extend( self.audio_info[ next(audioKeys) ] );                     # Add next options to ffmpeg
+
+    cmd.append( out_file );                                                     # Append input and output file paths to the ffmpeg command
+    return cmd
+
+  ##############################################################################
+  def _ffmpeg_base(self):
+    cmd  = ['ffmpeg', '-nostdin', '-i', self.in_file]
+    cmd += ['-f', self.container, '-threads', str(self.threads)]    
+    cmd += ['-tune', 'zerolatency', '-map_chapters', '0']   # Base command for HandBrake
+    return cmd 
+
+  ##############################################################################
+  def _write_tags(self, out_file):
+    if not self.__kill: return
+    if self.metaKeys is None:                                                   # If the metaKeys attribute is None
+      self.log.warning('No metadata to write!!!');                              # Print message that not data to write
+    elif self.mp4tags:                                                          # If mp4tags attribute is True
+      self.mp4tags_status = mp4Tags( out_file, metaData = self.metaData );      # Write information to ONLY movie files
+      if self.mp4tags_status == 0:
+        self.log.info('MP4 Tags written.');                                     # Print message if status IS 0
+      else:
+        self.log.warning('MP4 Tags NOT written!!!');                            # Print message if status is NOT zero
+    else:
+      self.log.warning('MP4 Tagging disabled!!!');                              # If mp4tags attribute is False, print message
+
   ##############################################################################
   def file_info( self, in_file ):
     '''
@@ -506,11 +543,12 @@ class videoconverter( mediainfo, subprocManager ):
     self.file_name = '.'.join(self.file_name)
     self.log.debug( 'File name: {}'.format( self.file_name) )
     # Generate file paths for the output file and the ffmpeg log files
-    self.ffmpeg_log_file = os.path.join(self.log_dir, self.file_name);          # Set the self.handbrake log file path without extension
+    self.ffmpeg_log_file = os.path.join(self.log_dir, self.file_name);          # Set the ffmpeg log file path without extension
     if self.in_place: self.new_out_dir = self.out_dir;                          # If the in_place keyword was set, then overwrite the new_out_dir with the input files directory path
     self.out_file    = [self.new_out_dir, '', self.file_name];                  # Set the output file path without extension
     return True;
-##############################################################################    
+
+  ##############################################################################    
   def get_subtitles( self ):
     '''
     Name:
@@ -673,6 +711,7 @@ class videoconverter( mediainfo, subprocManager ):
     '''
     for i in range( len(self.video_info['order']) ):                            # Iterate over all values in the 'order' tuple
       yield self.video_info['order'][i];                                        # Yield the key
+
   ##############################################################################
   def _audioKeys(self):
     '''
@@ -690,6 +729,19 @@ class videoconverter( mediainfo, subprocManager ):
     '''
     for i in range( len(self.audio_info['order']) ):                            # Iterate over all values in the 'order' tuple
       yield self.audio_info['order'][i];                                        # Yield the key
+
+  ##############################################################################
+  def _inprogress_file(self, file):
+    fdir, fbase = os.path.split(  file )
+    return os.path.join( fdir, '.{}.inprogress'.format(fbase) )
+
+  ##############################################################################
+  def _being_converted( self, file ):  
+    '''Method to check if file is currently being convert'''
+    s0 = os.path.getsize( file )                                                # Get size of output file
+    time.sleep(0.5)                                                             # Wait half a second
+    return (s0 != os.path.getsize(file))                                        # Check that size of file has changed
+
   ##############################################################################
   def _create_dirs( self ):
     self.log.debug( 'Creating output directories' )
@@ -697,6 +749,7 @@ class videoconverter( mediainfo, subprocManager ):
     if not os.path.isdir( self.new_out_dir ): os.makedirs( self.new_out_dir );  # Check if the new output directory exists, if it does NOT, create the directory
     if not self.no_ffmpeg_log:                                                      # If HandBrake log files are NOT disabled
       if not os.path.isdir( self.log_dir     ): os.makedirs( self.log_dir );    # Create log directory if it does NOT exist
+
   ##############################################################################
   def _init_logger(self, log_file = None):
     '''
@@ -717,3 +770,7 @@ class videoconverter( mediainfo, subprocManager ):
       self.__fileHandler.setLevel(     fileFMT['level']     );                  # Set the logging level for the log file
       self.__fileHandler.setFormatter( fileFMT['formatter'] );                  # Set the log format for the log file
       self.log.addHandler(self.__fileHandler);                                  # Add the file log handler to the logger
+
+  ##############################################################################
+  def __exit(self, *args, **kwargs):
+    self.__kill = True

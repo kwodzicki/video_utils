@@ -1,10 +1,10 @@
-import logging;
-import os, time;
-from subprocess import call, Popen, STDOUT, DEVNULL;
-from threading import Thread;
-from multiprocessing import cpu_count;
+import logging
+import os, time, signal
+from subprocess import call, Popen, STDOUT, DEVNULL
+from threading import Thread, Event
+from multiprocessing import cpu_count
 
-nthreads = cpu_count() // 2;                                                    # Set global nthreads as half the number of cpus
+nthreads = cpu_count() // 2                                                     # Set global nthreads as half the number of cpus
 cpulimitInstalled = True;                                                       # Set global cpulimitInstalled flag to True
 if call(['which','cpulimit'], stdout=DEVNULL, stderr=STDOUT) != 0:              # If cannot find cpulimit command in path
   logging.getLogger(__name__).warning(
@@ -42,6 +42,10 @@ class subprocManager(object):
     self.__returncodes = [];
     self.__cpuProcs    = [];                                                    # Empty list for Popen handles from cpulimit instances
     self.__threadID    = None;                                                  # Set _threadID attribute to None
+    self.__kill        = Event()
+
+    signal.signal(signal.SIGINT,  self.__exit)
+    signal.signal(signal.SIGTERM, self.__exit)
 
   ##############################################################################
   def addProc(self, args, **kwargs):
@@ -62,6 +66,7 @@ class subprocManager(object):
     '''
     self.__queue.append( (args, kwargs,) );                                     # Append the Popen info to the queue as a tuple
     self.__nProcs += 1;                                                         # Increment the number of processes to be run
+
   ##############################################################################
   def run(self, block = True):
     '''
@@ -78,6 +83,7 @@ class subprocManager(object):
     self.__threadID    = Thread( target = self.__thread );                      # Initialize Thread class
     self.__threadID.start();                                                    # Start the thread
     if block: self.wait();                                                      # If block (default), wait for processes to complete
+
   ##############################################################################
   def wait(self, timeout = None):
     '''
@@ -94,6 +100,7 @@ class subprocManager(object):
         self.__threadID = None;                                                 # Set _threadID attribute to None;
     self.__nProcs = 0;                                                          # Reste number of processes to zero (0)
     return True;                                                                # Return True by default
+
   ##############################################################################
   def applyFunc(self, func, args=(), kwargs={}):
     '''
@@ -117,6 +124,7 @@ class subprocManager(object):
       return False;                                                             # Return False
     func( self.__procs[0][0], *args, **kwargs );                                # Apply the function to the only running process
     return True;                                                                # Return True
+
   ##############################################################################
   def __thread(self):
     '''
@@ -125,13 +133,14 @@ class subprocManager(object):
     user can keep adding processes to the queue if they want
     '''
     self.__n = 0;                                                               # Ensure the counter is at zero
-    while len(self.__queue) > 0:                                                # While there are commands in the queue
+    while (not self.__kill.is_set()) and (len(self.__queue) > 0):               # While there are commands in the queue
       if len(self.__procs) == self.threads:                                     # If the number of allowable subprocess are running
         self.__procCheck();                                                     # Wait for a process to finish
       args, kwargs = self.__queue.pop(0);                                       # Pop off first element of the _queue
       self.__Popen( args, **kwargs );                                           # Call method to start a new subprocess
-    while len(self.__procs) > 0:                                                # While there are processes running
+    while (not self.__kill.is_set()) and (len(self.__procs) > 0):               # While there are processes running
       self.__procCheck();                                                       # Wait for a process to finish
+
   ##############################################################################
   def __Popen( self, args, **kwargs ):    
     '''
@@ -141,6 +150,7 @@ class subprocManager(object):
     Keywords:
       All kwargs from Popen
     '''      
+    if self.__kill.is_set(): return
     self.__n += 1;                                                              # Increment n by one
     single = kwargs.pop('single', False);                                       # Pop off the 'single' keyword argument, or get False if not keyword
     stdout = kwargs.pop('stdout', DEVNULL);                                     # Set default stdout to DEVNULL
@@ -181,6 +191,7 @@ class subprocManager(object):
       # limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', limit ];               # Set up the cpulimit command
       limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', str(limit) ];            # Set up the cpulimit command
       self.__cpuProcs.append( Popen(limit, stdout=DEVNULL, stderr=STDOUT) );    # Start new subprocess for CPU limit command and append handle to _cpuProcs
+
   ##############################################################################
   def __procCheck(self):
     '''
@@ -205,7 +216,8 @@ class subprocManager(object):
             self._logFMT.format( n, self.__nProcs, 'Non-zero returncode!!!' ) 
           );                                                                    # Log some information
         break;                                                                  # Break out of the for loop  
-  ##############################################################################
+
+   ##############################################################################
   def __makedirs( self, path, stdout = False ):
     '''A private method to try to make parent directory for log files'''
     errFMT = 'Error making path to {} file: {}. Using default logging';         # Format for logging error
@@ -224,6 +236,17 @@ class subprocManager(object):
         );                                                                      # Log information
         return False;                                                           # Return False
     return True;                                                                # Return True
+
+  ##############################################################################
+  def __exit(self, *args, **kwargs):
+    '''
+    Private method for killing everything (cleanly). 
+    Intended to be called when SIGINT or something else occurs
+    '''
+    self.log.warning('Kill processes!')
+    self.__kill.set()
+    for proc in self.__procs: proc[0].terminate()                               # Terminate all of the processes 
+
   ##############################################################################
   @property
   def cpulimit(self):

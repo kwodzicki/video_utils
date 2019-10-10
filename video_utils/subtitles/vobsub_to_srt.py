@@ -5,7 +5,7 @@ from .srt_cleanup import srt_cleanup;
 
 if call(['which', 'vobsub2srt'], stdout = DEVNULL, stderr = STDOUT) != 0:
   msg = 'vobsub2srt is NOT installed';
-  logging.getLogger(__name__).error( msg );
+  logging.getLogger(__name__).warning( msg );
   raise Exception( msg );
 
 
