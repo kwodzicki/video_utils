@@ -68,8 +68,9 @@ def cropdetect( infile, dt = 20 ):
     proc.communicate();                                                         # Wait for FFmpeg to finish cleanly
     ss += timedelta( seconds = 60 * 5 );                                        # Increment ss by 5 minutes
 
-  crop = np.nanmedian( crop, axis = 0 ).astype(np.uint16);                      # Medain of crop values down column as integers
+  crop = np.nanmedian( crop, axis = 0 )                                         # Medain of crop values down column as integers
   if not np.isnan( crop[0] ):                                                   # If there is a non NaN value in the medain values, then at least one of the values was finite
+    crop = crop.astype( np.uint16 )
     if res is not None:                                                         # If input resolution was found
       if (crop[0] == res[0]) and (crop[1] == res[1]):                           # If the crop size is the same as the input size
         log.debug( 'Crop size same as input size, NOT cropping' );              # Debug info

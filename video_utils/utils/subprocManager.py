@@ -136,15 +136,15 @@ class subprocManager(object):
     user can keep adding processes to the queue if they want
     '''
     self.__n = 0;                                                               # Ensure the counter is at zero
-    while (not _killEvent.is_set()) and (len(self.__queue) > 0):               # While there are commands in the queue
+    while (not _killEvent.is_set()) and (len(self.__queue) > 0):                # While there are commands in the queue
       if len(self.__procs) == self.threads:                                     # If the number of allowable subprocess are running
         self.__procCheck();                                                     # Wait for a process to finish
       args, kwargs = self.__queue.pop(0);                                       # Pop off first element of the _queue
       self.__Popen( args, **kwargs );                                           # Call method to start a new subprocess
-    while (not _killEvent.is_set()) and (len(self.__procs) > 0):               # While there are processes running
+    while (not _killEvent.is_set()) and (len(self.__procs) > 0):                # While there are processes running
       self.__procCheck();                                                       # Wait for a process to finish
     self.__runEvent.clear()                                                     # Clear the run event so the __exit thread quits
-
+    self.__procs = []                                                           # Clear out Popen instances
   ##############################################################################
   def __Popen( self, args, **kwargs ):    
     '''
