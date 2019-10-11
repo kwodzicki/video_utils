@@ -1,7 +1,7 @@
 import logging;
-import os;
+import os, re;
 from datetime import timedelta;
-from subprocess import call, Popen, STDOUT, DEVNULL;
+from subprocess import call, Popen, PIPE, STDOUT, DEVNULL;
 
 if call(['which', 'comskip'], stdout = DEVNULL, stderr = STDOUT ) != 0:         # If cannot find the ccextractor CLI
   msg = "comskip is NOT installed or not in your PATH!";
@@ -142,6 +142,7 @@ class comremove( subprocManager ):
     fName, fExt = os.path.splitext( fBase )                                             # Split file name and extension
     metaFile    = os.path.join( fDir, '{}.chap'.format(fName) )                 # Generate file name for chapter metadata
 
+    fileLength  = self.getVideoLength(in_file)
     segment     = 1
     commercial  = 1
 
@@ -149,30 +150,35 @@ class comremove( subprocManager ):
     mid.write( ';FFMETADATA1\n' )                                                       # Write header to file
 
     segStart    = timedelta( seconds = 0.0 );                                      # Initial start time of the show segment; i.e., the beginning of the recording
-    fid         = open(edl_file, 'r');                                             # Open edl_file for reading
-    info        = fid.readline();                                                  # Read first line from the edl file
-    while info:                                                                 # While the line is NOT empty
-      comStart, comEnd = info.split()[:2];                                      # Get the start and ending times of the commercial
-      comStart   = timedelta( seconds = float(comStart) );                      # Get start time of commercial as a time delta
-      comEnd     = timedelta( seconds = float(comEnd) );                        # Get the end time of the commercial as a time delta
-      if comStart.total_seconds() > 1.0:                                        # If the start of the commercial is NOT near the very beginning of the file
-        # From segStart to comStart is NOT commercial
-        sTime    = int(segStart.total_seconds() * 1000)
-        eTime    = int(comStart.total_seconds() * 1000)
-        mid.write( chpFMT.format(sTime, eTime, 'Show Segment \#{}'.format(segment)) )
-        self.log.debug( 'Show segment {} - {} to {} micros'.format(segment, sTime, eTime) ) 
-        # From comStart to comEnd is commercail
-        sTime    = eTime
-        eTime    = int(comEnd.total_seconds() * 1000)
-        mid.write(chpFMT.format(sTime, eTime, 'Commercial Break \#{}'.format(commercial)) )
-        self.log.debug( 'Commercial {} - {} to {} micros'.format(commercial, sTime, eTime) ) 
-        # Increment counters
-        segment    += 1
-        commercial += 1
-      segStart = comEnd;                                                        # The start of the next segment of the show is the end time of the current commerical break 
-      info     = fid.readline();                                                # Read next line from edl file
-    
-    fid.close()
+    with open(edl_file, 'r') as fid:                                             # Open edl_file for reading
+      info        = fid.readline();                                                  # Read first line from the edl file
+      while info:                                                                 # While the line is NOT empty
+        comStart, comEnd = info.split()[:2];                                      # Get the start and ending times of the commercial
+        comStart   = timedelta( seconds = float(comStart) );                      # Get start time of commercial as a time delta
+        comEnd     = timedelta( seconds = float(comEnd) );                        # Get the end time of the commercial as a time delta
+        if comStart.total_seconds() > 1.0:                                        # If the start of the commercial is NOT near the very beginning of the file
+          # From segStart to comStart is NOT commercial
+          sTime    = int(segStart.total_seconds() * 1000)
+          eTime    = int(comStart.total_seconds() * 1000)
+          mid.write( chpFMT.format(sTime, eTime, 'Show Segment \#{}'.format(segment)) )
+          self.log.debug( 'Show segment {} - {} to {} micros'.format(segment, sTime, eTime) ) 
+          # From comStart to comEnd is commercail
+          sTime    = eTime
+          eTime    = int(comEnd.total_seconds() * 1000)
+          mid.write(chpFMT.format(sTime, eTime, 'Commercial Break \#{}'.format(commercial)) )
+          self.log.debug( 'Commercial {} - {} to {} micros'.format(commercial, sTime, eTime) ) 
+          # Increment counters
+          segment    += 1
+          commercial += 1
+        segStart = comEnd;                                                        # The start of the next segment of the show is the end time of the current commerical break 
+        info     = fid.readline();                                                # Read next line from edl file
+
+    dt = (fileLength - segStart).total_seconds()                                    # Time difference, in seconds, between segment start and end of file
+    if (dt >= 5.0):                                                                 # If the time differences is greater than a few seconds
+      sTime = int(segStart.total_seconds()   * 1000)
+      eTime = int(fileLength.total_seconds() * 1000) 
+      mid.write( chpFMT.format(sTime, eTime, 'Show Segment \#{}'.format(segment)) )
+ 
     mid.close()
     return True 
 
@@ -315,6 +321,18 @@ class comremove( subprocManager ):
           edl.write( '{:0.2f} {:0.2f} 0\n'.format( start, end ) );              # Write out information to edl file
           line = txt.readline();                                                # Read next line
     return edl_file;                                                            # Return edl_file path
+
+  ########################################################
+  def getVideoLength(self, in_file):
+    proc = Popen( ['ffmpeg', '-i', in_file], stdout=PIPE, stderr=STDOUT)
+    info = proc.stdout.read().decode()
+    dur  = re.findall( r'Duration: ([^,]*)', info )
+    if (len(dur) == 1):
+      hh, mm, ss = [float(i) for i in dur[0].split(':')]
+      dur = hh*3600.0 + mm*60.0 + ss
+    else:
+      dur = 86400.0
+    return timedelta( seconds = dur )
 
   ########################################################
   def __size_fmt(self, num, suffix='B'):

@@ -96,7 +96,7 @@ For example, if your user is uid 456, then you could add the following to /etc/p
     fi
 
 
-## Comercial skipping
+## Commercial skipping
 
 To enable automated commercial skipping, ensure that the [comskip][comskip] utility is installed and in your PATH environment variable.
 To tune how comskip detects commerical breaks in videos, a `.ini` file is used.

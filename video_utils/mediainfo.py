@@ -54,6 +54,7 @@ class mediainfo( object ):
     self.log     = logging.getLogger(__name__);
     self.cmd     = ['mediainfo', '--Full', '--Output={}'.format(output_fmt) ];  # The base command for mediainfo; just add [self.in_file]
     self.in_file = in_file;
+
   ################################################################################
   @property
   def in_file(self):
@@ -71,18 +72,22 @@ class mediainfo( object ):
       return self.__mediainfo['General'][0]['Format'];
     else:
       return None;
+
   ##############################################################################
   def __getitem__(self, key):
     '''Method for easily getting key from mediainfo; acts a dict'''
     return self.__mediainfo[key]
+
   ##############################################################################
   def __setitem__(self, key, value):
     '''Method for easily setting key in mediainfo; acts a dict'''
     self.__mediainfo[key] = value
+
   ##############################################################################
   def keys(self):
     '''Method for geting mediainfo keys; acts a dict'''
     return self.__mediainfo.keys();
+
   ##############################################################################
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
@@ -320,11 +325,16 @@ class mediainfo( object ):
       resolution = 2160;
       info['-opts'].extend( ['-crf', '26'] );
     if resolution is None: return None;                                         # If resolution is NOT set, return None
-    
-    if 'Scan_type' in video_tags and 'Frame_rate_mode' in video_tags:
+
+    # I cannot remember why there is the extra check for 'Frame_rate_mode'
+    # Removing for now, but will test with some MakeMKV files    
+    if ('Scan_type' in video_tags):
       if video_data['Scan_type'].upper() != 'PROGRESSIVE':
-        if video_data['Frame_rate_mode']  == 'CFR': 
-          info['-filter'].append( 'yadif' )
+        info['-filter'].append( 'yadif' )
+#    if 'Scan_type' in video_tags and 'Frame_rate_mode' in video_tags:
+#      if video_data['Scan_type'].upper() != 'PROGRESSIVE':
+#        if video_data['Frame_rate_mode']  == 'CFR': 
+#          info['-filter'].append( 'yadif' )
 
     info['file_info'] = '{}p.{}'.format( resolution, encoder );
   
@@ -390,6 +400,7 @@ class mediainfo( object ):
       return self.__parse_mpegTS( language );
     else:
       return self.__parse_vobsub( language );
+
   ##############################################################################
   def __parse_vobsub(self, language):
     '''

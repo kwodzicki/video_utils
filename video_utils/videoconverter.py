@@ -192,7 +192,6 @@ class videoconverter( mediainfo, subprocManager ):
     self.encode           = type( 'hello'.encode(self.fmt) ) is str;            # Determine if text should be encoded; python2 vs python3
 
     self.__fileHandler    = None;                                               # logging fileHandler 
-    self.__kill           = False;
   
   @property
   def container(self):
@@ -310,9 +309,6 @@ class videoconverter( mediainfo, subprocManager ):
     self.ffmpeg_logTime   = None;
     self.get_subtitles( );                                                      # Extract subtitles
 
-    ############################################################################
-    ###    TRANSCODE     TRANSCODE     TRANSCODE     TRANSCODE               ###
-    ############################################################################
     out_file  = '{}.{}'.format( self.out_file, self.container );                # Set the output file path
     prog_file = self._inprogress_file( out_file )                               # Get file name for inprogress conversion; maybe a previous conversion was cancelled
 
@@ -463,7 +459,7 @@ class videoconverter( mediainfo, subprocManager ):
 
   ##############################################################################
   def _write_tags(self, out_file):
-    if not self.__kill: return
+    if _killEvent.is_set(): return                                              # If the kill event is set, skip tag writing for faster exit
     if self.metaKeys is None:                                                   # If the metaKeys attribute is None
       self.log.warning('No metadata to write!!!');                              # Print message that not data to write
     elif self.mp4tags:                                                          # If mp4tags attribute is True

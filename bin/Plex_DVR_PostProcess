@@ -27,6 +27,7 @@ if __name__ == "__main__":
   parser.add_argument("-c", "--cpulimit",      type   = int,          help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
   parser.add_argument("--language",            type   = str,          help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using commas. Default: eng for English");
   parser.add_argument("-v", "--verbose",       action = "store_true", help = "Increase verbosity");
+  parser.add_argument("--destructive",         action = "store_true", help = "Set to cut commercials out of file. Default is to leave commercials in file and add chapters for show segments and commercials. This is safer.");
   parser.add_argument("--no-remove",           action = "store_true", help = "Set to disbale removing input file after transcode. Default is to delete soruce file.");
   parser.add_argument("--no-srt",              action = "store_true", help = "Set to disbale conversion of VobSub(s) to SRT");
   parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
@@ -36,13 +37,14 @@ if __name__ == "__main__":
   open(plex_dvr['lock_file'], 'w').close();                                     # Create the new lock file so other processes have to wait
   try:
     status, new_file, info = Plex_DVR_PostProcess(args.in_file, 
-        logdir    = args.logdir, 
-        threads   = args.threads, 
-        cpulimit  = args.cpulimit,
-        language  = args.language,
-        verbose   = args.verbose,
-        no_remove = args.no_remove,
-        no_srt    = args.no_srt);
+        logdir      = args.logdir, 
+        threads     = args.threads, 
+        cpulimit    = args.cpulimit,
+        language    = args.language,
+        verbose     = args.verbose,
+        destructive = args.destructive,
+        no_remove   = args.no_remove,
+        no_srt      = args.no_srt);
   except:
     log.exception('Something went wrong!')
     status = 255
