@@ -1,17 +1,11 @@
 import logging;
 import os, time;
 
+from video_utils import _killEvent
 from video_utils.comremove import comremove;
 from video_utils.videoconverter import videoconverter;
-from video_utils._logging import plexFMT;
 
-from video_utils.plex.utils import plexDVR_Rename;
-
-log = logging.getLogger('video_utils');                                         # Get the video_utils logger
-for handler in log.handlers:                                                    # Iterate over all the handlers
-  if handler.get_name() == 'main':                                              # If found the main handler
-    handler.setLevel(logging.INFO);                                             # Set log level to info
-    break;                                                                      # Break for loop to save some iterations
+from video_utils.plex.utils import plexDVR_Rename, plexDVR_Scan;
 
 def DVRconverter(in_file, 
      logdir      = None, 
@@ -50,7 +44,7 @@ def DVRconverter(in_file,
     no_remove   : If set, input file will NOT be deleted
     no_srt      : If set, no SRT subtitle files created
   '''
-  
+  log     = logging.getLogger(__name__)  
   in_file = os.path.realpath( in_file )                                         # Get real input file path 
   log.info('Input file: {}'.format( in_file ) );
   file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
@@ -61,7 +55,7 @@ def DVRconverter(in_file,
   com_inst = comremove(threads=threads, cpulimit=cpulimit, verbose=verbose);    # Set up comremove instance
   status   = com_inst.process( file, chapters = not destructive )               # Try to remove commercials from video
   if not status:                                                                # If comremove failed
-    log.cirtical('Error cutting commercials');                                  # Log error
+    log.critical('Error cutting commercials');                                  # Log error
     return 1, info;                                                             # Exit script
   
   inst = videoconverter( 
@@ -80,10 +74,7 @@ def DVRconverter(in_file,
   if os.path.isfile( file ):                                                    # If the renamed; i.e., hardlink to original file, exists
     os.remove( file );                                                          # Delete it
 
-  if (out_file is not False) and (not no_remove):                               # If a file name was returned AND no_remove is False
-    if os.path.isfile( in_file ) or os.path.islink( in_file ):                  # If the input file exists OR is an symlink
-      os.remove( in_file );                                                     # Remove the input file
-    # relpath = os.path.relpath( out_file, start = os.path.dirname( in_file ) );  # Get relative path to output file using directory of the input file as the start path
-    # os.symlink( relpath, in_file );                                             # Create a symbolic link from the relative output file path to the input file path; relative link wont break after move
-    os.link( out_file, in_file );                                               # Create hard link to the transcoded file using input file name
+  if (out_file is not False) and (not _killEvent.is_set()):                     # If a file name was returned AND no_remove is False
+    plexDVR_Scan( in_file, no_remove = no_remove)
+
   return inst.transcode_status, out_file, info;                                 # Return transcode status, new file path, and info

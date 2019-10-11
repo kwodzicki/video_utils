@@ -8,6 +8,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from video_utils import _killEvent
+from video_utils.plex.DVRconverter import DVRconverter
 
 class library_watchdog( FileSystemEventHandler ):
   def __init__(self, *args, **kwargs):
@@ -54,11 +55,12 @@ class library_watchdog( FileSystemEventHandler ):
 
         while (self.nConversion > self.concurrency) and (not _killEvent.is_set()): 
           time.sleep(0.5)
-        Plex_DVR_PostProcess(event.src_path, **self.kwargs)                         # Convert file 
+        DVRconverter(event.src_path, **self.kwargs)                         # Convert file 
 
         with self.lock:
           self.nConversion -= 1                                        # Decrement number of conversions occuring
           self.converting.remove( event.src_path )
+
   def wait(self):
     while self.Observer.is_alive():
       time.sleep(0.5)    

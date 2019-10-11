@@ -86,7 +86,7 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
   return True;                                                                  #
 
 ################################################################################
-def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
+def plexDVR_Scan( recorded, converted, no_remove = False ):
   '''
   Name:
     plexDVR_Scan
@@ -108,16 +108,15 @@ def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
     first because then Plex will see the transcoded file as a new
     file and NOT a duplicate (I think)
   Inputs:
-    in_file   : Full path to the file to rename
-    new_file  : Full path to the transcoded file
-    file_info : Information parsed from file name; 
-                 likely from the plexDVR_Rename function
+    recorded : Full path to the DVRd file; i.e., the file that 
+                 Plex recoded data to, should be a .ts file.
+                 This file MUST be in its final location, that
+                 is in the directory AFTER Plex moves it when
+                 recording is complete.
   Outputs:
     None
   Keywords:
     no_remove  : Set to True to keep the original file
-    wait       : Time to wait, in seconds, for the function
-                  to start scanning. Default is 60 seconds
   Note:
     This function is intened to be run as a child process, i.e., 
     after call to os.fork()
@@ -140,26 +139,24 @@ def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
     return 1
   
   log.debug( 'Getting list of Plex Libraries' )
+  plexList = None
   try:
-    plexList = check_output( cmd + ['--list'], 
-                      universal_newlines = True, env = myenv );                 # Try to get help information from the scanner
-  except:
-    log.exception( 'Exception while running command' )
-    return 1
-  else:
-    if plexList == '':                                                          # If an empty string was returned
-      log.debug('Scanner returned empty string, trying again')
-      cmd = ['stdbuf', '-oL', '-eL'] + cmd;                                     # Change the output and error buffering to line buffered or the cmd
-      try:
-        plexList = check_output( cmd + ['--list'], 
+    plexList = check_output( ['stdbuf', '-oL', '-eL'] + cmd + ['--list'], 
                           universal_newlines = True, env = myenv );             # Get the list again
-      except:
-        log.exception( 'Exception while running command' )
-        return 1
-      else:
-        if plexList == '':                                                      # If an empty string was returned
-          log.critical( 'Failed to get listing of sections! Returning')
-          return 1
+  except:
+    log.debug("Failed to get library listing with 'stdbuf', trying without")        
+
+  if (plexList is None) or (plexList == ''):   
+    try:
+      plexList = check_output( cmd + ['--list'], 
+                      universal_newlines = True, env = myenv );                 # Try to get help information from the scanner
+    except:
+      log.debug( 'Exception while running command' )
+      return 1
+
+  if (plexList is None) or (plexList == ''):                                                      # If an empty string was returned
+    log.critical( 'Failed to get listing of sections! Returning')
+    return 1
 
   log.debug( "Attemting to find 'TV' section...")
 
@@ -173,54 +170,8 @@ def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
     log.critical( "Failed to find 'TV' section! Exiting" )
     return 1;                                                                   # Return 
 
-  cmd      += [ '--scan', '--section', section ];                               # Append scan and section options to command
-
-  in_base    = os.path.basename( in_file );                                     # Base name of input file
-  lib_dir    = in_file.split('.grab')[0];                                       # Top level directory of the Plex Library
-  show_dir   = os.path.join( lib_dir, file_info[0] );                           # Path to show directory based on information from file name
-  season_dir = None
-  orig_file  = None;
-  scan_dir   = None;                                                            # Scan directory of Plex Media Scanner initialized to None
-
-  log.debug( 'Library directory: {}'.format( lib_dir ) )
-  log.debug( 'Show    directory: {}'.format( show_dir ) )
-  if not os.path.isdir( show_dir ):                                             # If the show directory exists
-    log.info('No show directory, will scan entire library')
-  else:
-    scan_dir = show_dir;                                                        # Set the directory to scan to the show directory
-    season   = _season_pattern.findall( file_info[1] );                         # Attempt to find season number from information
-    if len(season) == 1:                                                        # If a season number was extracted from information
-      season     = int( season[0] );                                            # Convert season number to integer
-      season_dir = os.path.join( show_dir, 'Season {:02d}'.format( season ) );  # Path to Season directory of show
-      if os.path.isdir( season_dir ):                                           # If the season directory exists
-        file_path = os.path.join( season_dir, in_base );                        # Path to the 'original' recoding file
-        if os.path.isfile( file_path ):                                         # If the file exists, then we are at the lowest level directory for scanning
-          scan_dir  = season_dir;                                               # Set the scan directory to the season directory
-          orig_file = file_path;                                                # Set orig_file to file_path
-
-  if orig_file is None:                                                         # If orig_file is not yet set
-    orig_file = findFile( lib_dir, in_base );                                   # Try to find the file
-    if orig_file is None:                                                       # If the file was found
-      log.critical( 'Cannot find the original recording!!! Perhaps it is in a different library?' )
-      return 1;
-    scan_dir = os.path.dirname( orig_file );                                    # Set directory to scan to directory original recording is in
-  
-  '''
-  Try to find a file with the same base name as the transcoded file in the
-  directory where the original recording has been moved to. If no transcoded
-  file is found, then we return from fuction, skipping scanning of Plex
-  library to find transcoded file AND original file deletion because if we
-  delete the original file then we likely won't have any file for that 
-  content any more
-  '''
-  new_file = os.path.basename(new_file);                                        # Get base name of transcoded file
-  new_file = findFile( scan_dir, new_file );                                    # Find the file in the directory where orig_file is
-  if new_file is None:                                                          # If did NOT find the transcoded file near the original recording
-    log.critical( 'Cannot find transcoded file near original recording!!!' );   # Log critical problem
-    return 1;                                                                   # Return 1
-
-  if scan_dir is not None:                                                      # If scan_dir is NOT still None
-    cmd += [ '--directory', scan_dir ];                                         # Append directory to scan to command
+  scan_dir  = os.path.basename( recorded );                                     # Base name of input file
+  cmd      += [ '--scan', '--section', section, '--directory', scan_dir ];      # Append scan and section options to command
 
   log.debug( 'Plex Media Scanner command: {}'.format( ' '.join(cmd) ) )
 
@@ -229,11 +180,12 @@ def plexDVR_Scan( in_file, new_file, file_info, no_remove = False, wait = 60 ):
 
   if not no_remove:                                                             # If no_remove is False, i.e., want to remove file
     log.debug('Removing original recoding' );                                   # Debug info
-    os.remove( orig_file );                                                     # Remove the original recording file
+    os.remove( recorded );                                                     # Remove the original recording file
 
     log.debug( 'Rescanning library' );                                          # Debug info
     proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );        # Rescan the library; note this is only done IF the file is removed
     proc.communicate();
+
   return 0
 
 ################################################################################
