@@ -1,11 +1,11 @@
 import logging;
-from logging.handlers import RotatingFileHandler;
-import os, stat, time;
+import os, time;
 
-from video_utils.utils.plex_utils import plexDVR_Rename;
 from video_utils.comremove import comremove;
 from video_utils.videoconverter import videoconverter;
 from video_utils._logging import plexFMT;
+
+from video_utils.plex.utils import plexDVR_Rename;
 
 log = logging.getLogger('video_utils');                                         # Get the video_utils logger
 for handler in log.handlers:                                                    # Iterate over all the handlers
@@ -13,7 +13,7 @@ for handler in log.handlers:                                                    
     handler.setLevel(logging.INFO);                                             # Set log level to info
     break;                                                                      # Break for loop to save some iterations
 
-def Plex_DVR_PostProcess(in_file, 
+def DVRconverter(in_file, 
      logdir      = None, 
      threads     = None, 
      cpulimit    = None,
@@ -50,30 +50,6 @@ def Plex_DVR_PostProcess(in_file,
     no_remove   : If set, input file will NOT be deleted
     no_srt      : If set, no SRT subtitle files created
   '''
-  noHandler = True;                                                             # Initialize noHandler to True
-  for handler in log.handlers:                                                  # Iterate over all handlers
-    if handler.get_name() == plexFMT['name']:                                   # If handler name matches plexFMT['name']
-      noHandler = False;                                                        # Set no handler false
-      break;                                                                    # Break for loop
-
-  if noHandler:
-    logDir = os.path.dirname( plexFMT['file'] );
-    if not os.path.isdir( logDir ):
-      os.makedirs( logDir )
-    rfh = RotatingFileHandler(plexFMT['file'], 
-            backupCount = plexFMT['backupCount'],
-            maxBytes    = plexFMT['maxBytes']);                                 # Set up rotating file handler
-    rfh.setFormatter( plexFMT['formatter'] );
-    rfh.setLevel(     plexFMT['level']     );                                   # Set the logging level
-    rfh.set_name(     plexFMT['name']      );                                   # Set the log name
-    log.addHandler( rfh );                                                      # Add hander to the main logger
-    
-    info = os.stat( plexFMT['file'] );                                          # Get information about the log file
-    if (info.st_mode & plexFMT['permissions']) != plexFMT['permissions']:       # If the permissions of the file are not those requested
-      try:                                                                      # Try to 
-        os.chmod( plexFMT['file'], plexFMT['permissions'] );                    # Set the permissions of the log file
-      except:
-        log.info('Failed to change log permissions; this may cause issues')
   
   in_file = os.path.realpath( in_file )                                         # Get real input file path 
   log.info('Input file: {}'.format( in_file ) );

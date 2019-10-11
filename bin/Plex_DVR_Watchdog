@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+import logging;
+from logging.handlers import RotatingFileHandler
+import os, time;
+import argparse;
+
+from video_utils import log
+from video_utils.version import __version__
+from video_utils.config import plex_dvr
+from video_utils.plex_watchdog import plex_watchdog
+from video_utils.utils.plex_utils import plexDVR_Scan
+
+'''
+Note for file removing;
+We do NOT want to remove the file after transcoding as the child 
+process that runs on a delay will take care of this flag; the 
+input file should remain so that Plex can move things and not
+get mad.
+'''
+
+def __initLogFile( logLevel ):
+  noHandler = True;                                                             # Initialize noHandle
+  for handler in log.handlers:                                                  # Iterate over all ha
+    if handler.get_name() == plexFMT['name']:                                   # If handler name mat
+      noHandler = False;                                                        # Set no handler fals
+      break;                                                                    # Break for loop
+
+  if noHandler:
+    logDir = os.path.dirname( plexFMT['file'] );
+    if not os.path.isdir( logDir ):
+      os.makedirs( logDir )
+    rfh = RotatingFileHandler(plexFMT['file'],
+            backupCount = plexFMT['backupCount'],
+            maxBytes    = plexFMT['maxBytes']);                                 # Set up rotating fil
+    rfh.setFormatter( plexFMT['formatter'] );
+    rfh.setLevel(     logLevel     );                                   # Set the logging lev
+    rfh.set_name(     plexFMT['name']      );                                   # Set the log name
+    log.addHandler( rfh );                                                      # Add hander to the m
+
+    info = os.stat( plexFMT['file'] );                                          # Get information abo
+    if (info.st_mode & plexFMT['permissions']) != plexFMT['permissions']:       # If the permissions
+      try:                                                                      # Try to
+        os.chmod( plexFMT['file'], plexFMT['permissions'] );                    # Set the permissions
+      except:
+        log.info('Failed to change log permissions; this may cause issues')
+
+if __name__ == "__main__":
+
+  parser = argparse.ArgumentParser(description="Plex DVR Post Processor");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+  parser.add_argument("dir",                   type   = str, nargs='+',    help = "Input file to process"); 
+  parser.add_argument("-l", "--logdir",        type   = str,               help = "Log file directory. Default: Same as input file"); 
+  parser.add_argument("-t", "--threads",       type   = int,               help = "Set number of CPUs to use. Default: Half the number of CPUs available");  
+  parser.add_argument("-c", "--cpulimit",      type   = int,               help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
+  parser.add_argument("--language",            type   = str,               help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using commas. Default: eng for English");
+  parser.add_argument("-v", "--verbose",       type   = str, default=plexFMT['level'], help = "Increase verbosity");
+  parser.add_argument("--destructive",         action = "store_true",      help = "Set to cut commercials out of file. Default is to leave commercials in file and add chapters for show segments and commercials. This is safer.");
+  parser.add_argument("--no-remove",           action = "store_true",      help = "Set to disbale removing input file after transcode. Default is to delete soruce file.");
+  parser.add_argument("--no-srt",              action = "store_true",      help = "Set to disbale conversion of VobSub(s) to SRT");
+  parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
+  args = parser.parse_args();                                                   # Parse the arguments
+  
+  _initLogFile( args.verbose )
+
+  try:
+    pw = plex_watchdog(*args.dir, 
+        logdir      = args.logdir, 
+        threads     = args.threads, 
+        cpulimit    = args.cpulimit,
+        language    = args.language,
+        verbose     = args.verbose,
+        destructive = args.destructive,
+        no_remove   = args.no_remove,
+        no_srt      = args.no_srt);
+  except:
+    log.exception('Something went wrong! Watchdog failed to start')
+    status = 255
+  else:
+    pw.wait()
+  exit()
+
+  if (status == 0) and (not args.no_remove):                                    # If the status is zero (0) AND no_remove flag NOT set
+    '''
+    Here we are going to create a completely separate process using the
+    so-called 'double-fork' method, where we create a child using fork,
+    then create a child from that child; both parents are exited. When
+    we are in the fully new process, we will run a utility that tries to
+    update Plex so that the new, transcoded file is recognized as a second
+    version of the original recording. The original file will then be removed
+    and Plex re-updated to realized the original is gone. Any code after this
+    if block will only run in the remaining child as all other processes are
+    exited within this block
+    '''
+    try:                                                                        # Try to
+      pid = os.fork();                                                          # Fork the process
+    except OSError as e:                                                        # If error occured
+      log.error( 'First fork failed: {} ({})'.format(e.errno, e.strerror) )
+      exit(0);                                                                  # Exit with code zero (0) so Plex doesn't have a fit
+    else:                                                                       # Else
+      if pid > 0:                                                               # If process is the parent
+        exit(0);                                                                # Exit with code zero (0); Plex will think we are done, but we aren't!
+
+    os.setsid();                                                                # decouple from parent environment
+
+    try:                                                                        # Try to
+      pid = os.fork();                                                          # Fork the process
+    except OSError as e:                                                        # If error occured
+      log.error( 'Second fork failed: {} ({})'.format(e.errno, e.strerror) )
+      exit(1);                                                                  # Exit with code one (1), Plex doesn't care at this point
+    else:                                                                       # Else
+      if pid > 0:                                                               # If process is the parent
+        exit(0);                                                                # Exit with code zero (0); we only want the fully decoupled process
+    
+    try:
+      plexDVR_Scan( args.in_file, new_file, info );                             # Run plexDVR_Scan function
+    except:
+      log.exception( 'Somthing went wrong when updating Plex' )
+
+  if os.path.isfile( plex_dvr['lock_file'] ):                                   # If the log file exists
+    os.remove( plex_dvr['lock_file'] );                                         # Remove it
+
+  exit( status );  
