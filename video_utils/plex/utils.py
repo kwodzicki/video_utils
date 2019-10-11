@@ -1,6 +1,8 @@
 import logging;
-import os, re, time;
+import os, re, time, pickle;
+from threading import Lock
 from subprocess import check_output, Popen, PIPE, STDOUT, DEVNULL
+
 from video_utils.videotagger.metadata.getIMDb_ID import getIMDb_ID;
 
 _plex_server  = 'Plex Media Server';                                            # Name of the Plex server command
@@ -86,7 +88,7 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
   return True;                                                                  #
 
 ################################################################################
-def plexDVR_Scan( recorded, converted, no_remove = False ):
+def plexDVR_Scan( recorded, no_remove = False ):
   '''
   Name:
     plexDVR_Scan
@@ -123,8 +125,6 @@ def plexDVR_Scan( recorded, converted, no_remove = False ):
   '''
   log = logging.getLogger(__name__);
   log.debug( 'Running as user: {}'.format( os.environ['USER'] ) )
-  log.debug( 'Sleeping {} seconds'.format( wait ) )
-  time.sleep( wait );
   log.debug('Finished sleeping')
 
   try:
@@ -250,6 +250,47 @@ def plexDVR_Rename( in_file, hardlink = True ):
     log.debug( 'Renaming input file' )
     os.rename( in_file, new );                                                  # Rename the file
   return new, (series, se, title);
+
+################################################################################
+class DVRqueue( list ):
+  def __init__(self, file):
+    super().__init__()
+    self.__file = file
+    self.__loadFile()
+    self.__lock = Lock()
+    self.__log  = logging.getLogger(__name__)
+
+  def append(self, val):
+    with self.__lock:
+      super().append(val)
+      self.__saveFile()
+
+  def remove(self, val):
+    with self.__lock:
+      super().remove(val)
+      self.__saveFile()
+
+  def pop(self, val):
+    with self.__lock:
+      pval = super().pop(val)
+      self.__saveFile()
+    return pval
+
+  def __saveFile(self):
+    if (len(self) > 0):
+      with open(self.__file, 'wb') as fid:
+        pickle.dump( list(self), fid )
+    else:
+      os.remove( self.__file )
+
+  def __loadFile(self):
+    if os.path.isfile(self.__file):
+      try:
+        with open(self.__file, 'rb') as fid:
+          self.extend( pickle.load(fid) )
+      except:
+        self.__log.error('Failed to load old queue. File corrupt?')
+        os.remove( self.__file )
 
 ################################################################################
 def getPlexScannerCMD( ):

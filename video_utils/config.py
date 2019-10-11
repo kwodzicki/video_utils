@@ -1,5 +1,5 @@
 # Some global configuration settings
-import stat;
+import os, stat
 
 # do NOT use opensubtitles info in other programs, register for your own
 opensubtitles = {
@@ -18,6 +18,7 @@ TMDb['urlSeries']  = TMDb['urlBase'] + 'tv/{}';
 TMDb['urlEpisode'] = TMDb['urlBase'] + 'tv/{}/season/{}/episode/{}';
 
 plex_dvr = {
+  'lib_path'  : os.path.join( os.path.expanduser('~'), 'Library', 'video_utils' ),
   'lock_file' : '/tmp/Plex_DVR_PostProcess.lock',
   'lock_perm' : stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | \
                 stat.S_IRGRP | stat.S_IWGRP  | \

@@ -1,8 +1,24 @@
 #!/usr/bin/env python3
 import logging;
 from logging.handlers import RotatingFileHandler
-import os, time;
+import sys, os, time;
 import argparse;
+
+'''
+The following code 'attempts' to add what should be the 
+site-packages location where video_utils is installed
+to sys.path
+'''
+
+binDir  = os.path.dirname( os.path.realpath( __file__ ) )
+topDir  = os.path.dirname( binDir )
+pyVers  = 'python{}.{}'.format(sys.version_info.major, sys.version_info.minor)
+siteDir = ['lib', pyVers, 'site-packages']
+siteDir = os.path.join( topDir, *siteDir )
+
+if os.path.isdir(siteDir):
+  if (siteDir not in sys.path):
+    sys.path.append( siteDir )
 
 from video_utils import log
 from video_utils._logging import plexFMT
@@ -19,7 +35,7 @@ input file should remain so that Plex can move things and not
 get mad.
 '''
 
-def __initLogFile( logLevel ):
+def _initLogFile( logLevel ):
   noHandler = True;                                                             # Initialize noHandle
   for handler in log.handlers:                                                  # Iterate over all ha
     if handler.get_name() == plexFMT['name']:                                   # If handler name mat
@@ -76,5 +92,5 @@ if __name__ == "__main__":
     log.exception('Something went wrong! Watchdog failed to start')
     status = 255
   else:
-    pw.wait()
+    pw.join()
 

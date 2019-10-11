@@ -1,5 +1,7 @@
 import logging;
 import stat, os;
+from video_utils.config import plex_dvr
+
 '''Settings for screen logger and file logger'''
 screenFMT  = { 
   'name'      : 'main',
@@ -16,8 +18,7 @@ fileFMT    = {
 }
 
 plexFMT    = {
-  'file'        : os.path.join( os.path.expanduser('~'), 
-                               'Library', 'Logs', 'Plex_DVR_PostProcess.log'),
+  'file'        : os.path.join( plex_dvr['lib_path'], 'Logs', 'Plex_DVR_Watchdog.log'),
   'name'        : 'plex_dvr',
   'maxBytes'    : 5 * 1024**2,
   'backupCount' : 4,

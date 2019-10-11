@@ -93,7 +93,7 @@ class comremove( subprocManager ):
     if self.ini:
       cmd.append( '--ini={}'.format(self.ini) );
     
-    tmp_file  = '.'.join( in_file.split('.')[:-1] );                            # Get file path with no extension
+    tmp_file  = os.path.splitext( in_file )[0];                            # Get file path with no extension
     edl_file  = '{}.edl'.format(      tmp_file );                               # Path to .edl file
     txt_file  = '{}.txt'.format(      tmp_file );                               # Path to .txt file
     logo_file = '{}.logo.txt'.format( tmp_file );                               # Path to .logo.txt file
@@ -102,10 +102,11 @@ class comremove( subprocManager ):
     cmd.extend( [in_file, self.outDir] );
     
     self.log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
-    if self.verbose:
-      self.addProc(cmd, stdout = log, stderr = err);
-    else:
-      self.addProc(cmd);
+    self.addProc(cmd)
+#    if self.verbose:
+#      self.addProc(cmd, stdout = log, stderr = err);
+#    else:
+#      self.addProc(cmd);
     self.run();
 
     if sum(self.returncodes) == 0:
@@ -113,14 +114,21 @@ class comremove( subprocManager ):
       if not os.path.isfile( edl_file ):
         self.log.warning('No EDL file was created; trying to convert TXT file')
         edl_file = self.convertTXT( txt_file, edl_file );
+      for file in [txt_file, logo_file]:
+        try:
+          os.remove( file );
+        except:
+          pass
+      return edl_file;
+      
+    self.log.warning('There was an error with comskip')
+    for file in [txt_file, edl_file, logo_file]:
       try:
-        os.remove( txt_file );
+        os.remove(file)
       except:
         pass
-      return edl_file;
-    else:
-      self.log.warning('There was an error with comskip')
-      return None;
+
+    return None;
 
   ########################################################
   def comchapter(self, in_file, edl_file):
