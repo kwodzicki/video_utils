@@ -382,12 +382,23 @@ def parse_cmd_lib_dirs( lines ):
     lib_path = _LD_pattern.findall( line );                                     # Attempt to find the LD_LIBRARY_PATH value in the string
     if len(lib_path) == 1:                                                      # If it is found
       return lib_path[0], lib_path[0];                                          # Return this value for both the command parent directory AND the LD_LIBRARY_PATH
-  
+ 
+  for line in lines:
+    cmd = ' '.join( line.split()[1:] ) 
+    if (_plex_server in cmd):
+      try:
+        path = os.path.dirname(cmd)
+      except:
+        continue
+      else:
+        if os.path.isdir( path ):
+          return path, None
+
   # If made here, means nothing found in above method
-  cmds = parseCommands( lines );                                                # Parse out all argumens from the commands
-  for cmd in cmds:                                                              # Iterate over all command argument lists in the cmds list
-    if _plex_server in cmd[-1]:                                                 # If the 'Plex Media Server' string is in the last argument of the command
-      return os.path.dirname( cmd[-1] ), None;                                  # Return the parent directory of the command AND None for LD_LIBRARY_PATH
+#  cmds = parseCommands( lines );                                                # Parse out all argumens from the commands
+#  for cmd in cmds:                                                              # Iterate over all command argument lists in the cmds list
+#    if _plex_server in cmd[-1]:                                                 # If the 'Plex Media Server' string is in the last argument of the command
+#      return os.path.dirname( cmd[-1] ), None;                                  # Return the parent directory of the command AND None for LD_LIBRARY_PATH
   
   # If made here, means nothing found
   return None, None;                                                            # Return None for both
