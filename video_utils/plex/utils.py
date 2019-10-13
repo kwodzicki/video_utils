@@ -170,7 +170,7 @@ def plexDVR_Scan( recorded, no_remove = False ):
     log.critical( "Failed to find 'TV' section! Exiting" )
     return 1;                                                                   # Return 
 
-  scan_dir  = os.path.basename( recorded );                                     # Base name of input file
+  scan_dir  = os.path.dirname( recorded );                                      # Directory name of input file
   cmd      += [ '--scan', '--section', section, '--directory', scan_dir ];      # Append scan and section options to command
 
   log.debug( 'Plex Media Scanner command: {}'.format( ' '.join(cmd) ) )
