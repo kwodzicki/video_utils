@@ -21,6 +21,6 @@ setuptools.setup(
   scripts          = ['bin/comremove',
                       'bin/MKV_Cron_Convert',
                       'bin/mp4tagger',
-                      'bin/Plex_DVR_Watchdog']
-  zip_safe         = False,
+                      'bin/Plex_DVR_Watchdog'],
+  zip_safe         = False
 );
