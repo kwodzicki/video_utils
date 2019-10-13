@@ -22,5 +22,5 @@ setuptools.setup(
                       'bin/MKV_Cron_Convert',
                       'bin/mp4tagger',
                       'bin/Plex_DVR_Watchdog']
-  zip_save         = False,
+  zip_safe         = False,
 );
