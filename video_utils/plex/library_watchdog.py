@@ -45,14 +45,15 @@ class library_watchdog( FileSystemEventHandler ):
     Purpose:
       Method to handle events when file is created.
     '''
-    if event.is_directory: return                                                   # If directory; just return
-    if ('.grab' in event.src_path):                                                 # If '.grab' is in the file path, then it is a new recording! 
-      with self.Lock:                                                               # Acquire Lock so other events cannot change to_convert list at same time
-        self.recordings.append( os.path.split(event.src_path) )                     # Add split file path (dirname, basename,) tuple to to_convert list
-      self.log.debug( 'A recording started : {}'.format( event.src_path) )          # Log info
-    else:                                                                           # Else
-      if self.checkRecording( event.src_path ):                                     # Check if new file is a DVR file (i.e., file has been moved)
-        self.queue.put( event.src_path )                                            # If it is a DVR file, then add file path to queue
+    self._onCreatedMoved( event )
+
+  def on_moved(self, event):
+    '''
+    Purpose:
+      Method to handle events when file is moved.
+    '''
+    self._onCreatedMoved( event )
+
 
   def checkRecording(self, file):
     '''
@@ -86,6 +87,21 @@ class library_watchdog( FileSystemEventHandler ):
     The Observer will be stopped when _killEvent is set
     '''
     self.Observer.join()                                                            # Join the observer thread
+
+  def _onCreatedMoved(self, event):
+    '''
+    Purpose:
+      Method to handle events when file is created or moved.
+    '''
+    if event.is_directory: return                                                   # If directory; just return
+    if ('.grab' in event.src_path):                                                 # If '.grab' is in the file path, then it is a new recording! 
+      with self.Lock:                                                               # Acquire Lock so other events cannot change to_convert list at same time
+        self.recordings.append( os.path.split(event.src_path) )                     # Add split file path (dirname, basename,) tuple to to_convert list
+      self.log.debug( 'A recording started : {}'.format( event.src_path) )          # Log info
+    else:                                                                           # Else
+      if self.checkRecording( event.src_path ):                                     # Check if new file is a DVR file (i.e., file has been moved)
+        self.queue.put( event.src_path )                                            # If it is a DVR file, then add file path to queue
+
 
   def _checkSize(self, file):
     '''

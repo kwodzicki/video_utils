@@ -1,6 +1,6 @@
 [Unit]
 Description=Watchdog for converting Plex DVR files
-After=plexmediaserver.target
+After=plexmediaserver.service
 
 [Service]
 Type=simple
