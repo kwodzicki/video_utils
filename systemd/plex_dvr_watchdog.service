@@ -1,0 +1,14 @@
+[Unit]
+Description=Watchdog for converting Plex DVR files
+After=plexmediaserver.target
+
+[Service]
+Type=simple
+User=plex
+Environment=COMSKIP_INI=/path/to/comskip.ini
+Environment=TVDB_API_KEY=''
+Environment=TMDB_API_KEY=''
+ExecStart=/usr/bin/python3 /var/lib/plexmediaserver/.local/bin/Plex_DVR_Watchdog '/path/to/TV Shows'
+
+[Install]
+WantedBy=multi-user.target

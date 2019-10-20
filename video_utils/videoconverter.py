@@ -277,25 +277,6 @@ class videoconverter( mediainfo, subprocManager ):
 
     Author and History:
        Kyle R. Wodzicki     Created 29 Dec. 2016
-
-       Modified 01 Jan. 2017 by Kyle R. Wodzicki
-          Changed to a function and added check for multithreading when only 
-          half the number of cores are used for CPUs with 4 or more cores.
-       Modified 11 Jan. 2017 by Kyle R. Wodzicki
-          Added the srt and vobsub_delete keywords. If the srt keyword is set to
-          True, then srt files will be created. If the vobsub_delete keyword is 
-          ALSO set, then the VobSub files will be deleted after the conversion.
-          Setting delete without setting srt does NOTHING. These keys are passed
-          to the vobsub_extract function.
-       Modified 12 Jan. 2017 by Kyle R. Wodzicki:
-          Added the vobsub keyword and changed so that output files are placed
-          in their own directory if VobSub or SRT file(s) are to be created,
-          i.e., If not subtitle file(s) are created, the movie is output to the 
-          top level of the out_dir, else, a folder is created with out_dir that
-          matches the title name of the movie from the input file and then
-          subtitle file(s) and the MP4 file are saved to that directory.
-       Modified 14 Jan. 2017 by Kyle R. Wodzicki
-          Updated header information for better clarity.
     '''
     _killEvent.clear()                                                          # Clear the 'global' kill event that may have been set by SIGINT
     if not self.file_info( in_file ): return False;                             # If there was an issue with the file_info function, just return
@@ -479,7 +460,7 @@ class videoconverter( mediainfo, subprocManager ):
     '''
     self.log.info('Setting up some file information...');
 
-    self.mp4tags     = (self.container == 'mp4');
+    self.mp4tags  = (self.container == 'mp4')                                   # Check if container is mp4
     
     # Set up file/directory information
     self.in_file  = in_file if os.path.exists( in_file ) else None;             # Set the in_file attribute for the class to the file input IF it exists, else, set the in_file to None
@@ -497,70 +478,13 @@ class videoconverter( mediainfo, subprocManager ):
     self.mov_dir = os.path.join( self.out_dir, 'Movies');                       # Generate output path for Movies
 
     # Getting information from IMDb.com
-    self.IMDb_ID  = self.in_file.split('.')[-2];
-    self.metaData = None;                                                       # Default metaData to None;
-    self.metaKeys = None;                                                       # Default metaKeys to None;
-    if self.IMDb_ID[:2] == 'tt' and self.mp4tags:
-      self.metaData = getMetaData( self.IMDb_ID );
-      self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
-      if len(self.metaKeys) == 0:                                               # If no keys returned
-        self.log.warning('Failed to download metadata for file!!!');
-        self.log.warning( 'MP4 tagging is disabled!!!' );                       # Print message that the mp4 tagging is disabled                
-        self.mp4tags = False;                                                   # Disable mp4 tagging
-    elif self.mp4tags:
-      self.log.warning('IMDb ID not in file name!');
-    else:
-      self.log.info('MP4 tagging is disabled.');
-
-#   self.new_out_dir = self.out_dir;                                            # Reset output directory to original directory
-    self.file_base  = os.path.basename(self.in_file);                           # Get the base name of the file
-    file_split      = self.file_base.split('.')[:-1];                           # Split base name on period and ignore extension 
-    self.title      = file_split[0];                                            # Get title of movie or TV show
-    self.season_dir = None;
-    self.out_file   = None;
-    ### Determine if the file is an episode of a TV show, or a movie. TV episodes
-    ### files begin with the patter 'sXXeXX - ', where XX is a number for the
-    ### seasons and episode
+    try:
+      self.IMDb_ID  = self.in_file.split('.')[-2];
+    except:
+      self.log.warning('Failed to parse file name, metadata tagging will fail')
+      self.IMDb_ID  = None
     
-    if self.metaKeys is None:                                                   # If the metaKeys attribute is None
-      se_test = False;                                                          # Then the se_test is False
-    else:                                                                       # Else, the metaKeys attribute is not None
-      se_test = ('series title' in self.metaKeys);                              # Check that 'series title' key in metaKeys
-      se_test = ('seriesName'   in self.metaKeys) or  se_test;                  # Check that 'seriesName' key in metaKeys OR previous criteria
-      se_test = ('episode'      in self.metaKeys) and se_test;                  # Check that 'episode' key in metaKeys AND previous criteria
-      se_test = ('season'       in self.metaKeys) and se_test;                  # Check that 'season'  key in metaKeys AND previous criteria
-
-    if _sePat.match(self.file_base) or se_test:                                 # If either the pattern test (regex match to _sePat) OR the IMDb information test (se_test) is true, assume it's an episode
-      self.is_episode  = True;                                                  # Set is_episode to True
-      self.year        = None;
-      self.new_out_dir = self.tv_dir;                                           # Reset output directory to original directory
-      if file_split[-1][:2] == 'tt' or file_split[-1][:2] == '':                # If the first two characters of the last element of the split file name are 'tt' OR it is an empty string
-        self.file_name = file_split[:-1];                                       # Join file base name using periods EXCLUDING the IMDB id
-      else:                                                                     # If the first two characters of the last element of the split file name are NOT 'tt'
-        self.file_name = file_split;                                            # Join file base name using periods
-      if se_test:
-        try:                                                                    # Try to use the seriesName tag from the metaData
-          st = self.metaData['seriesName'];                                     # Set Series directory name
-        except:                                                                 # If this tag does NOT exist, use the series title tag
-          st = self.metaData['series title'];                                   # Set Series directory name
-        if self.encode: st = st.encode(self.fmt);                               # Encode if python2
-        for n in range( len(self.illegal) ):                                    # Iterate over all illegal characters
-          if self.illegal[n] in st:                                             # If an illegal character is found in the string
-              st = st.replace(self.illegal[n], self.legal[n]);                  # Replace the character with a legal character
-        self.new_out_dir = os.path.join(self.new_out_dir, st);                  # Set Series directory name
-        sn = 'Season {:02d}'.format(self.metaData['season']);                   # Set up name for Season Directory
-        self.new_out_dir = os.path.join(self.new_out_dir, sn);                  # Add the season directory to the output directory
-#        if re_test is False:                                                    # If the re_test is False
-#          self.file_name[0] = 's{:02d}e{:02d} - {}'.format(
-#            self.metaData['season'], self.metaData['episode'], self.file_name[0]
-#          )
-    else:                                                                       # Else the file is a movie
-      self.is_episode  = False;                                                 # Set is_episode to False
-      self.new_out_dir = self.mov_dir;                                          # Reset output directory to original directory
-      self.file_name   = file_split[:-2];                                       # Join file base name using periods EXCLUDING the year and IMDB id
-      self.year        = file_split[-2];                                        # Get movie year and IMDB id from the file name; the second last and last elements, respectively
-      if self.year != '': self.title = '{} - {}'.format(self.title, self.year); # Append movie year to title variable
-
+    self._metaData()
     self.log.info('Getting video, audio, information...');                      # If verbose is set, print some output
 
     self.video_info = self.get_video_info( x265 = self.x265 );                  # Get and parse video information from the file
@@ -732,6 +656,86 @@ class videoconverter( mediainfo, subprocManager ):
       self.out_file    = os.path.join( *self.out_file );
       self.new_out_dir = os.path.dirname( self.out_file );
     self._create_dirs();                                                        # Create all output directories
+
+  ###################################################################
+  def _metaData(self):
+    ''''
+    Name:
+      _metaData
+    Purpose:
+      Method responsible for checking for IMDb ID and setting
+      up information in regard to that
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Outputs:
+      Updates class attributes
+    ''' 
+    self.metaData = None;                                                       # Default metaData to None;
+    self.metaKeys = None;                                                       # Default metaKeys to None;
+ 
+    if (self.IMDb_ID is not None) and (self.IMDb_ID[:2] == 'tt') and self.mp4tags:
+      self.metaData = getMetaData( self.IMDb_ID );
+      self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
+      if len(self.metaKeys) == 0:                                               # If no keys returned
+        self.log.warning('Failed to download metadata for file!!!');
+        self.log.warning( 'MP4 tagging is disabled!!!' );                       # Print message that the mp4 tagging is disabled                
+        self.mp4tags = False;                                                   # Disable mp4 tagging
+    elif self.mp4tags:
+      self.log.warning('IMDb ID not in file name!');
+    else:
+      self.log.info('MP4 tagging is disabled.');
+
+#   self.new_out_dir = self.out_dir;                                            # Reset output directory to original directory
+    self.file_base  = os.path.basename(self.in_file);                           # Get the base name of the file
+    file_split      = self.file_base.split('.')[:-1];                           # Split base name on period and ignore extension 
+    self.title      = file_split[0];                                            # Get title of movie or TV show
+    self.season_dir = None;
+    self.out_file   = None;
+    ### Determine if the file is an episode of a TV show, or a movie. TV episodes
+    ### files begin with the patter 'sXXeXX - ', where XX is a number for the
+    ### seasons and episode
+    
+    if self.metaKeys is None:                                                   # If the metaKeys attribute is None
+      se_test = False;                                                          # Then the se_test is False
+    else:                                                                       # Else, the metaKeys attribute is not None
+      se_test = ('series title' in self.metaKeys);                              # Check that 'series title' key in metaKeys
+      se_test = ('seriesName'   in self.metaKeys) or  se_test;                  # Check that 'seriesName' key in metaKeys OR previous criteria
+      se_test = ('episode'      in self.metaKeys) and se_test;                  # Check that 'episode' key in metaKeys AND previous criteria
+      se_test = ('season'       in self.metaKeys) and se_test;                  # Check that 'season'  key in metaKeys AND previous criteria
+
+    if _sePat.match(self.file_base) or se_test:                                 # If either the pattern test (regex match to _sePat) OR the IMDb information test (se_test) is true, assume it's an episode
+      self.is_episode  = True;                                                  # Set is_episode to True
+      self.year        = None;
+      self.new_out_dir = self.tv_dir;                                           # Reset output directory to original directory
+      if file_split[-1][:2] == 'tt' or file_split[-1][:2] == '':                # If the first two characters of the last element of the split file name are 'tt' OR it is an empty string
+        self.file_name = file_split[:-1];                                       # Join file base name using periods EXCLUDING the IMDB id
+      else:                                                                     # If the first two characters of the last element of the split file name are NOT 'tt'
+        self.file_name = file_split;                                            # Join file base name using periods
+      if se_test:
+        try:                                                                    # Try to use the seriesName tag from the metaData
+          st = self.metaData['seriesName'];                                     # Set Series directory name
+        except:                                                                 # If this tag does NOT exist, use the series title tag
+          st = self.metaData['series title'];                                   # Set Series directory name
+        if self.encode: st = st.encode(self.fmt);                               # Encode if python2
+        for n in range( len(self.illegal) ):                                    # Iterate over all illegal characters
+          if self.illegal[n] in st:                                             # If an illegal character is found in the string
+            st = st.replace(self.illegal[n], self.legal[n]);                  # Replace the character with a legal character
+        self.new_out_dir = os.path.join(self.new_out_dir, st);                  # Set Series directory name
+        sn = 'Season {:02d}'.format(self.metaData['season']);                   # Set up name for Season Directory
+        self.new_out_dir = os.path.join(self.new_out_dir, sn);                  # Add the season directory to the output directory
+#        if re_test is False:                                                    # If the re_test is False
+#          self.file_name[0] = 's{:02d}e{:02d} - {}'.format(
+#            self.metaData['season'], self.metaData['episode'], self.file_name[0]
+#          )
+    else:                                                                       # Else the file is a movie
+      self.is_episode  = False;                                                 # Set is_episode to False
+      self.new_out_dir = self.mov_dir;                                          # Reset output directory to original directory
+      self.file_name   = file_split[:-2];                                       # Join file base name using periods EXCLUDING the year and IMDB id
+      self.year        = file_split[-2];                                        # Get movie year and IMDB id from the file name; the second last and last elements, respectively
+      if self.year != '': self.title = '{} - {}'.format(self.title, self.year); # Append movie year to title variable
+
   ##############################################################################
   def _videoKeys(self):
     '''
@@ -808,7 +812,3 @@ class videoconverter( mediainfo, subprocManager ):
       self.__fileHandler.setLevel(     fileFMT['level']     );                  # Set the logging level for the log file
       self.__fileHandler.setFormatter( fileFMT['formatter'] );                  # Set the log format for the log file
       self.log.addHandler(self.__fileHandler);                                  # Add the file log handler to the logger
-
-  ##############################################################################
-  def __exit(self, *args, **kwargs):
-    self.__kill = True
