@@ -133,12 +133,14 @@ class library_watchdog( FileSystemEventHandler ):
       self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
       self.converting.append( file )                              # Append to converting list; this will trigger update of queue file
       try:        
-        DVRconverter(file, **self.kwargs)                           # Convert file 
+        status, out_file, info = DVRconverter(file, **self.kwargs)  # Convert file 
       except:
         self.log.exception('Failed to convert file')
-   
-      self.converting.remove( file )                              # Remove from converting list; this will tirgger update of queue file
-      self.queue.task_done()                                      # Signal that queue is finished
+
+      if (status == 0):                                             # If the transcode status is zero (i.e., finished cleanly) then 
+        self.converting.remove( file )                              # Remove from converting list; this will tirgger update of queue file
+ 
+     self.queue.task_done()                                      # Signal that queue is finished
 
     self.log.info('Plex watchdog stopped!')
     self.Observer.stop()

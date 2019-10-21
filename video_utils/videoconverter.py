@@ -315,25 +315,26 @@ class videoconverter( mediainfo, subprocManager ):
 
     self.ffmpeg_cmd = self._ffmpeg_command( out_file );                         # Generate ffmpeg command list
 
-    self.log.info( 'Transcoding file...' )
+    if not _killEvent.is_set():
+      self.log.info( 'Transcoding file...' )
 
-    if self.no_ffmpeg_log:                                                      # If creation of ffmpeg log files is disabled
-      self.addProc( self.ffmpeg_cmd, 
-              stdout             = PIPE, 
-              stderr             = STDOUT,
-              universal_newlines = True);                                       # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
-    else:                                                                       # Else
-      self.addProc( self.ffmpeg_cmd, 
-        stdout = self.ffmpeg_log_file, stderr = self.ffmpeg_err_file
-      );                                                                        # Start the HandBrakeCLI command and direct all output to /dev/null
-    self.run(block = False);                                                    # Run process with block set to False so that method returns right away
+      if self.no_ffmpeg_log:                                                      # If creation of ffmpeg log files is disabled
+        self.addProc( self.ffmpeg_cmd, 
+                stdout             = PIPE, 
+                stderr             = STDOUT,
+                universal_newlines = True);                                       # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
+      else:                                                                       # Else
+        self.addProc( self.ffmpeg_cmd, 
+          stdout = self.ffmpeg_log_file, stderr = self.ffmpeg_err_file
+        );                                                                        # Start the HandBrakeCLI command and direct all output to /dev/null
+      self.run(block = False);                                                    # Run process with block set to False so that method returns right away
 
-    if self.no_ffmpeg_log:                                                      # If ffmpeg log files are disabled, we want to know a little bit about what is going on
-        self.applyFunc( progress, kwargs= {'nintervals' : 10} )                 # Apply the 'progess' function to the process to monitor ffmpeg progress
-    self.wait();                                                                # Call wait method to ensure that process has finished
+      if self.no_ffmpeg_log:                                                      # If ffmpeg log files are disabled, we want to know a little bit about what is going on
+          self.applyFunc( progress, kwargs= {'nintervals' : 10} )                 # Apply the 'progess' function to the process to monitor ffmpeg progress
+      self.wait();                                                                # Call wait method to ensure that process has finished
 
-    if os.path.isfile( self.chapterFile ): os.remove( self.chapterFile )        # If the cahpter file exists, delete it
-    self.chapterFile = None                                                     # Set chapter file to None for safe measure
+      if os.path.isfile( self.chapterFile ): os.remove( self.chapterFile )        # If the cahpter file exists, delete it
+      self.chapterFile = None                                                     # Set chapter file to None for safe measure
 
     try: 
       self.transcode_status = self.returncodes[0];                              # Set transcode_status      
@@ -458,6 +459,8 @@ class videoconverter( mediainfo, subprocManager ):
     Function to extract some information from the input file name and set up
     some output file variables.
     '''
+    if _killEvent.is_set(): return False
+
     self.log.info('Setting up some file information...');
 
     self.mp4tags  = (self.container == 'mp4')                                   # Check if container is mp4
@@ -543,6 +546,8 @@ class videoconverter( mediainfo, subprocManager ):
     Author and History:
         Kyle R. Wodzicki     Created 30 Dec. 2016
     '''
+
+    if _killEvent.is_set(): return
 
     # Extract VobSub(s) and convert to SRT based on keywords
     def opensubs_all():

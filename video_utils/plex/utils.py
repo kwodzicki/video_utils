@@ -278,9 +278,15 @@ class DVRqueue( list ):
 
   def __saveFile(self):
     if (len(self) > 0):
+      self.__log.debug( 'Storing list in : {}'.format( self.__file ) )
+      fdir = os.path.dirname(self.__file) 
+      if not os.path.isdir( fdir ):
+        self.__log.debug( 'Making directory : {}'.format( fdir ) )
+        os.makedirs( fdir )
       with open(self.__file, 'wb') as fid:
         pickle.dump( list(self), fid )
     else:
+      self.__log.debug( 'No data in list, removing file : {}'.format( self.__file ) )
       os.remove( self.__file )
 
   def __loadFile(self):
