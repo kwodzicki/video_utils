@@ -124,7 +124,7 @@ For example, if your plex user is uid 456, then you could add the following to /
 This package provides a few command line utilities for some of the core components.
 
 #### Conversion of MakeMKV Output
-###### MKV_Cron_Convert
+###### MKV\_Cron\_Convert
 Automated converting can be done using the `MKV_Cron_Convert` utility.
 The utility is designed to look through one (or more) directory for `.mkv` files and transcode them, one at a time, to a designated output directory until no more remain in the input directory.
 All options available in the `videoconverter`class can be set in the script.
@@ -141,21 +141,27 @@ For more information use the `--help` flag when running the utility.
 The `mp4tagger` utility tags MP4 files with data from IMDb, TMDb, and TVDb (pending API keys installed) either using the IMDb id found in the file name if the file naming convention is used, or using a user supplied IMDb id. 
 For more information use the `--help` flag when running the utility.
 
+## Watchdogs
+
 #### Post Processing of Plex DVR
-###### Plex_DVR_PostProcess
-This utility is designed to be used as your Plex DVR post processing script, namely for TV shows.
-This utility does a few things:
+###### Plex\_DVR\_Watchdog
+This watchdog is designed to be run as a service that will post process DVR output, namely for TV shows.
+This watchdog does a few things:
  
- * Attempts to get the the IMDb id of the episode based on the series name, 
+ * Watches specified directory for new files DVR files; waits to process file until
+    they are moved to their final location by Plex
+ * Attempts to get the IMDb id of the episode based on the series name, 
     year, and episode title.
- * Renames file to match input file naming convention
- * Attempts to remove commercials using `comskip` CLI if installed
+ * Renames file to match input file naming convention for video\_utils package
+ * Attempts to add chapters marking commercials in file using `comskip` CLI if installed; 
+    can remove commercials if --destructive flag is set
  * Attempts to extract subtitles to SRT using `ccextractor` CLI if installed
  * Converts movie to MP4 format using the `videoconverter` class
  * Attempts to download and write MP4 tags to file
- * Waits for Plex to move files to final location, then runs `Plex Media Scanner` to locate `.mp4` file 
+ * Attempts to run `Plex Media Scanner` to locate `.mp4	 file; re-runs scanner if
+    source `.ts` file is deleted
 
-Note: This post processing script is still being tested to work out some bugs.
+Note: This watchdog is still being tested to work out some bugs.
 Use at your own risk.
 
 ## Code example
