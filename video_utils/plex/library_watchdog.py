@@ -3,7 +3,6 @@ from logging.handlers import RotatingFileHandler
 
 import os, time
 from threading import Thread, Lock
-from queue import Queue
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -27,7 +26,6 @@ class library_watchdog( FileSystemEventHandler ):
     self.kwargs      = kwargs                                                       # Store input keyword arguments
 
     self.Lock        = Lock()                                                       # Lock for ensuring threads are safe
-    self.queue       = Queue()                                                      # Queue for enqueuing files for conversion
  
     self.Observer    = Observer()                                                   # Initialize a watchdog Observer
     for arg in args:                                                                # Iterate over input arguments
@@ -36,9 +34,6 @@ class library_watchdog( FileSystemEventHandler ):
 
     self.__runThread = Thread( target = self.__run )                                # Thread for dequeuing files and converting
     self.__runThread.start()                                                        # Start the thread
- 
-    while (len(self.converting) > 0):                                               # While there are previously stopped conversions in the converting list
-      self.queue.put( self.converting.pop(0) )                                      # Pop off the first element and place in the conversion queue
  
   def on_created(self, event):
     '''
@@ -50,16 +45,16 @@ class library_watchdog( FileSystemEventHandler ):
       with self.Lock:                                                               # Acquire Lock so other events cannot change to_convert list at same time
         self.recordings.append( os.path.split(event.src_path) )                     # Add split file path (dirname, basename,) tuple to to_convert list
       self.log.debug( 'A recording started : {}'.format( event.src_path) )          # Log info
-    elif self.checkRecording( event.src_path ):                                     # Check if new file is a DVR file (i.e., file has been moved)
-      self.queue.put( event.src_path )                                            # If it is a DVR file, then add file path to queue
+    else:
+      self.checkRecording( event.src_path )                                     # Check if new file is a DVR file (i.e., file has been moved)
 
   def on_moved(self, event):
     '''
     Purpose:
       Method to handle events when file is moved.
     '''
-    if (not event.is_directory) and self.checkRecording( event.dest_path ):         # If not a directory and the destination file was a recording (i.e.; checkRecordings)
-      self.queue.put( event.dest_path )                                             # Add file path to queue
+    if (not event.is_directory):
+      self.checkRecording( event.dest_path )         # If not a directory and the destination file was a recording (i.e.; checkRecordings)
 
   def checkRecording(self, file):
     '''
@@ -82,6 +77,7 @@ class library_watchdog( FileSystemEventHandler ):
         if (self.recordings[i][1] == fName):                                        # If the name of the input file matches the name of the recording file
           self.log.debug( 'Recoding moved from {} --> {}'.format(
                 os.path.join( *self.recordings[i] ), file ) )                       # Log some information
+          self.converting.append( file )                                            # Append to converting list; this will trigger update of queue file
           self.recordings.pop( i )                                                  # Pop off the tuple from to_convert attribute
           return True                                                               # Return True
         i += 1                                                                      # Increment i
@@ -126,12 +122,12 @@ class library_watchdog( FileSystemEventHandler ):
     '''
     while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):         # While the kill event is NOT set
       try:                                                                      # Try
-        file = self.queue.get(timeout = 0.5)                                    # Get a file from the queue; block for 0.5 seconds then raise exception
+        file = self.converting[0]                                    # Get a file from the queue; block for 0.5 seconds then raise exception
       except:                                                                   # Catch exception
+        time.sleep(0.5)
         continue                                                                # Do nothing
 
       self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
-      self.converting.append( file )                              # Append to converting list; this will trigger update of queue file
       try:        
         status, out_file, info = DVRconverter(file, **self.kwargs)  # Convert file 
       except:
@@ -140,7 +136,6 @@ class library_watchdog( FileSystemEventHandler ):
       if (status == 0):                                             # If the transcode status is zero (i.e., finished cleanly) then 
         self.converting.remove( file )                              # Remove from converting list; this will tirgger update of queue file
  
-      self.queue.task_done()                                      # Signal that queue is finished
 
     self.log.info('Plex watchdog stopped!')
     self.Observer.stop()

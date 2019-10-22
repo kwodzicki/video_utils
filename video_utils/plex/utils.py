@@ -125,7 +125,6 @@ def plexDVR_Scan( recorded, no_remove = False ):
   '''
   log = logging.getLogger(__name__);
   log.debug( 'Running as user: {}'.format( os.environ['USER'] ) )
-  log.debug('Finished sleeping')
 
   try:
     cmd, myenv = getPlexScannerCMD();                                             # Attempt to get Plex Media Scanner command
@@ -342,7 +341,6 @@ def getPlexScannerCMD( ):
         myenv['LD_LIBRARY_PATH'] = lib_dir;                                     # Add/update environment variable
   
   log.debug( 'Plex command: {}'.format( cmd ) )
-  log.debug( 'Environment: {}'.format( myenv ) )
   return cmd, myenv 
 
 ################################################################################
