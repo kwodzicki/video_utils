@@ -248,7 +248,7 @@ class subprocManager(object):
     Intended to be called when SIGINT or something else occurs
     '''
     while self.__runEvent.is_set():
-      if _sigintEvent.wait( timeout = 0.5 ) or _sigtermEvent.wait( timout = 0.5 ):
+      if _sigintEvent.wait( timeout = 0.5 ) or _sigtermEvent.wait( timeout = 0.5 ):
         self.__runEvent.clear()
         for proc in self.__procs: proc[0].terminate()                               # Terminate all of the processes 
 
