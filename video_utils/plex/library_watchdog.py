@@ -13,8 +13,6 @@ from video_utils.config import plex_dvr
 from video_utils.plex.DVRconverter import DVRconverter
 from video_utils.plex.utils import DVRqueue
 
-convertQueue = os.path.join( plex_dvr['lib_path'], 'convert_queue.pic' )
-
 class library_watchdog( FileSystemEventHandler ):
   def __init__(self, *args, **kwargs):
     super().__init__()
@@ -22,7 +20,7 @@ class library_watchdog( FileSystemEventHandler ):
     self.log.info('Starting up...')
 
     self.recordings  = []                                                           # Initialize list to store paths of newly started DVR recordings
-    self.converting  = DVRqueue( convertQueue )                                     # Initialize DVRqueue, this is a subclass of list that, when items modified, will save pickled list to file as backup
+    self.converting  = DVRqueue( plex_dvr['queueFile'] )                                     # Initialize DVRqueue, this is a subclass of list that, when items modified, will save pickled list to file as backup
     self.kwargs      = kwargs                                                       # Store input keyword arguments
 
     self.Lock        = Lock()                                                       # Lock for ensuring threads are safe

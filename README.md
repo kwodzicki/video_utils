@@ -61,7 +61,7 @@ After you have created an account, go to API Access and generate a new key.
 
 After you have generated your own API keys, there are two ways to install them.
 
-##### Method 1 - api_keys.py file
+##### Method 1 - api\_keys.py file
 
 This method requires you to create a file named `api_keys.py` in the directory where the `video_utils` package installed.
 If this does not make sense, [Method 2](#method-2---environment-variables) may be the way to go.
@@ -79,7 +79,7 @@ You won't have to worry about this again!
 
 This method requires you to set environment variables that the `video_utils` package can use to get the API keys.
 These variables must be set for the user that will be running the scripts.
-To do this, simply add the following lines to your ~/.bashrc or ~/.bash_profile:
+To do this, simply add the following lines to your ~/.bashrc or ~/.bash\_profile:
 
     export TVDB_API_KEY="YOUR_TVDb_KEY_HERE"
     export TMDB_API_KEY="YOUR_TMDb_KEY_HERE"
@@ -89,7 +89,7 @@ If code will be run under a user without a home directory, or you just want to m
 To limit the definition of the variables to specifc users, you can filter by their uid.
 For example, if your user is uid 456, then you could add the following to /etc/profile:
 
-    # Add COMSKIP_INI environment variable if user plex (uid 456)
+    # Add TVDB_API_KEY and TMDB_API_KEY environment variables to user with uid 456
     if [ "$(id -u)" -eq 456 ]; then
         export TVDB_API_KEY="YOUR_TVDb_KEY_HERE"
         export TMDB_API_KEY="YOUR_TMDb_KEY_HERE"
@@ -104,8 +104,8 @@ To tune how comskip detects commerical breaks in videos, a `.ini` file is used.
 
 #### Comskip INI file
 
-To easily have comskip use a specific `.ini` file, define a COMSKIP_INI environment variable for the user that will be running the scripts.
-To do this, simply add the following line to your ~/.bashrc or ~/.bash_profile:
+To easily have comskip use a specific `.ini` file, define a COMSKIP\_INI environment variable for the user that will be running the scripts.
+To do this, simply add the following line to your ~/.bashrc or ~/.bash\_profile:
 
 	export COMSKIP_INI=/path/to/comskip.ini
 
@@ -115,7 +115,7 @@ For example, if your plex user is uid 456, then you could add the following to /
 
 	# Add COMSKIP_INI environment variable if user plex (uid 456)
 	if [ "$(id -u)" -eq 456 ]; then
-  		export COMSKIP_INI=/path/to/comskip.ini
+            export COMSKIP_INI=/path/to/comskip.ini
 	fi
 
 
@@ -158,10 +158,10 @@ This watchdog does a few things:
  * Attempts to extract subtitles to SRT using `ccextractor` CLI if installed
  * Converts movie to MP4 format using the `videoconverter` class
  * Attempts to download and write MP4 tags to file
- * Attempts to run `Plex Media Scanner` to locate `.mp4	 file; re-runs scanner if
+ * Attempts to run `Plex Media Scanner` to locate `.mp4` file; re-runs scanner if
     source `.ts` file is deleted
 
-Note: This watchdog is still being tested to work out some bugs.
+Note: this watchdog is still being tested to work out some bugs.
 Use at your own risk.
 
 ## Code example
@@ -181,7 +181,7 @@ A brief example of how to use the videoconverter class is below:
 
 ## License
 
-video_utils is released under the terms of the GNU GPL v3 license.
+video\_utils is released under the terms of the GNU GPL v3 license.
 
 [ffmpeg]: https://www.ffmpeg.org/
 [mediainfo]: https://mediaarea.net/en/MediaInfo
