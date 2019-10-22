@@ -28,13 +28,18 @@ log.handlers[0].setLevel( screenFMT['level'] );            # Set the format tot 
 log.handlers[0].set_name( screenFMT['name'] );
 
 # Set up event and link event set to SIGINT and SIGTERM
-_killEvent = Event()
-def _exit_gracefully(*args, **kwargs):
-  _killEvent.set()
-  log.critical('Caught interrupt, exiting...')
+_sigintEvent  = Event()
+_sigtermEvent = Event()
 
-signal.signal(signal.SIGINT,  _exit_gracefully)
-signal.signal(signal.SIGTERM, _exit_gracefully)
+def _handle_sigint(*args, **kwargs):
+  _sigintEvent.set()
+  log.error('Caught interrupt...')
 
+def _handle_sigterm(*args, **kwargs):
+  _sigtermEvent.set()
+  log.error('Caught terminate...')
+
+signal.signal(signal.SIGINT,  _handle_sigint)
+signal.signal(signal.SIGTERM, _handle_sigterm)
 
 del i, DEVNULL, STDOUT, screenFMT;

@@ -4,7 +4,7 @@ from subprocess import call, Popen, STDOUT, DEVNULL
 from threading import Thread, Event
 from multiprocessing import cpu_count
 
-from video_utils import _killEvent                                              # Import kill event
+from video_utils import _sigintEvent, _sigtermEvent                             # Import kill event
 
 nthreads = cpu_count() // 2                                                     # Set global nthreads as half the number of cpus
 cpulimitInstalled = True;                                                       # Set global cpulimitInstalled flag to True
@@ -136,12 +136,12 @@ class subprocManager(object):
     user can keep adding processes to the queue if they want
     '''
     self.__n = 0;                                                               # Ensure the counter is at zero
-    while (not _killEvent.is_set()) and (len(self.__queue) > 0):                # While there are commands in the queue
+    while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()) and (len(self.__queue) > 0): # While there are commands in the queue
       if len(self.__procs) == self.threads:                                     # If the number of allowable subprocess are running
         self.__procCheck();                                                     # Wait for a process to finish
       args, kwargs = self.__queue.pop(0);                                       # Pop off first element of the _queue
       self.__Popen( args, **kwargs );                                           # Call method to start a new subprocess
-    while (not _killEvent.is_set()) and (len(self.__procs) > 0):                # While there are processes running
+    while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()) and (len(self.__procs) > 0): # While there are processes running
       self.__procCheck();                                                       # Wait for a process to finish
     self.__runEvent.clear()                                                     # Clear the run event so the __exit thread quits
     self.__procs = []                                                           # Clear out Popen instances
@@ -154,7 +154,7 @@ class subprocManager(object):
     Keywords:
       All kwargs from Popen
     '''      
-    if _killEvent.is_set(): return
+    if _sigintEvent.is_set() or _sigtermEvent.is_set(): return
     self.__n += 1;                                                              # Increment n by one
     single = kwargs.pop('single', False);                                       # Pop off the 'single' keyword argument, or get False if not keyword
     stdout = kwargs.pop('stdout', DEVNULL);                                     # Set default stdout to DEVNULL
@@ -248,7 +248,7 @@ class subprocManager(object):
     Intended to be called when SIGINT or something else occurs
     '''
     while self.__runEvent.is_set():
-      if _killEvent.wait( timeout = 0.5 ):
+      if _sigintEvent.wait( timeout = 0.5 ) or _sigtermEvent.wait( timout = 0.5 ):
         self.__runEvent.clear()
         for proc in self.__procs: proc[0].terminate()                               # Terminate all of the processes 
 

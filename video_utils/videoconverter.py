@@ -31,7 +31,7 @@ from .videotagger.mp4Tags import mp4Tags;
 # Logging formatter
 from ._logging import fileFMT;
 
-from video_utils import _killEvent
+from video_utils import _sigintEvent, _sigtermEvent
 
 _sePat = re.compile( r'[sS]\d{2,}[eE]\d{2,} - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
@@ -278,7 +278,9 @@ class videoconverter( mediainfo, subprocManager ):
     Author and History:
        Kyle R. Wodzicki     Created 29 Dec. 2016
     '''
-    _killEvent.clear()                                                          # Clear the 'global' kill event that may have been set by SIGINT
+    if _sigtermEvent.is_set(): return False                                     # If _sigterm has been called, just quit
+
+    _sigintEvent.clear()                                                        # Clear the 'global' kill event that may have been set by SIGINT
     if not self.file_info( in_file ): return False;                             # If there was an issue with the file_info function, just return
     self._init_logger( log_file );                                              # Run method to initialize logging to file
     if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
@@ -315,7 +317,7 @@ class videoconverter( mediainfo, subprocManager ):
 
     self.ffmpeg_cmd = self._ffmpeg_command( out_file );                         # Generate ffmpeg command list
 
-    if not _killEvent.is_set():
+    if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):
       self.log.info( 'Transcoding file...' )
 
       if self.no_ffmpeg_log:                                                      # If creation of ffmpeg log files is disabled
@@ -441,7 +443,7 @@ class videoconverter( mediainfo, subprocManager ):
 
   ##############################################################################
   def _write_tags(self, out_file):
-    if _killEvent.is_set(): return                                              # If the kill event is set, skip tag writing for faster exit
+    if _sigintEvent.is_set() or _sigtermEvent.is_set(): return                  # If the kill event is set, skip tag writing for faster exit
     if self.metaKeys is None:                                                   # If the metaKeys attribute is None
       self.log.warning('No metadata to write!!!');                              # Print message that not data to write
     elif self.mp4tags:                                                          # If mp4tags attribute is True
@@ -459,7 +461,7 @@ class videoconverter( mediainfo, subprocManager ):
     Function to extract some information from the input file name and set up
     some output file variables.
     '''
-    if _killEvent.is_set(): return False
+    if _sigintEvent.is_set() or _sigtermEvent.is_set(): return False
 
     self.log.info('Setting up some file information...');
 
@@ -547,7 +549,7 @@ class videoconverter( mediainfo, subprocManager ):
         Kyle R. Wodzicki     Created 30 Dec. 2016
     '''
 
-    if _killEvent.is_set(): return
+    if _sigintEvent.is_set() or _sigtermEvent.is_set(): return
 
     # Extract VobSub(s) and convert to SRT based on keywords
     def opensubs_all():

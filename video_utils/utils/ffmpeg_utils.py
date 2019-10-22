@@ -4,7 +4,7 @@ import numpy as np;
 from datetime import datetime, timedelta;
 from subprocess import Popen, PIPE, STDOUT;
 
-from video_utils import _killEvent
+from video_utils import _sigintEvent, _sigtermEvent
 
 _progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' );                     # Regex pattern for locating file duration in ffmpeg ouput 
 _durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' );                # Regex pattern for locating file processing location
@@ -45,18 +45,18 @@ def cropdetect( infile, dt = 20 ):
 
   log.debug( 'Detecting crop using chunks of length {}'.format( dt ) );
 
-  detect = True;                                                                # Set detect to True; flag for crop detected
-  while detect and (not _killEvent.is_set()):                                   # While detect is True, keep iterating
-    detect = False;                                                             # Set detect to False; i.e., at beginning of iteration, assume no crop found
+  detect = True;                                                                    # Set detect to True; flag for crop detected
+  while detect and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):    # While detect is True, keep iterating
+    detect = False;                                                                 # Set detect to False; i.e., at beginning of iteration, assume no crop found
     log.debug( 'Checking crop starting at {}'.format( ss ) );
-    cmd[3] = str(ss);                                                           # Set the start offset in the video
-    proc   = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True ); # Start the command, piping stdout and stderr to a pipe
-    line   = proc.stdout.readline();                                            # Read line from pipe
-    while line != '':                                                           # While line is not empty
-      if res is None:                                                           # If resolution not yet found
-        res = _resPat.findall( line );                                          # Try to find resolution information
-        res = [int(i) for i in res[0].split('x')] if len(res) == 1 else None;   # Set res to resolution if len of res is 1, else set back to None
-      whxy = _cropPat.findall( line );                                          # Try to find pattern in line
+    cmd[3] = str(ss);                                                               # Set the start offset in the video
+    proc   = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True );     # Start the command, piping stdout and stderr to a pipe
+    line   = proc.stdout.readline();                                                # Read line from pipe
+    while line != '':                                                               # While line is not empty
+      if res is None:                                                               # If resolution not yet found
+        res = _resPat.findall( line );                                              # Try to find resolution information
+        res = [int(i) for i in res[0].split('x')] if len(res) == 1 else None;       # Set res to resolution if len of res is 1, else set back to None
+      whxy = _cropPat.findall( line );                                              # Try to find pattern in line
     
       if len(whxy) == 1:                                                        # If found the pattern
         if not detect: detect = True;                                           # If detect is False, set to True

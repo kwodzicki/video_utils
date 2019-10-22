@@ -245,10 +245,13 @@ def plexDVR_Rename( in_file, hardlink = True ):
   new = os.path.join( fileDir, new );                                           # Build new file path
   if hardlink:
     log.debug( 'Creating hard link to input file' )
-    os.link( in_file, new );                                                    # Create hard link to file with new file name
+    try:
+      os.link( in_file, new );                                                    # Create hard link to file with new file name
+    except Exception as err:
+      log.warning( 'Error creating hard link : {}'.format(err) )
   else:
     log.debug( 'Renaming input file' )
-    os.rename( in_file, new );                                                  # Rename the file
+    os.replace( in_file, new );                                                  # Rename the file, overwiting destination if it exists
   return new, (series, se, title);
 
 ################################################################################

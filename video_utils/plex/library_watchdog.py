@@ -8,7 +8,7 @@ from queue import Queue
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from video_utils import _killEvent
+from video_utils import _sigintEvent, _sigtermEvent
 from video_utils.config import plex_dvr
 
 from video_utils.plex.DVRconverter import DVRconverter
@@ -90,7 +90,7 @@ class library_watchdog( FileSystemEventHandler ):
   def join(self):
     '''
     Method to wait for the watchdog Observer to finish.
-    The Observer will be stopped when _killEvent is set
+    The Observer will be stopped when _sigintEvent or _sigtermEvent is set
     '''
     self.Observer.join()                                                            # Join the observer thread
 
@@ -124,11 +124,11 @@ class library_watchdog( FileSystemEventHandler ):
     Keywords:
       None.
     '''
-    while not _killEvent.is_set():                                  # While the kill event is NOT set
-      try:                                                          # Try
-        file = self.queue.get(timeout = 0.5)                        # Get a file from the queue; block for 0.5 seconds then raise exception
-      except:                                                       # Catch exception
-        continue                                                    # Do nothing
+    while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):         # While the kill event is NOT set
+      try:                                                                      # Try
+        file = self.queue.get(timeout = 0.5)                                    # Get a file from the queue; block for 0.5 seconds then raise exception
+      except:                                                                   # Catch exception
+        continue                                                                # Do nothing
 
       self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
       self.converting.append( file )                              # Append to converting list; this will trigger update of queue file
