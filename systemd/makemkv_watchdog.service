@@ -1,0 +1,16 @@
+[Unit]
+Description=Watchdog for converting MakeMKV files and adding to Plex
+After=network.target
+
+[Service]
+Type=simple
+User=plex
+Environment=TVDB_API_KEY=''
+Environment=TMDB_API_KEY=''
+ExecStart=/usr/bin/python3 /var/lib/plexmediaserver/.local/bin/MakeMKV_Watchdog \
+'/path/to/new/files/' \
+['/path/to/new/files'] \
+'/toplevel/path/to/plex/libs'
+
+[Install]
+WantedBy=multi-user.target

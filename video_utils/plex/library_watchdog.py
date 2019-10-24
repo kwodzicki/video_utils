@@ -1,5 +1,4 @@
 import logging
-from logging.handlers import RotatingFileHandler
 
 import os, time
 from threading import Thread, Lock

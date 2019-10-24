@@ -88,7 +88,7 @@ def plexDVR_Cleanup( in_file, file_info, wait = 60 ):
   return True;                                                                  #
 
 ################################################################################
-def plexDVR_Scan( recorded, no_remove = False ):
+def plexDVR_Scan( recorded, no_remove = False, movie = False ):
   '''
   Name:
     plexDVR_Scan
@@ -119,6 +119,7 @@ def plexDVR_Scan( recorded, no_remove = False ):
     None
   Keywords:
     no_remove  : Set to True to keep the original file
+    movie      : Set if scanning for movie
   Note:
     This function is intened to be run as a child process, i.e., 
     after call to os.fork()
@@ -163,10 +164,16 @@ def plexDVR_Scan( recorded, no_remove = False ):
   section  = None;                                                              # Set section to None
   while (len(plexList) > 0) and (section is None):                              # While there are values left in the plexList AND section is None
     tmp = plexList.pop();                                                       # Pop off a string from the plexList
-    if 'TV' in tmp:                                                             # If TV is in the string
+    if movie:                                                                   # If movie is set
+      if 'MOVIE' in tmp.upper():                                                # If MOVIE in tmp
+        section = tmp.split(':')[0].strip();                                    # Get the section number for the Plex section
+    elif 'TV' in tmp:                                                           # If TV is in the string
       section = tmp.split(':')[0].strip();                                      # Get the section number for the Plex section
   if section is None:                                                           # If section is still None
-    log.critical( "Failed to find 'TV' section! Exiting" )
+    if movie:
+      log.critical( "Failed to find 'Movie' section! Exiting" )
+    else:
+      log.critical( "Failed to find 'TV' section! Exiting" )
     return 1;                                                                   # Return 
 
   scan_dir  = os.path.dirname( recorded );                                      # Directory name of input file

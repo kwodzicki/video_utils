@@ -105,7 +105,7 @@ class videoconverter( mediainfo, subprocManager ):
                          new path to file such as with TV, where
                          ./Series/Season XX/ directories are created
        no_ffmpeg_log : Set to suppress the creation of stdout and stderr log
-                        files for HandBrakeCLI and instead pipe the output to
+                        files for ffmpeg and instead pipe the output to
                         /dev/null
        language      : Comma separated string of ISO 639-2 codes for 
                         subtitle and audio languages to use. 
@@ -120,7 +120,9 @@ class videoconverter( mediainfo, subprocManager ):
        subfolder     : If True, when subtitles are extracted/downloaded, all
                         files will be placed in a subfolder under the out_dir
                         path. This is the default behavior. To disable this
-                        behavior, set to False.
+                        behavior, set to False. Note that this is ONLY for 
+                        movies. Episodes will NOT be placed in subfolders
+                        regardless of this keyword
        vobsub        : Set to extract VobSub file(s). If SRT is set, then
                         this keyword is also set. Setting this will NOT
                         enable downloading from opensubtitles.org as the
@@ -170,21 +172,22 @@ class videoconverter( mediainfo, subprocManager ):
     
     self.chapterFile      = None
 
-    self.video_info       = None;                                               # Set video_info to None by default
-    self.audio_info       = None;                                               # Set audio_info to None by default
-    self.text_info        = None;                                               # Set text_info to None by default
-    self.subtitle_ltf     = None;                                               # Array to store subtitle language, track, forced (ltf) tuples
-    self.vobsub_status    = None;                                               # Set vobsub_status to None by default
-    self.srt_status       = None;                                               # Set srt_status to None by default
-    self.transcode_status = None;                                               # Set transcode_status to None by default
-    self.mp4tags_status   = None;                                               # Set mp4tags_status to None by default
-    self.oSubs            = None;                                               # Set attribute of opensubtitles to None
+    self.video_info       = None                                                # Set video_info to None by default
+    self.audio_info       = None                                                # Set audio_info to None by default
+    self.text_info        = None                                                # Set text_info to None by default
+    self.subtitle_ltf     = None                                                # Array to store subtitle language, track, forced (ltf) tuples
+    self.vobsub_status    = None                                                # Set vobsub_status to None by default
+    self.srt_status       = None                                                # Set srt_status to None by default
+    self.transcode_status = None                                                # Set transcode_status to None by default
+    self.mp4tags_status   = None                                                # Set mp4tags_status to None by default
+    self.oSubs            = None                                                # Set attribute of opensubtitles to None
     
-    self.IMDb_ID          = None;
-    self.metaData         = None;
-    self.metaKeys         = None;
-    self.ffmpeg_logTime   = None;
+    self.IMDb_ID          = None
+    self.metaData         = None
+    self.metaKeys         = None
+    self.ffmpeg_logTime   = None
 
+    self.is_episode       = False
     self.mp4tags          = False
 
     self.v_preset         = 'slow';                                             # Set x264/5 preset to slow
@@ -658,7 +661,7 @@ class videoconverter( mediainfo, subprocManager ):
     '''
     if isinstance(self.out_file, list):                                         # If the out_file is a list instance
       self.log.debug( 'Joining output file path' )
-      if (title is not None) and self.subfolder:                                # If title is set and subfolder is requested
+      if self.subfolder and (title is not None) and (not self.is_episode):      # If title is set and subfolder is requested
         self.out_file[1] = title;                                               # Place ttle in second element
       self.out_file    = os.path.join( *self.out_file );
       self.new_out_dir = os.path.dirname( self.out_file );
