@@ -125,8 +125,10 @@ def plexDVR_Scan( recorded, no_remove = False, movie = False ):
     after call to os.fork()
   '''
   log = logging.getLogger(__name__);
-  log.debug( 'Running as user: {}'.format( os.environ['USER'] ) )
-
+  if (os.environ['USER'].upper() != 'PLEX'):
+    log.error("Not running as user 'plex'; current user : {}. Skipping Plex Library Scan".format(os.environ['USER']) )
+    return 2
+ 
   try:
     cmd, myenv = getPlexScannerCMD();                                             # Attempt to get Plex Media Scanner command
   except:

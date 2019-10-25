@@ -9,6 +9,7 @@ from watchdog.events import FileSystemEventHandler
 
 from video_utils import _sigintEvent, _sigtermEvent
 from video_utils.videoconverter import videoconverter
+from video_utils.plex.utils import plexDVR_Scan
 
 class MakeMKV_Watchdog( FileSystemEventHandler ):
   def __init__(self, *args, **kwargs):
