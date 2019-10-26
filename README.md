@@ -123,14 +123,6 @@ For example, if your plex user is uid 456, then you could add the following to /
 
 This package provides a few command line utilities for some of the core components.
 
-#### Conversion of MakeMKV Output
-###### MKV\_Cron\_Convert
-Automated converting can be done using the `MKV_Cron_Convert` utility.
-The utility is designed to look through one (or more) directory for `.mkv` files and transcode them, one at a time, to a designated output directory until no more remain in the input directory.
-All options available in the `videoconverter`class can be set in the script.
-Set up a cron job to call this script and simply place new files into the designated input folder(s) and let your computer take care of the rest.
-For more information use the `--help` flag when running the utility.
-
 #### Commercial Removal
 ###### comremove
 Commercials can be removed using the `comremove` utility, which allows for input of a Mpeg Transport Stream file (.ts), with some extra options for `.ini` file specification and CPU limiting.
@@ -143,12 +135,36 @@ For more information use the `--help` flag when running the utility.
 
 ## Watchdogs
 
+#### Conversion of MakeMKV Output
+###### MakeMKV\_Watchdog
+This watchdog is designed to be run as a service that will transcode files from MakeMKV to h264/5 encoded files.
+Note that files should conform to the naming convention outlined in the ./docs/Input\_File\_Naming.pdf.
+When setting the output directory for converted files, it is suggested to set the directory to the directory where your Plex Libraries reside.
+That way, output files will be placed inside your Plex Library tree; this watchdog will attempt to run Plex Scan if run as user `plex`.
+This watchdog does a few things:
+ 
+ * Watches specified directory(ies) for new files, filtering by given extensions (default `.mkv`)
+ * Attempts to extract subtitles to VobSub (requires [MKVToolNix][mkv])
+   * Convert subtitles to SRT (requires [VobSub2SRT][vobsub]
+ * Converts movie to MP4 format using the `videoconverter` class
+ * Attempts to download and write MP4 tags to file
+ * Attempts to run `Plex Media Scanner` to add output file to Plex Library
+
+Sample workflow for convering files:
+
+ * Use MakeMKV to create `.mkv` file; shoud NOT save to directory being watched by this watchdog
+ * Rename the file to conform to input naming convention
+ * Move/copy file into watched directory
+ * Let program take care of the rest
+
+See the `makemkv_watchdog.service` file in ./systemd for an example of how to set up the service.
+ 
 #### Post Processing of Plex DVR
 ###### Plex\_DVR\_Watchdog
 This watchdog is designed to be run as a service that will post process DVR output, namely for TV shows.
 This watchdog does a few things:
  
- * Watches specified directory for new files DVR files; waits to process file until
+ * Watches specified directory for new DVR files; waits to process file until
     they are moved to their final location by Plex
  * Attempts to get the IMDb id of the episode based on the series name, 
     year, and episode title.

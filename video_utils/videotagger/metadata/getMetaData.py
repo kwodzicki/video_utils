@@ -49,6 +49,9 @@ def getMetaData( IMDb_ID, attempts = None ):
         except:                                                                 # If there is an error getting to ID for the series...
           log.warning('Could NOT get series id from imdb.com, info incomplete!!!');# Log a warning message
         else:                                                                   # If the try is a success
+          imdbSeries = getIMDb_Info( imdbId, attempts = attempts )
+          if ('year' in imdbSeries):
+            IMDb['first_air_date'] = imdbSeries['year']
           TVDb = getTVDb_Info( imdbId = imdbId );                               # Get information from TVDb based on imdbId if TVDb is available
         if TVDb:                                                                # If information is downloaded
           if 'seriesName' in TVDb:                                              # If there is a seriesName tag in the info

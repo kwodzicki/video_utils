@@ -732,6 +732,9 @@ class videoconverter( mediainfo, subprocManager ):
         for n in range( len(self.illegal) ):                                    # Iterate over all illegal characters
           if self.illegal[n] in st:                                             # If an illegal character is found in the string
             st = st.replace(self.illegal[n], self.legal[n]);                  # Replace the character with a legal character
+        if ('first_air_date' in self.metaData):
+          airYear = self.metaData['first_air_date'].split('-')[0] 
+          st = '{} ({})'.format(st, airYear)
         self.new_out_dir = os.path.join(self.new_out_dir, st);                  # Set Series directory name
         sn = 'Season {:02d}'.format(self.metaData['season']);                   # Set up name for Season Directory
         self.new_out_dir = os.path.join(self.new_out_dir, sn);                  # Add the season directory to the output directory
