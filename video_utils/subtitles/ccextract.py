@@ -1,13 +1,31 @@
-import logging;
-import os;
-from subprocess import call, Popen, STDOUT, DEVNULL
+import logging
+import os
+from subprocess import Popen, STDOUT, DEVNULL
 
-if call(['which', 'ccextractor'], stdout = DEVNULL, stderr = STDOUT ) != 0:     # If cannot find the ccextractor CLI
-  msg = "ccextractor is NOT installed or not in your PATH!";
-  logging.getLogger(__name__).warning(msg);
-  raise Exception( msg );                 # Raise an exception
+from video_utils.utils.checkCLI import checkCLI
+
+try:
+  checkCLI( 'ccextractor' )
+except:
+  logging.getLogger(__name__).warning( "ccextractor is NOT installed or not in your PATH!" )
+  raise 
 
 def ccextract( in_file, out_file, text_info ):
+  '''
+  Name:
+    ccextract
+  Purpose:
+    A wrapper for the ccextrator CLI, simply calls ccextractor using 
+    subprocess.Popen
+  Inputs:
+    in_file   : File to extract closed captions from
+    out_file  : Base name for output file(s)
+    text_info : Dictionary of text information from call to mediainfo
+  Keywords:
+    None.
+  Outputs:
+    ccextract creates some files
+  '''
   log  = logging.getLogger(__name__);                                           # Set up logger
   file = out_file + text_info[0]['ext'] + '.srt';                               # Build file path based on text_info
   cmd  = ['ccextractor', '-autoprogram', in_file, '-o', file];                  # Command to run for extraction

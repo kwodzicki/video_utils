@@ -1,18 +1,14 @@
-import logging;
-from ._logging import screenFMT;
-from .version import __version__;
-from subprocess import call, DEVNULL, STDOUT;
+import logging
 from threading import Event
 import signal
 
+from .version import __version__
+from ._logging import screenFMT
+from .utils.checkCLI import checkCLI
+
 # Check for required CLIs
-for i in ['ffmpeg', 'mediainfo']:
-  if call(['which', i], stdout = DEVNULL, stderr = STDOUT ) != 0: 
-    raise Exception( 
-      "The following required command line utility was NOT found." +
-      " If it is installed, be sure it is in your PATH: " +
-      i
-    );
+for cli in ['ffmpeg', 'mediainfo']:
+  checkCLI( cli )
 
 __doc__     = "Collection of utilities to manipulate video files; " + \
   "namely transcoding, subtitle extraction, audio aligning/downmixing, "+\
@@ -42,4 +38,4 @@ def _handle_sigterm(*args, **kwargs):
 signal.signal(signal.SIGINT,  _handle_sigint)
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
-del i, DEVNULL, STDOUT, screenFMT;
+del cli, screenFMT;

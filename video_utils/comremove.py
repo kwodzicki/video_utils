@@ -1,12 +1,15 @@
 import logging;
 import os, re;
 from datetime import timedelta;
-from subprocess import call, Popen, PIPE, STDOUT, DEVNULL;
+from subprocess import Popen, PIPE, STDOUT, DEVNULL;
 
-if call(['which', 'comskip'], stdout = DEVNULL, stderr = STDOUT ) != 0:         # If cannot find the ccextractor CLI
-  msg = "comskip is NOT installed or not in your PATH!";
-  logging.getLogger(__name__).error(msg);
-  raise Exception( msg );                 # Raise an exception
+from video_utils.utils.checkCLI import checkCLI
+
+try:
+  checkCLI( 'comskip' )
+except:
+  logging.getLogger(__name__).error( "comskip is NOT installed or not in your PATH!" )
+  raise 
 
 from video_utils.utils.subprocManager import subprocManager;
 # Following code may be useful for fixing issues with audio in

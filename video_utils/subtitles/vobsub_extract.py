@@ -2,10 +2,13 @@ import logging;
 import os
 from subprocess import call, check_output, DEVNULL, STDOUT;
 
-if call(['which', 'mkvextract'], stdout = DEVNULL, stderr = STDOUT) != 0:
-  msg = 'mkvextract is NOT installed';
-  logging.getLogger(__name__).error( msg )
-  raise Exception( msg );
+from video_utils.utils.checkCLI import checkCLI
+
+try:
+  checkCLI( 'mkvextract' )
+except:
+  logging.getLogger(__name__).error( 'mkvextract is NOT installed' )
+  raise 
 
 
 def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):

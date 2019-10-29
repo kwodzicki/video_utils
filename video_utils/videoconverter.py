@@ -27,6 +27,10 @@ except:
 # Metadata imports
 from .videotagger.metadata.getMetaData import getMetaData;
 from .videotagger.mp4Tags import mp4Tags;
+try:
+    from .videotagger.mkvTags import mkvTags
+except:
+    mkvTags = None
 
 # Logging formatter
 from ._logging import fileFMT;
@@ -41,8 +45,8 @@ class videoconverter( mediainfo, subprocManager ):
      videoconverter
   Purpose:
      A python class for converting video files h264 encoded files
-         in either the MKV or MP4 container. Video files must be
-         decodeable by the handbrake video software. All
+     in either the MKV or MP4 container. Video files must be
+     decodeable by the handbrake video software. All
      audio tracks that will be passed through and AAC format stereo
      downmixes of any mulit-channel audio tracks will be created for
      better compatability. The H264 video code will be used for all
@@ -53,28 +57,6 @@ class videoconverter( mediainfo, subprocManager ):
      ffmpeg, mediainfo
   Author and History:
      Kyle R. Wodzicki     Created 24 Jul. 2017
-     
-     Modified 29 Jul. 2017 by Kyle R. Wodzicki
-       Fixed some issues with the file_info function that caused 
-       weird things to happen when a TV Show was input. The issue
-       was the result of how the IMDbPY class returns data; 
-       i.e., I had to use the .keys function to get the keys as
-       opposed to an x in y statement with a dictionary. This was
-       a simple coding error. Also added some code in the 
-       audio_info_parse function to remove duplicate downmixed 
-       audio streams that have the same language.
-     Modified 02 Sep. 2017 by Kyle R. Wodzicki
-       Added the get_mediainfo funcation which switches from multiple
-       subprocess calls of the mediainfo CLI to one call with all
-       information returned in XML format. XML tree is then parsed
-       in the video, audio, and text parsing functions.
-     Modified 12 Sep. 2017 by Kyle R. Wodzicki
-       Added opensubtitles integration where subtitles are
-       downloaded from opensubtitles.org if NONE are present
-       in the input file AND/OR download missing languages.
-       Furture development could include more robust handling
-       of forced (i.e., foreign) subtitles.
-       Also added better logging through the logging module.
   '''
   illegal = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
   legal   = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
@@ -179,7 +161,7 @@ class videoconverter( mediainfo, subprocManager ):
     self.vobsub_status    = None                                                # Set vobsub_status to None by default
     self.srt_status       = None                                                # Set srt_status to None by default
     self.transcode_status = None                                                # Set transcode_status to None by default
-    self.mp4tags_status   = None                                                # Set mp4tags_status to None by default
+    self.tagging_status   = None                                                # Set mp4tags_status to None by default
     self.oSubs            = None                                                # Set attribute of opensubtitles to None
     
     self.IMDb_ID          = None
@@ -188,13 +170,15 @@ class videoconverter( mediainfo, subprocManager ):
     self.ffmpeg_logTime   = None
 
     self.is_episode       = False
-    self.mp4tags          = False
+    self.tagging          = False
 
     self.v_preset         = 'slow';                                             # Set x264/5 preset to slow
     self.fmt              = 'utf-8';                                            # Set encoding format
     self.encode           = type( 'hello'.encode(self.fmt) ) is str;            # Determine if text should be encoded; python2 vs python3
 
     self.__fileHandler    = None;                                               # logging fileHandler 
+    self.__isMP4          = False;
+    self.__isMKV          = False
   
   @property
   def container(self):
@@ -202,8 +186,9 @@ class videoconverter( mediainfo, subprocManager ):
   @container.setter
   def container(self, val):
     self.__container = val.lower();
+    self.__isMP4 = (self.__container == 'mp4')
+    self.__isMKV = (self.__container == 'mkv')
 
-      
   ################################################################################
   def transcode( self, in_file, log_file = None ):
     '''
@@ -346,6 +331,11 @@ class videoconverter( mediainfo, subprocManager ):
     except:
       self.transcode_status = -1
 
+    try:
+      os.remove( prog_file )
+    except:
+      pass
+
     if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
       self.log.info( 'Transcode SUCCESSFUL!' );                                 # Print information
     else:                                                                       # Else, there was an issue with the transcode
@@ -364,11 +354,6 @@ class videoconverter( mediainfo, subprocManager ):
     if self.remove:                                                             # If remove is set
       self.log.info( 'Removing the input file...' );                            # Log some information
       os.remove( self.in_file );                                                # Delete the input file if remove is true
-
-    try:
-      os.remove( prog_file )
-    except:
-      pass
 
     self.log.info('Duration: {}'.format(datetime.now()-start_time))             # Print compute time
 
@@ -449,14 +434,21 @@ class videoconverter( mediainfo, subprocManager ):
     if _sigintEvent.is_set() or _sigtermEvent.is_set(): return                  # If the kill event is set, skip tag writing for faster exit
     if self.metaKeys is None:                                                   # If the metaKeys attribute is None
       self.log.warning('No metadata to write!!!');                              # Print message that not data to write
-    elif self.mp4tags:                                                          # If mp4tags attribute is True
-      self.mp4tags_status = mp4Tags( out_file, metaData = self.metaData );      # Write information to ONLY movie files
-      if self.mp4tags_status == 0:
-        self.log.info('MP4 Tags written.');                                     # Print message if status IS 0
+    elif self.tagging:                                                          # If mp4tags attribute is True
+      if self.__isMP4:
+        self.tagging_status = mp4Tags( out_file, metaData = self.metaData );      # Write information to ONLY movie files
+      elif self.__isMKV:
+        if mkvTags:
+          self.tagging_status = mkvTags( out_file, metaData = self.metaData )
+        else:
+          self.log.warning( "MKV tagging disabled; check 'mkvpropedit' is installed" ) 
+          self.tagging_status = 1
+      if self.tagging_status == 0:
+        self.log.info('Metadata tags written.');                                     # Print message if status IS 0
       else:
-        self.log.warning('MP4 Tags NOT written!!!');                            # Print message if status is NOT zero
+        self.log.warning('Metadata tags NOT written!!!');                            # Print message if status is NOT zero
     else:
-      self.log.warning('MP4 Tagging disabled!!!');                              # If mp4tags attribute is False, print message
+      self.log.warning('Metadata tagging disabled!!!');                              # If mp4tags attribute is False, print message
 
   ##############################################################################
   def file_info( self, in_file ):
@@ -468,8 +460,8 @@ class videoconverter( mediainfo, subprocManager ):
 
     self.log.info('Setting up some file information...');
 
-    self.mp4tags  = (self.container == 'mp4')                                   # Check if container is mp4
-    
+    self.tagging  = (self.container == 'mp4') or (self.container == 'mkv')      # Check if container is mp4
+ 
     # Set up file/directory information
     self.in_file  = in_file if os.path.exists( in_file ) else None;             # Set the in_file attribute for the class to the file input IF it exists, else, set the in_file to None
     if self.in_file is None:                                                    # IF the input file does NOT exist
@@ -685,17 +677,17 @@ class videoconverter( mediainfo, subprocManager ):
     self.metaData = None;                                                       # Default metaData to None;
     self.metaKeys = None;                                                       # Default metaKeys to None;
  
-    if (self.IMDb_ID is not None) and (self.IMDb_ID[:2] == 'tt') and self.mp4tags:
+    if (self.IMDb_ID is not None) and (self.IMDb_ID[:2] == 'tt') and self.tagging:
       self.metaData = getMetaData( self.IMDb_ID );
       self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
       if len(self.metaKeys) == 0:                                               # If no keys returned
         self.log.warning('Failed to download metadata for file!!!');
-        self.log.warning( 'MP4 tagging is disabled!!!' );                       # Print message that the mp4 tagging is disabled                
-        self.mp4tags = False;                                                   # Disable mp4 tagging
-    elif self.mp4tags:
+        self.log.warning( 'Metadata tagging is disabled!!!' );                  # Print message that the mp4 tagging is disabled                
+        self.tagging = False;                                                   # Disable mp4 tagging
+    elif self.tagging:
       self.log.warning('IMDb ID not in file name!');
     else:
-      self.log.info('MP4 tagging is disabled.');
+      self.log.info('Metadata tagging is disabled.');
 
 #   self.new_out_dir = self.out_dir;                                            # Reset output directory to original directory
     self.file_base  = os.path.basename(self.in_file);                           # Get the base name of the file

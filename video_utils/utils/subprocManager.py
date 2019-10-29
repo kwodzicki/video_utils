@@ -1,18 +1,23 @@
 import logging
 import os, time
-from subprocess import call, Popen, STDOUT, DEVNULL
+from subprocess import Popen, STDOUT, DEVNULL
 from threading import Thread, Event
 from multiprocessing import cpu_count
 
 from video_utils import _sigintEvent, _sigtermEvent                             # Import kill event
+from video_utils.utils.checkCLI import checkCLI
 
 nthreads = cpu_count() // 2                                                     # Set global nthreads as half the number of cpus
-cpulimitInstalled = True;                                                       # Set global cpulimitInstalled flag to True
-if call(['which','cpulimit'], stdout=DEVNULL, stderr=STDOUT) != 0:              # If cannot find cpulimit command in path
+
+try:
+  cpulimitInstalled = checkCLI( 'cpulimit' )
+except:
   logging.getLogger(__name__).warning(
     'cpulimit NOT found! Cannot limit CPU usage!'
   );                                                                            # Log a warning
   cpulimitInstalled = False;                                                    # Set global cpulimitInstalled flag to False;
+else:
+  cpulimitInstalled = True;                                                       # Set global cpulimitInstalled flag to True
 
 class subprocManager(object):
   def __init__(self, cpulimit = None, threads = None, interval = None):
