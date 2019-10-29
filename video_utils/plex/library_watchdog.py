@@ -1,6 +1,7 @@
 import logging
 
 import os, time
+from subprocess import Popen, STDOUT, DEVNULL
 from threading import Thread, Lock
 
 from watchdog.observers import Observer
@@ -125,14 +126,21 @@ class library_watchdog( FileSystemEventHandler ):
         continue                                                                # Do nothing
 
       self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
-      try:        
-        status, out_file, info = DVRconverter(file, **self.kwargs)  # Convert file 
-      except:
-        self.log.exception('Failed to convert file')
+      if ('script' in self.kwargs):
+        self.log.info('Running script : {}'.format(self.kwargs['script']) )
+        proc = Popen( [self.kwargs['script'], file], stdout=DEVNULL, stderr=STDOUT )
+        proc.communicate()
+        status = proc.returncode
+        if (status != 0):
+          self.log.error( 'Script failed with exit code : {}'.format(status) )
+      else:
+        try:        
+          status, out_file, info = DVRconverter(file, **self.kwargs)  # Convert file 
+        except:
+          self.log.exception('Failed to convert file')
 
       if (status == 0):                                             # If the transcode status is zero (i.e., finished cleanly) then 
         self.converting.remove( file )                              # Remove from converting list; this will tirgger update of queue file
  
-
     self.log.info('Plex watchdog stopped!')
     self.Observer.stop()

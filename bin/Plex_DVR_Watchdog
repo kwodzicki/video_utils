@@ -67,6 +67,7 @@ if __name__ == "__main__":
   parser.add_argument("dir",                   type   = str, nargs='+',    help = "Plex library directory(s) to watch for DVR recordings"); 
   parser.add_argument("-t", "--threads",       type   = int,               help = "Set number of CPUs to use. Default: Half the number of CPUs available");  
   parser.add_argument("-c", "--cpulimit",      type   = int,               help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
+  parser.add_argument("--script",              type   = str,               help = "Set full path of Plex DVR Post-processing script to run. Use this if you already have a script that you would like to run instead of using the utilities included in this distribution.")
   parser.add_argument("--language",            type   = str,               help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using commas. Default: eng for English");
   parser.add_argument("-v", "--verbose",       type   = str, default=plexFMT['level'], help = "Increase verbosity");
   parser.add_argument("--destructive",         action = "store_true",      help = "Set to cut commercials out of file. Default is to leave commercials in file and add chapters for show segments and commercials. This is safer.");
@@ -81,6 +82,7 @@ if __name__ == "__main__":
     wd = library_watchdog(*args.dir, 
         threads     = args.threads, 
         cpulimit    = args.cpulimit,
+        script      = args.script,
         language    = args.language,
         verbose     = args.verbose,
         destructive = args.destructive,

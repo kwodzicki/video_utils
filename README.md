@@ -137,10 +137,13 @@ For more information use the `--help` flag when running the utility.
 
 #### Conversion of MakeMKV Output
 ###### MakeMKV\_Watchdog
-This watchdog is designed to be run as a service that will transcode files from MakeMKV to h264/5 encoded files.
-Note that files should conform to the naming convention outlined in the ./docs/Input\_File\_Naming.pdf.
+This watchdog is designed to be run as a service that will transcode files created by MakeMKV to h264/5 encoded files.
+Note that files should conform to the naming convention outlined in `./docs/Input\_File\_Naming.pdf`.
 When setting the output directory for converted files, it is suggested to set the directory to the directory where your Plex Libraries reside.
-That way, output files will be placed inside your Plex Library tree; this watchdog will attempt to run Plex Scan if run as user `plex`.
+For example, if your libraries are on a drive mounted at `/mnt/PlexHDD`, and movies and tv shows are in directories named `Movies` and `TV Shows`, respectively, then you will want to set the output directory to `/mnt/PlexHDD`.
+This way, output files will be placed inside your Plex Library tree; this watchdog will attempt to run Plex Scan if run as user `plex`.
+Note that the watchdog does not try to find movie or tv directories, it will use the case-sensitive `Movies` and `TV Shows` directory names.
+Future versions may allow for explicitly setting the output directories.
 This watchdog does a few things:
  
  * Watches specified directory(ies) for new files, filtering by given extensions (default `.mkv`)
@@ -177,8 +180,8 @@ This watchdog does a few things:
  * Attempts to run `Plex Media Scanner` to locate `.mp4` file; re-runs scanner if
     source `.ts` file is deleted
 
-Note: this watchdog is still being tested to work out some bugs.
-Use at your own risk.
+Note that this watchdog can be set to run a user specified script (i.e., a post processing script that you have written).
+Just use the `--script` flag when setting up the service; this will override all other flags.
 
 ## Code example
 Of course you can always use these utilities in your own code.
