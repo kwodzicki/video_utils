@@ -15,7 +15,8 @@ def DVRconverter(in_file,
      verbose     = False,
      destructive = False,
      no_remove   = False,
-     no_srt      = False):
+     no_srt      = False,
+     **kwargs):
   '''
   Name:
     Plex_DVR_PostProcess
