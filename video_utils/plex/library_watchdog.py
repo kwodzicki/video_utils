@@ -139,8 +139,7 @@ class library_watchdog( FileSystemEventHandler ):
         except:
           self.log.exception('Failed to convert file')
 
-      if (status == 0):                                             # If the transcode status is zero (i.e., finished cleanly) then 
-        self.converting.remove( file )                              # Remove from converting list; this will tirgger update of queue file
+      self.converting.remove( file )                              # Remove from converting list; this will tirgger update of queue file
  
     self.log.info('Plex watchdog stopped!')
     self.Observer.stop()

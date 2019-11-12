@@ -74,7 +74,10 @@ def DVRconverter(in_file,
   if os.path.isfile( file ):                                                    # If the renamed; i.e., hardlink to original file, exists
     os.remove( file );                                                          # Delete it
 
-  if (out_file is not False) and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()): # If a file name was returned AND no_remove is False
+  if (inst.transcode_status != 0):
+    log.critical('Failed to transcode file. Assuming input is bad, will delete')
+
+  if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()): # If a file name was returned AND no_remove is False
     plexDVR_Scan( in_file, no_remove = no_remove)
 
   return inst.transcode_status, out_file, info;                                 # Return transcode status, new file path, and info
