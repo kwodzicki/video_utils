@@ -126,7 +126,7 @@ class library_watchdog( FileSystemEventHandler ):
         continue                                                                # Do nothing
 
       self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
-      if ('script' in self.kwargs):
+      if self.kwargs.get('script', None):
         self.log.info('Running script : {}'.format(self.kwargs['script']) )
         proc = Popen( [self.kwargs['script'], file], stdout=DEVNULL, stderr=STDOUT )
         proc.communicate()
