@@ -39,7 +39,7 @@ from video_utils import _sigintEvent, _sigtermEvent
 
 _sePat = re.compile( r'[sS]\d{2,}[eE]\d{2,} - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
-class videoconverter( mediainfo, subprocManager ):
+class videoconverter( subprocManager, mediainfo, opensubtitles ):
   '''
   Name:
      videoconverter
@@ -65,7 +65,7 @@ class videoconverter( mediainfo, subprocManager ):
                log_dir       = None,
                in_place      = False, 
                no_ffmpeg_log = False,
-               language      = None, 
+               lang          = None, 
                threads       = None, 
                container     = 'mp4',
                cpulimit      = 75, 
@@ -75,8 +75,8 @@ class videoconverter( mediainfo, subprocManager ):
                vobsub        = False, 
                srt           = False,
                vobsub_delete = False,
-               username      = None,
-               userpass      = None):
+               username      = '',
+               userpass      = ''):
     '''
     Keywords:
        out_dir       : Path to output directory. Optional input. 
@@ -89,7 +89,7 @@ class videoconverter( mediainfo, subprocManager ):
        no_ffmpeg_log : Set to suppress the creation of stdout and stderr log
                         files for ffmpeg and instead pipe the output to
                         /dev/null
-       language      : Comma separated string of ISO 639-2 codes for 
+       lang          : String or list of strings of ISO 639-2 codes for 
                         subtitle and audio languages to use. 
                         Default is english (eng).
        threads       : Set number of threads to use. Default is to use half
@@ -143,7 +143,6 @@ class videoconverter( mediainfo, subprocManager ):
     self.log_dir       = log_dir;
     self.in_place      = in_place;                                              # Set the in_place attribute based on input value
     self.no_ffmpeg_log = no_ffmpeg_log;                                         # Set the no_ffmpeg_log attribute based on the input value
-    self.language      = ['eng'] if language is None else language.split(',');  # Set default language to None, i.e., use all languages  
     self.miss_lang     = [];
     self.x265          = x265;      
     self.remove        = remove;       
@@ -151,6 +150,10 @@ class videoconverter( mediainfo, subprocManager ):
     self.vobsub_delete = vobsub_delete;
     self.username      = username;
     self.userpass      = userpass;
+    if lang:                                                                    # If lang is set
+      self.lang = lang if isinstance(lang, (tuple,list,)) else [lang]           # Set lang attribute to lang if it is a tuple or list instance, else make lang a list
+    if (len(self.lang) == 0):							# If lang is empty list
+      self.lang = ['eng']                                                       # Set default language to english 
     
     self.chapterFile      = None
 
@@ -162,9 +165,8 @@ class videoconverter( mediainfo, subprocManager ):
     self.srt_status       = None                                                # Set srt_status to None by default
     self.transcode_status = None                                                # Set transcode_status to None by default
     self.tagging_status   = None                                                # Set mp4tags_status to None by default
-    self.oSubs            = None                                                # Set attribute of opensubtitles to None
     
-    self.IMDb_ID          = None
+    self.IMDb             = None
     self.metaData         = None
     self.metaKeys         = None
     self.ffmpeg_logTime   = None
@@ -176,6 +178,7 @@ class videoconverter( mediainfo, subprocManager ):
     self.fmt              = 'utf-8';                                            # Set encoding format
     self.encode           = type( 'hello'.encode(self.fmt) ) is str;            # Determine if text should be encoded; python2 vs python3
 
+    self._createdFiles    = [];                                                 # List to store paths to all files created by transcode method
     self.__fileHandler    = None;                                               # logging fileHandler 
     self.__isMP4          = False;
     self.__isMKV          = False
@@ -269,6 +272,7 @@ class videoconverter( mediainfo, subprocManager ):
     if _sigtermEvent.is_set(): return False                                     # If _sigterm has been called, just quit
 
     _sigintEvent.clear()                                                        # Clear the 'global' kill event that may have been set by SIGINT
+    self._createdFiles = []                                                     # Reset created files list
     if not self.file_info( in_file ): return False;                             # If there was an issue with the file_info function, just return
     self._init_logger( log_file );                                              # Run method to initialize logging to file
     if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
@@ -479,17 +483,17 @@ class videoconverter( mediainfo, subprocManager ):
 
     # Getting information from IMDb.com
     try:
-      self.IMDb_ID  = self.in_file.split('.')[-2];
+      self.IMDb  = self.in_file.split('.')[-2];
     except:
       self.log.warning('Failed to parse file name, metadata tagging will fail')
-      self.IMDb_ID  = None
+      self.IMDb  = None
     
     self._metaData()
     self.log.info('Getting video, audio, information...');                      # If verbose is set, print some output
 
     self.video_info = self.get_video_info( x265 = self.x265 );                  # Get and parse video information from the file
     if self.video_info is None: return;                    
-    self.audio_info = self.get_audio_info( self.language );                     # Get and parse audio information from the file
+    self.audio_info = self.get_audio_info( self.lang );                     # Get and parse audio information from the file
     if self.audio_info is None: return;               
 
     ### Set up output file path and log file path. NO FILE EXTENSIONS USED HERE!!!
@@ -500,7 +504,7 @@ class videoconverter( mediainfo, subprocManager ):
         self.file_name += [ self.year,
                             self.video_info['file_info'],
                             self.audio_info['file_info'] ];
-    if self.IMDb_ID is not None: self.file_name += [self.IMDb_ID];              # Append the IMDB ID to the file name if it is NOT None.
+    if self.IMDb is not None: self.file_name += [self.IMDb];              # Append the IMDB ID to the file name if it is NOT None.
 
     self.file_name = '.'.join(self.file_name)
     self.log.debug( 'File name: {}'.format( self.file_name) )
@@ -550,33 +554,27 @@ class videoconverter( mediainfo, subprocManager ):
     def opensubs_all():
       '''Local function to download all subtitles from opensubtitles'''
       self.log.info('Attempting opensubtitles.org search...');                  # Logging information
-      self.oSubs = opensubtitles('', imdb = self.IMDb_ID, 
-                          lang     = ','.join(self.language), 
-                          username = self.username, 
-                          userpass = self.userpass);                            # Initialize opensubtitles instance
-      self.oSubs.login();                                                       # Login to the opensubtitles.org API
-      self.oSubs.searchSubs();                                                  # Search for subtitles
-      if self.oSubs.subs is None:                                               # If no subtitles are found
+      self.login();                                                       # Login to the opensubtitles.org API
+      self.searchSubs();                                                  # Search for subtitles
+      if self.subs is None:                                               # If no subtitles are found
         self._join_out_file( );                                                 # Combine out_file path list into single path with NO movie/episode directory and create directories
       else:                                                                     # Else, some subtitles were found
         found = 0;                                                              # Initialize found to zero (0)
-        for lang in self.oSubs.subs:                                            # Iterate over all languages in the sub titles dictionary
-          if self.oSubs.subs[lang] is not None: found+=1;                       # If one of the keys under that language is NOT None, then increment found
+        for lang in self.subs:                                            # Iterate over all languages in the sub titles dictionary
+          if self.subs[lang] is not None: found+=1;                       # If one of the keys under that language is NOT None, then increment found
         if found > 0:                                                           # If found is greater than zero (0), then subtitles were found
           self._join_out_file( self.title );                                    # Combine out_file path list into single path with movie/episode directory and create directories
-          self.oSubs.file = self.out_file;                                      # Set movie/episode file path in opensubtitles class so that subtitles have same naming as movie/episode
-          self.oSubs.saveSRT();                                                 # Download the subtitles
+          self.saveSRT( self.out_file );                                                 # Download the subtitles
         else:                                                                   # Else, no subtitles were found
           self._join_out_file( );                                               # Combine out_file path list into single path with NO movie/episode directory and create directories
-      self.oSubs.logout();                                                      # Log out of the opensubtitles.org API
+      self.logout();                                                      # Log out of the opensubtitles.org API
 
-    
     ######
     if (not self.vobsub) and (not self.srt):                                    # If both vobsub AND srt are False
       self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
       return;                                                                   # Return from the method
 
-    self.text_info = self.get_text_info( self.language );                       # Get and parse text information from the file
+    self.text_info = self.get_text_info( self.lang );                       # Get and parse text information from the file
     if self.text_info is None:                                                  # If there is not text information, then we cannot extract anything
       if self.srt:                                                              # If srt subtitles are requested
         opensubs_all();                                                         # Run local function
@@ -610,25 +608,22 @@ class videoconverter( mediainfo, subprocManager ):
                 cpulimit      = self.cpulimit,   
                 threads       = self.threads );                                 # Convert vobsub to SRT files
 
-              failed = [i for i in self.text_info if i['srt'] is False];        # Check for missing srt files
-              if len(failed) > 0:                                               # If missing files found
-                self._join_out_file( self.title );                              # Combine out_file path list into single path with movie/episode directory and create directories
-                self.log.info('Attempting opensubtitles.org search...');        # Logging information
-                self.oSubs = opensubtitles(self.out_file,   
-                                imdb     = self.IMDb_ID,   
-                                username = self.username,   
-                                userpass = self.userpass);                      # Initialize opensubtitles instance
-                self.oSubs.login();                                             # Log into opensubtitles
-                for i in range(len(self.text_info)):                            # Iterate over all entries in text_info
-                  if self.text_info[i]['srt']: continue;                        # If the srt file exists, skip
-                  self.oSubs.lang       = self.text_info[i]['lang3'];           # Set the language for the subtitle search
-                  self.oSubs.track_num  = self.text_info[i]['track'];           # Set the track number for the subtitle search
-                  self.oSubs.get_forced = self.text_info[i]['forced'];          # Set the forced flag for the subtitle search
-                  self.oSubs.searchSubs();                                      # Search for subtitles
-                  self.oSubs.saveSRT();                                         # Save subtitles, note that this may not actually work if noting was found
-                  tmpOut = self.out_file + self.text_info[i]['ext'] + '.srt';   # Temporary output file for check
-                  if os.path.isfile(tmpOut): self.text_info[i]['srt'] = True;   # If the subtitle file exists, update the srt presence flag.
-                self.oSubs.logout();                                            # Log out to of opensubtitles
+            failed = [i for i in self.text_info if i['srt'] is False];		# Check for missing srt files
+            if len(failed) > 0:							# If missing files found
+              self._join_out_file( self.title );				# Combine out_file path list into single path with movie/episode directory and create directories
+              self.log.info('Attempting opensubtitles.org search...');		# Logging information
+              self.login();							# Log into opensubtitles
+              for i in range(len(self.text_info)):				# Iterate over all entries in text_info
+                if self.text_info[i]['srt']: continue;				# If the srt file exists, skip
+                self.track_num  = self.text_info[i]['track']
+                self.get_forced = self.text_info[i]['forced']
+                self.searchSubs( lang = self.text_info[i]['lang3'] )		# Search for subtitles, use lang keyword to override class attribute; do so won't erase self.lang
+                tmpOut = self.saveSRT( file = self.out_file )			# Save subtitles, note that this may not actually work if noting was found
+                if tmpOut and (len(tmpOut) == 1):
+                  if os.path.isfile(tmpOut[0]):					# If the subtitle file exists
+                    self.text_info[i]['srt'] = True				# update the srt presence flag
+                    self._createdFiles.extend( tmpOut )				# Add subtitle file to list of created files
+              self.logout();							# Log out to of opensubtitles
     else:                                                                       # Else, not subtitle candidates were returned
       self.log.debug('No subtitle options set');                                # Log some information
       self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
@@ -677,8 +672,8 @@ class videoconverter( mediainfo, subprocManager ):
     self.metaData = None;                                                       # Default metaData to None;
     self.metaKeys = None;                                                       # Default metaKeys to None;
  
-    if (self.IMDb_ID is not None) and (self.IMDb_ID[:2] == 'tt') and self.tagging:
-      self.metaData = getMetaData( self.IMDb_ID );
+    if (self.IMDb is not None) and (self.IMDb[:2] == 'tt') and self.tagging:
+      self.metaData = getMetaData( self.IMDb );
       self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
       if len(self.metaKeys) == 0:                                               # If no keys returned
         self.log.warning('Failed to download metadata for file!!!');

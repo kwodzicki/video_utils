@@ -11,7 +11,7 @@ def DVRconverter(in_file,
      logdir      = None, 
      threads     = None, 
      cpulimit    = None,
-     language    = None,
+     lang        = None,
      verbose     = False,
      destructive = False,
      no_remove   = False,
@@ -34,7 +34,7 @@ def DVRconverter(in_file,
     logdir      : Directory for any extra log files
     threads     : Number of threads to use for comskip and transcode
     cpulimit    : Percentage to limit cpu usage to
-    language    : Language for audio/subtitles
+    lang        : Language for audio/subtitles
     verbose     : Increase verbosity
     destructive : If set, will cut commercials out of file. Note that
                    commercial identification is NOT perfect, so this could
@@ -65,7 +65,7 @@ def DVRconverter(in_file,
     no_ffmpeg_log = True,
     threads       = threads,
     cpulimit      = cpulimit,
-    language      = language,
+    lang          = lang,
     remove        = True,
     subfolder     = False,
     srt           = not no_srt);                                                # Set up video converter instance; we want to delete the hardlink
