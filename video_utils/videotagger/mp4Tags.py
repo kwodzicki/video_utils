@@ -4,6 +4,11 @@ import os, sys, re;
 from urllib.request import urlopen;
 from mutagen import mp4;
 
+try:                                                                            # Try to...
+  from video_utils.videotagger.metadata.getMetaData import getMetaData;         # Import getMetaData function from makemkv_to_mp4
+except:                                                                         # On exception...
+  getMetaData = None                                                            # Set getMetaData to None
+	
 '''
 A note from the mutagen package:
 The freeform ‘----‘ frames use a key in the format ‘----:mean:name’ where ‘mean’
@@ -89,13 +94,11 @@ def mp4Tags( file, IMDbid=None, metaData = None ):
 			if IMDbid[:2] != 'tt':                                                    # If the first to characters of the IMDb ID are NOT 'tt'
 				log.warning( 'IMDb ID not vaild!' );                                    # Warning information information
 				return 2;                                                               # Return 2
-		try:                                                                        # Try to...
-			from videotagger.metadata.getMetaData import getMetaData;                 # Import getMetaData function from makemkv_to_mp4
-		except:                                                                     # On exception...
+		if getMetaData:                                                             # If getMetaData is defined
+			metaData = getMetaData( IMDbid );                                         # Get the metaData from imdb.com and themoviedb.org
+		else:                                                                       # Else, function was NOT loaded
 			log.error('IMDbPY and API key(s) NOT installed!');                        # Log an error
 			return 10;                                                                # Return from function
-		else:                                                                       # If import successfull
-			metaData = getMetaData( IMDbid );                                         # Get the metaData from imdb.com and themoviedb.org
 	if len(metaData.keys()) < 2:                                                  # If less than two (2) tags in dictionary
 		log.warning('Failed to download metaData! Tag(s) NOT written!');            # Log a warning that the metaData failed to download
 		return 3;                                                                   # Return code 3
