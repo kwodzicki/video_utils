@@ -216,7 +216,12 @@ def plexFile_Info( in_file ):
 
   fileBase          = os.path.basename( in_file );                              # Get base name of input file
   fname, ext        = os.path.splitext( fileBase )
-  series, se, title = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
+  try:
+    series, se, title = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
+  except:
+    series = ''
+    se     = ''
+    title  = fname
   return series, se, title, ext
 
 ################################################################################

@@ -76,7 +76,8 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
                srt           = False,
                vobsub_delete = False,
                username      = '',
-               userpass      = ''):
+               userpass      = '',
+               **kwargs):
     '''
     Keywords:
        out_dir       : Path to output directory. Optional input. 

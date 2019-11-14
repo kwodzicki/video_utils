@@ -21,7 +21,11 @@ class library_watchdog( FileSystemEventHandler ):
 
     self.recordings  = []                                                           # Initialize list to store paths of newly started DVR recordings
     self.converting  = DVRqueue( plex_dvr['queueFile'] )                                     # Initialize DVRqueue, this is a subclass of list that, when items modified, will save pickled list to file as backup
-    self.kwargs      = kwargs                                                       # Store input keyword arguments
+      
+    self.converter = None
+    self.script    = kwargs.get('script', None)
+    if not self.script:
+      self.converter = DVRconverter( **kwargs )
 
     self.Lock        = Lock()                                                       # Lock for ensuring threads are safe
  
@@ -126,16 +130,16 @@ class library_watchdog( FileSystemEventHandler ):
         continue                                                                # Do nothing
 
       self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
-      if self.kwargs.get('script', None):
-        self.log.info('Running script : {}'.format(self.kwargs['script']) )
-        proc = Popen( [self.kwargs['script'], file], stdout=DEVNULL, stderr=STDOUT )
+      if self.script:
+        self.log.info('Running script : {}'.format(self.script) )
+        proc = Popen( [self.script, file], stdout=DEVNULL, stderr=STDOUT )
         proc.communicate()
         status = proc.returncode
         if (status != 0):
           self.log.error( 'Script failed with exit code : {}'.format(status) )
       else:
         try:        
-          status, out_file, info = DVRconverter(file, **self.kwargs)  # Convert file 
+          status, out_file, info = self.converter.convert( file )  # Convert file 
         except:
           self.log.exception('Failed to convert file')
 

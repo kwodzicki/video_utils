@@ -76,7 +76,7 @@ class opensubtitles( ServerProxy ):
     self.verbose     = verbose;
     self.subs        = None;
     
-   self.login_token = None;                                                    # Set the login token
+    self.login_token = None;                                                    # Set the login token
 
   ##############################################################################        
   def _parseKwargs(self, **kwargs):

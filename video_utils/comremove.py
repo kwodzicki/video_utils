@@ -23,15 +23,25 @@ class comremove( subprocManager ):
   _comjoin = ['ffmpeg', '-nostdin', '-y', '-i'];
 
   ########################################################
-  def __init__(self, ini = None, threads = None, cpulimit = None, verbose = None):
-    super().__init__();
+  def __init__(self, **kwargs):
+    '''
+    Keywords:
+      ini      : Path to comskip.ini file for comskip settings
+      threads  : Number of threads comskip is allowed to use
+      cpulimit : Set limit of cpu usage per thread
+      verbose  : Depricated
+    ''' 
+    super().__init__( **kwargs );
     self.log      = logging.getLogger(__name__);
-    self.ini      = ini if ini else os.environ.get('COMSKIP_INI', None);        # If the ini input value is NOT None, then use it, else, try to get the COMSKIP_INI environment variable
-    self.threads  = threads;
-    self.cpulimit = cpulimit;
-    self.verbose  = verbose;
-    self.outDir   = None;
-    self.fileExt  = None;
+    if ('ini' in kwargs):
+      self.ini = kwargs['ini']
+    else:
+      self.ini = os.environ.get('COMSKIP_INI', None)
+    self.threads  = kwargs.get('threads', None)
+    self.cpulimit = kwargs.get('cpulimit', None)
+    self.verbose  = kwargs.get('verbose',  None)
+    self.__outDir   = None;
+    self.__fileExt  = None;
 
   ########################################################
   def process(self, in_file, chapters = False ):
@@ -48,8 +58,8 @@ class comremove( subprocManager ):
                   Show segment and commercial break chapter info
                   for FFmpeg.
     '''
-    self.outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
-    self.fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
+    self.__outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
+    self.__fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
     edl_file     = None;
     tmp_Files    = None;                                                        # Set the status to True by default
     cut_File     = None;
@@ -68,8 +78,8 @@ class comremove( subprocManager ):
         if cut_File:                                                                # If status is True
           self.check_size( in_file, cut_File );
 
-    self.outDir  = None;                                                        # Reset attribute
-    self.fileExt = None;                                                        # Reset attribute
+    self.__outDir  = None;                                                        # Reset attribute
+    self.__fileExt = None;                                                        # Reset attribute
 
     return True;                                                                # Return the status 
 
@@ -87,8 +97,8 @@ class comremove( subprocManager ):
       successfully, then None is returned.
     '''
     self.log.info( 'Running comskip to locate commercial breaks')
-    if (self.outDir  is None): self.outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
-    if (self.fileExt is None): self.fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
+    if (self.__outDir  is None): self.__outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
+    if (self.__fileExt is None): self.__fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
     
     cmd = self._comskip.copy();
     if self.threads:
@@ -101,8 +111,8 @@ class comremove( subprocManager ):
     txt_file  = '{}.txt'.format(      tmp_file );                               # Path to .txt file
     logo_file = '{}.logo.txt'.format( tmp_file );                               # Path to .logo.txt file
     
-    cmd.append( '--output={}'.format(self.outDir) );
-    cmd.extend( [in_file, self.outDir] );
+    cmd.append( '--output={}'.format(self.__outDir) );
+    cmd.extend( [in_file, self.__outDir] );
     
     self.log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
     self.addProc(cmd)
@@ -219,8 +229,8 @@ class comremove( subprocManager ):
       comEnd     = timedelta( seconds = float(comEnd) );                        # Get the end time of the commercial as a time delta
       if comStart.total_seconds() > 1.0:                                        # If the start of the commercial is NOT near the very beginning of the file
         segDura  = comStart - segStart;                                         # Get segment duration as time between current commerical start and last commercial end
-        outFile  = 'tmp_{:03d}.{}'.format(fnum, self.fileExt);                  # Set output file name
-        outFile  = os.path.join(self.outDir, outFile);                          # Get file name for temporary file                           
+        outFile  = 'tmp_{:03d}.{}'.format(fnum, self.__fileExt);                  # Set output file name
+        outFile  = os.path.join(self.__outDir, outFile);                          # Get file name for temporary file                           
         cmd      = cmdBase + ['-ss', str(segStart), '-t', str(segDura)];        # Append start time and duration to cmdBase to start cuting command;
         cmd     += ['-c', 'copy', outFile];                                     # Append more options to the command
         tmpFiles.append( outFile );                                             # Append temporary output file path to tmpFiles list
@@ -261,8 +271,8 @@ class comremove( subprocManager ):
     self.log.info( 'Joining video segments into one file')
     inFiles = '|'.join( tmpFiles );
     inFiles = 'concat:{}'.format( inFiles );
-    outFile = 'tmp_nocom.{}'.format(self.fileExt);                              # Output file name for joined file
-    outFile = os.path.join(self.outDir, outFile);                               # Output file path for joined file
+    outFile = 'tmp_nocom.{}'.format(self.__fileExt);                              # Output file name for joined file
+    outFile = os.path.join(self.__outDir, outFile);                               # Output file path for joined file
     cmd     = self._comjoin + [inFiles, '-c', 'copy', '-map', '0', outFile];    # Command for joining files
     self.addProc( cmd );                                                        # Run the command
     self.run();
