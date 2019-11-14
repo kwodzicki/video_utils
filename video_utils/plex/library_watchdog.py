@@ -2,7 +2,7 @@ import logging
 
 import os, time
 from subprocess import Popen, STDOUT, DEVNULL
-from threading import Thread, Lock
+from threading import Thread, Timer, Lock
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -19,8 +19,9 @@ class library_watchdog( FileSystemEventHandler ):
     self.log         = logging.getLogger(__name__)
     self.log.info('Starting up...')
 
-    self.recordings  = []                                                           # Initialize list to store paths of newly started DVR recordings
-    self.converting  = DVRqueue( plex_dvr['queueFile'] )                                     # Initialize DVRqueue, this is a subclass of list that, when items modified, will save pickled list to file as backup
+    self.recordTimeout = kwargs.get('recordTimeout', 86400.0)
+    self.recordings    = []                                                           # Initialize list to store paths of newly started DVR recordings
+    self.converting    = DVRqueue( plex_dvr['queueFile'] )                                     # Initialize DVRqueue, this is a subclass of list that, when items modified, will save pickled list to file as backup
       
     self.converter = None
     self.script    = kwargs.get('script', None)
@@ -36,7 +37,9 @@ class library_watchdog( FileSystemEventHandler ):
 
     self.__runThread = Thread( target = self.__run )                                # Thread for dequeuing files and converting
     self.__runThread.start()                                                        # Start the thread
- 
+    self.__purgeThread = Timer( 10800.0, self.__purgeRecordings )                   # Initialize Timer thread to run every 3 hours to clean up self.recordings list 
+    self.__purgeThread.start()                                                      # Start timer thread
+
   def on_created(self, event):
     '''
     Purpose:
@@ -45,7 +48,7 @@ class library_watchdog( FileSystemEventHandler ):
     if event.is_directory: return                                                   # If directory; just return
     if ('.grab' in event.src_path):                                                 # If '.grab' is in the file path, then it is a new recording! 
       with self.Lock:                                                               # Acquire Lock so other events cannot change to_convert list at same time
-        self.recordings.append( os.path.split(event.src_path) )                     # Add split file path (dirname, basename,) tuple to to_convert list
+        self.recordings.append( os.path.split(event.src_path) + (time.time(),) )    # Add split file path (dirname, basename,) AND time (secondsSinceEpoch,) tuples as one tuple to recordings list
       self.log.debug( 'A recording started : {}'.format( event.src_path) )          # Log info
     else:
       self.checkRecording( event.src_path )                                     # Check if new file is a DVR file (i.e., file has been moved)
@@ -73,16 +76,27 @@ class library_watchdog( FileSystemEventHandler ):
       None.
     '''
     with self.Lock:                                                                 # Acquire Lock so other events cannot change to_convert list at same time
+      t           = time.time()
       fDir, fName = os.path.split( file )                                           # Split file source path
       i           = 0                                                               # Initialize counter to zero (0)                                       
       while (i < len(self.recordings)):                                             # Iterate over all tuples in to_convert list
         if (self.recordings[i][1] == fName):                                        # If the name of the input file matches the name of the recording file
           self.log.debug( 'Recoding moved from {} --> {}'.format(
-                os.path.join( *self.recordings[i] ), file ) )                       # Log some information
+                os.path.join( *self.recordings[i][:2] ), file )
+          )                                                                         # Log some information
           self.converting.append( file )                                            # Append to converting list; this will trigger update of queue file
           self.recordings.pop( i )                                                  # Pop off the tuple from to_convert attribute
           return True                                                               # Return True
-        i += 1                                                                      # Increment i
+        else:
+          dt = t - self.recordings[i][2] 
+          if (dt > self.recordTimeout):
+            file = os.path.join( *self.recordings[i][:2] )
+            self.log.info(
+              'File is more than {:0.0f} s old, assuming record failed: {}'.format( dt, file )
+            )
+            self.recordings.pop( i )                                                # Remove info from the list
+          else:                                                                     # Else
+            i += 1                                                                  # Increment i
       return False                                                                  # If made it here, then file is NOT DVR recording, return False
 
   def join(self):
@@ -92,25 +106,80 @@ class library_watchdog( FileSystemEventHandler ):
     '''
     self.Observer.join()                                                            # Join the observer thread
 
-  def _checkSize(self, file):
+  def _checkSize(self, file, timeout = None):
     '''
     Purpose:
       Method to check that file size has stopped changing
     Inputs:
       file   : Full path to a file
     Outputs:
-      None.
+      True if file size is NOT changing, False if timeout
     Keywords:
-      None.
+      timeout : Float specifying how long to wait for file
+                 to transfer. Default is forever (None)
     '''
     self.log.debug('Waiting for file to finish being created')
     prev = -1                                                                       # Set previous file size to -1
     curr = os.path.getsize(file)                                                    # Get current file size
+    t0   = time.time()                                                              # Get current time
     while (prev != curr):                                                           # While sizes differ
+      if timeout and ((time.time() - t0) > timeout): return False                   # Check timeout
       time.sleep(0.5)                                                               # Sleep 0.5 seconds
       prev = curr                                                                   # Set previous size to current size
       curr = os.path.getsize(file)                                                  # Update current size
- 
+    return True
+
+  def __prettyTime(self, sec):
+    days   = sec  // 86400
+    sec   -= days  * 86400
+    hours  = sec  //  3600
+    sec   -= hours *  3600
+    mins   = sec  //    60
+    sec   -= mins  *    60
+    text   = []
+    if days: text.append( '{:0.0f} day{}'.format(days, ('s' if days > 1 else '') ) )
+    if hours or mins or sec:
+      text.append( '{:02d}:{:02d}:{:04.1f}'.format(hours, mins, sec) )
+    return ' '.join( text )
+
+  def __purgeRecordings(self):
+    '''
+    Purpose:
+      To remove files from the recordings list that are more than
+      self.recordTimeout seconds old. Run as a threading.Timer
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Outputs:
+     None.
+    '''
+    with self.Lock:                                                                 # Acquire Lock so other events cannot change to_convert list at same time
+      t = time.time()
+      i = 0                                                                         # Initialize counter to zero (0)                                       
+      while (i < len(self.recordings)):                                             # Iterate over all tuples in to_convert list
+        dt = t - self.recordings[i][2] 
+        if (dt > self.recordTimeout):
+          file = os.path.join( *self.recordings[i][:2] )
+          if self._checkSize( file, timeout = 5.0 ):                                # Check the file size is not chaging with 5 second timeout; returns True if NOT changing
+            dt = self.__prettyTime( self.recordTimeout )
+            self.log.info(
+              'File is more than {} old, assuming record failed: {}'.format( dt, file )
+            )
+            self.recordings.pop( i )                                                # Remove info from the list
+            continue                                                                # Skip to next iteration; we don't want to increment i because we just removed an element from the list
+          else:
+            dt = self.__prettyTime(dt)
+            self.log.warning(
+              'File is {} old and size is still changing: {}'.format( dt, file )
+            )
+        i += 1                                                                    # Increment i
+
+      if self.__purgeThread:                                                        # If __purgeThread, then should start new timer; otherwise do nothing
+        self.__purgeThread.cancel()                                                 # Cancel old timer just to be safe
+        self.__purgeThread = Timer( 10800.0, self.__purgeRecordings )               # Initialize Timer thread to run every 3 hours to clean up self.recordings list 
+        self.__purgeThread.start()                                                  # Start timer thread
+
   def __run(self):
     '''
     Purpose:
@@ -124,26 +193,29 @@ class library_watchdog( FileSystemEventHandler ):
     '''
     while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):         # While the kill event is NOT set
       try:                                                                      # Try
-        file = self.converting[0]                                    # Get a file from the queue; block for 0.5 seconds then raise exception
+        file = self.converting[0]                                               # Get a file from the queue; block for 0.5 seconds then raise exception
       except:                                                                   # Catch exception
-        time.sleep(0.5)
-        continue                                                                # Do nothing
-
-      self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
-      if self.script:
-        self.log.info('Running script : {}'.format(self.script) )
-        proc = Popen( [self.script, file], stdout=DEVNULL, stderr=STDOUT )
-        proc.communicate()
-        status = proc.returncode
-        if (status != 0):
-          self.log.error( 'Script failed with exit code : {}'.format(status) )
+        time.sleep(1.0)
       else:
-        try:        
-          status, out_file, info = self.converter.convert( file )  # Convert file 
-        except:
-          self.log.exception('Failed to convert file')
+        self._checkSize( file )                                                 # Wait to make sure file finishes copying/moving
+        if self.script:
+          self.log.info('Running script : {}'.format(self.script) )
+          proc = Popen( [self.script, file], stdout=DEVNULL, stderr=STDOUT )
+          proc.communicate()
+          status = proc.returncode
+          if (status != 0):
+            self.log.error( 'Script failed with exit code : {}'.format(status) )
+        else:
+          try:        
+            status, out_file, info = self.converter.convert( file )             # Convert file 
+          except:
+            self.log.exception('Failed to convert file')
 
-      self.converting.remove( file )                              # Remove from converting list; this will tirgger update of queue file
+        self.converting.remove( file )                                          # Remove from converting list; this will tirgger update of queue file
  
     self.log.info('Plex watchdog stopped!')
+    with self.Lock:                                                             # Get lock and cancel purgeThread timer; we get lock because may be in process of running method and want to wait until it finishes to cancel timer object
+      self.__purgeThread.cancel()                                               # Cancel the timer
+      self.__purgeThread = None                                                 # Set __purgeThread to None; done to signal to method that should NOT start new timer
+
     self.Observer.stop()
