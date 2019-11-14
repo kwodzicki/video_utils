@@ -309,6 +309,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
     self.ffmpeg_log_file += '.log';                                             # Set up path for ffmpeg log file
 
     self.ffmpeg_cmd = self._ffmpeg_command( out_file );                         # Generate ffmpeg command list
+    self._createdFiles.append( out_file )
 
     if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):
       self.log.info( 'Transcoding file...' )
@@ -336,31 +337,36 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
     except:
       self.transcode_status = -1
 
+    if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
+      self.log.info( 'Transcode SUCCESSFUL!' );                                 # Print information
+      self._write_tags( out_file )
+
+      inSize  = os.stat(self.in_file).st_size;                                  # Size of in_file
+      outSize = os.stat(out_file).st_size;                                      # Size of out_file
+      difSize = inSize - outSize;                                               # Difference in file size
+      change  = 'larger' if outSize > inSize else 'smaller';                    # Is out_file smaller or larger than in file
+      msg     = 'The new file is {:4.1f}% {} than the original!';               # Set up message to be printed
+      self.log.info( msg.format(abs(difSize)/inSize*100, change) );             # Print the message about the size
+          
+      if self.remove:                                                           # If remove is set
+        self.log.info( 'Removing the input file...' );                          # Log some information
+        os.remove( self.in_file );                                              # Delete the input file if remove is true
+
+      self.log.info('Duration: {}'.format(datetime.now()-start_time))           # Print compute time
+
+    else:                                                                       # Else, there was an issue with the transcode
+      self.log.critical( 'All transcode attempts failed!!! Removing all created files' ) # Log critical information
+      out_file = None                                                           # Set out_file to None, this is returned at end of method
+      while len(self._createdFiles) > 0:                                        # Iterate over all files created by program
+        try:
+          os.remove( self._createdFiles.pop() )
+        except:
+          pass
+    
     try:
       os.remove( prog_file )
     except:
       pass
-
-    if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
-      self.log.info( 'Transcode SUCCESSFUL!' );                                 # Print information
-    else:                                                                       # Else, there was an issue with the transcode
-      self.log.critical( 'All transcode attempts failed!!!' );                  # Log critical information
-      return False;                                                             # Return False from function, i.e., transcode failed
-
-    self._write_tags( out_file )
-
-    inSize  = os.stat(self.in_file).st_size;                                    # Size of in_file
-    outSize = os.stat(out_file).st_size;                                        # Size of out_file
-    difSize = inSize - outSize;                                                 # Difference in file size
-    change  = 'larger' if outSize > inSize else 'smaller';                      # Is out_file smaller or larger than in file
-    msg     = 'The new file is {:4.1f}% {} than the original!';                 # Set up message to be printed
-    self.log.info( msg.format(abs(difSize)/inSize*100, change) );               # Print the message about the size
-          
-    if self.remove:                                                             # If remove is set
-      self.log.info( 'Removing the input file...' );                            # Log some information
-      os.remove( self.in_file );                                                # Delete the input file if remove is true
-
-    self.log.info('Duration: {}'.format(datetime.now()-start_time))             # Print compute time
 
     return out_file;                                                            # Return output file from function, i.e., transcode was success
 
@@ -595,20 +601,21 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
             opensubs_all();                                                     # Run local function
         else:
           self._join_out_file( self.title );                                    # Combine out_file path list into single path with movie/episode directory and create directories
-          self.vobsub_status = vobsub_extract( 
+          self.vobsub_status, vobsub_files = vobsub_extract( 
             self.in_file, self.out_file, self.text_info, 
             vobsub = self.vobsub,
             srt    = self.srt );                                                # Extract VobSub(s) from the input file and convert to SRT file(s).
+          self._createdFiles.extend( vobsub_files )                             # Add list of files created by vobsub_extract to list of created files
           if (self.vobsub_status < 2) and self.srt:                             # If there weren't nay major errors in the vobsub extraction
             if not vobsub_to_srt:                                               # If SRT output is enabled AND vobsub_to_srt imported correctly
               self.log.warning('vobsub2srt conversion not possible. Leaving vobsub files.');
             else:
-              self.srt_status, self.text_info = vobsub_to_srt(   
+              self.srt_status, srt_files = vobsub_to_srt(   
                 self.out_file, self.text_info,   
                 vobsub_delete = self.vobsub_delete,   
                 cpulimit      = self.cpulimit,   
                 threads       = self.threads );                                 # Convert vobsub to SRT files
-
+              self._createdFiles.extend( srt_files )
             failed = [i for i in self.text_info if i['srt'] is False];		# Check for missing srt files
             if len(failed) > 0:							# If missing files found
               self._join_out_file( self.title );				# Combine out_file path list into single path with movie/episode directory and create directories

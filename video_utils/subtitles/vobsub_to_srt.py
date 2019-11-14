@@ -38,21 +38,23 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
   Author and History:
     Kyle R. Wodzicki     Created 30 Dec. 2016
   '''
-  log = logging.getLogger(__name__);                                            # Initialize logger
-  if text_info is None: return 2, text_info;                                    # If text info has not yet been defined, return
+  log   = logging.getLogger(__name__);                                          # Initialize logger
+  files = []
+  if text_info is None: return 2, files;                                        # If text info has not yet been defined, return
   log.info('Converting VobSub(s) to SRT(s)...');                                # Print logging info
   fmt     = '  {:2d} of {:2d} - {}';                                            # Format for counter in logging
   subproc = subprocManager(cpulimit = cpulimit, threads = threads);             # Initialize subprocManager
   subproc._logFMT = fmt;                                                        # Set format for counter in the subprocManager
 
-  failed  = 0;
-  skipped = 0;  
-  files   = [];
-  n_tags  = len(text_info);                                                     # Get number of entries in dictionary
+  failed   = 0
+  skipped  = 0  
+  newFiles = []
+  n_tags   = len(text_info)                                                     # Get number of entries in dictionary
   for i in range(n_tags):                                                       # Iterate over all VobSub file(s)
     info = text_info[i];                                                        # Store current info in info
     file = out_file + info['ext'];                                              # Generate file name for subtitle file
-    if os.path.exists(file + '.srt'):                                           # If the srt output file already exists
+    files.append( '{}.srt'.format(file) )
+    if os.path.exists( files[-1] ):                                             # If the srt output file already exists
       log.info( fmt.format( i+1, n_tags, 'Exists...Skipping' ) );               # Print logging information
       text_info[i]['srt'] = True;                                               # Set srt exists flag in text_info dictionary to True
       skipped += 1;                                                             # Increment skipped by one (1)
@@ -63,7 +65,7 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
       if info['lang2'] != '' and info['lang3'] != '':                           # If the two(2) and three (3) character language codes are NOT empty
         cmd.extend( ['--tesseract-lang', info['lang3']] );                      # Append tesseract language option
         cmd.extend( ['--lang', info['lang2']] );                                # Append language option
-      files.append(file);
+      newFiles.append( '{}.srt'.format( file) );
       cmd.append( file );                                                       # Append input file to cmd
       subproc.addProc( cmd, single = True );                                    # Add command to queue
   subproc.run();                                                                # Run all the commands
@@ -71,7 +73,7 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
   for i in range( len(subproc.returncodes) ):                                   # Iterate over all the return codes
     if subproc.returncodes[i] == 0:                                             # If the return code is zero (0)
       text_info[i]['srt'] = True;                                               # Set srt exists flag in text_info dictionary to True
-      status = srt_cleanup( files[i] + '.srt' );                                # Run SRT music notes on the file
+      status = srt_cleanup( newFiles[i] )                                       # Run SRT music notes on the file
     else:                                                                       # Else
       failed += 1;                                                              # Increment failed by one (1)
 
@@ -83,8 +85,8 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
       if os.path.isfile(sub_file): os.remove(sub_file);                         # If the sub_file exists, the delete it
       if os.path.isfile(idx_file): os.remove(idx_file);                         # If the sub_file exists, the delete it
   if failed > 0:                                                                # If the length of failed is greater than zero
-    return 3, text_info;                                                        # Some SRTs failed to convert
+    return 3, files                                                             # Some SRTs failed to convert
   elif skipped == n_tags:                                                       # Else, if skipped equals the number of tages requested
-    return 1, text_info;                                                        # All SRTs existed OR no vobsubs to convert
+    return 1, files                                                             # All SRTs existed OR no vobsubs to convert
   else:                                                                         # Else,
-    return 0, text_info;                                                        # All SRTs converted   
+    return 0, files                                                             # All SRTs converted   
