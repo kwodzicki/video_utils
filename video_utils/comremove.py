@@ -32,7 +32,7 @@ class comremove( subprocManager ):
       verbose  : Depricated
     ''' 
     super().__init__( **kwargs );
-    self.log      = logging.getLogger(__name__);
+    self.__log      = logging.getLogger(__name__);
     if ('ini' in kwargs):
       self.ini = kwargs['ini']
     else:
@@ -96,7 +96,7 @@ class comremove( subprocManager ):
       comskip runs successfully. If comskip does not run
       successfully, then None is returned.
     '''
-    self.log.info( 'Running comskip to locate commercial breaks')
+    self.__log.info( 'Running comskip to locate commercial breaks')
     if (self.__outDir  is None): self.__outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
     if (self.__fileExt is None): self.__fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
     
@@ -114,7 +114,7 @@ class comremove( subprocManager ):
     cmd.append( '--output={}'.format(self.__outDir) );
     cmd.extend( [in_file, self.__outDir] );
     
-    self.log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
+    self.__log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
     self.addProc(cmd)
 #    if self.verbose:
 #      self.addProc(cmd, stdout = log, stderr = err);
@@ -123,9 +123,9 @@ class comremove( subprocManager ):
     self.run();
 
     if sum(self.returncodes) == 0:
-      self.log.info('comskip ran successfully');
+      self.__log.info('comskip ran successfully');
       if not os.path.isfile( edl_file ):
-        self.log.warning('No EDL file was created; trying to convert TXT file')
+        self.__log.warning('No EDL file was created; trying to convert TXT file')
         edl_file = self.convertTXT( txt_file, edl_file );
       for file in [txt_file, logo_file]:
         try:
@@ -134,7 +134,7 @@ class comremove( subprocManager ):
           pass
       return edl_file;
       
-    self.log.warning('There was an error with comskip')
+    self.__log.warning('There was an error with comskip')
     for file in [txt_file, edl_file, logo_file]:
       try:
         os.remove(file)
@@ -156,7 +156,7 @@ class comremove( subprocManager ):
     Outputs:
       Boolean, True if success, False if failed
     '''
-    self.log.info('Generating metadata file')
+    self.__log.info('Generating metadata file')
     chpFMT      = '[CHAPTER]\nTIMEBASE=1/1000\nSTART={}\nEND={}\ntitle={}\n'
 
     fDir, fBase = os.path.split( in_file )                                              # Split file path to get directory path and file name
@@ -182,12 +182,12 @@ class comremove( subprocManager ):
           sTime    = int(segStart.total_seconds() * 1000)
           eTime    = int(comStart.total_seconds() * 1000)
           mid.write( chpFMT.format(sTime, eTime, 'Show Segment \#{}'.format(segment)) )
-          self.log.debug( 'Show segment {} - {} to {} micros'.format(segment, sTime, eTime) ) 
+          self.__log.debug( 'Show segment {} - {} to {} micros'.format(segment, sTime, eTime) ) 
           # From comStart to comEnd is commercail
           sTime    = eTime
           eTime    = int(comEnd.total_seconds() * 1000)
           mid.write(chpFMT.format(sTime, eTime, 'Commercial Break \#{}'.format(commercial)) )
-          self.log.debug( 'Commercial {} - {} to {} micros'.format(commercial, sTime, eTime) ) 
+          self.__log.debug( 'Commercial {} - {} to {} micros'.format(commercial, sTime, eTime) ) 
           # Increment counters
           segment    += 1
           commercial += 1
@@ -216,7 +216,7 @@ class comremove( subprocManager ):
       Returns list of file paths for the intermediate 
       files created if successful. Else, returns None.
     '''
-    self.log.info('Cutting out commercials')
+    self.__log.info('Cutting out commercials')
     cmdBase  = self._comcut + [in_file];                                        # Base command for splitting up files
     tmpFiles = [];                                                              # List for all temporary files
     fnum     = 0;                                                               # Set file number to zero
@@ -241,16 +241,16 @@ class comremove( subprocManager ):
     fid.close();                                                                # Close the edl file
     self.run();                                                                 # Run all the subprocess
     if sum( self.returncodes ) != 0:                                            # If one or more of the process failed
-      self.log.critical( 'There was an error cutting out commericals!' );
+      self.__log.critical( 'There was an error cutting out commericals!' );
       for tmp in tmpFiles:                                                      # Iterate over list of temporary files
         if os.path.isfile( tmp ):                                               # If the file exists
           try:                                                                  # Try to 
             os.remove( tmp );                                                   # Delete the file
           except:                                                               # On exception
-            self.log.warning( 'Error removing file: {}'.format(tmp) );          # Log a warning
+            self.__log.warning( 'Error removing file: {}'.format(tmp) );          # Log a warning
       tmpFiles = None;                                                          # Set the tmpFiles variable to None
 
-    self.log.debug('Removing the edl_file');                                    # Debugging information
+    self.__log.debug('Removing the edl_file');                                    # Debugging information
     os.remove( edl_file );                                                      # Delete the edl file
     return tmpFiles;
 
@@ -268,7 +268,7 @@ class comremove( subprocManager ):
       intermediate files if joining is successful. Else
       returns None.
     '''
-    self.log.info( 'Joining video segments into one file')
+    self.__log.info( 'Joining video segments into one file')
     inFiles = '|'.join( tmpFiles );
     inFiles = 'concat:{}'.format( inFiles );
     outFile = 'tmp_nocom.{}'.format(self.__fileExt);                              # Output file name for joined file
@@ -277,7 +277,7 @@ class comremove( subprocManager ):
     self.addProc( cmd );                                                        # Run the command
     self.run();
     for file in tmpFiles:                                                       # Iterate over the input files
-      self.log.debug('Deleting temporary file: {}'.format(file));               # Debugging information 
+      self.__log.debug('Deleting temporary file: {}'.format(file));               # Debugging information 
       os.remove( file );                                                        # Delete the temporary file
     if sum(self.returncodes) == 0:
       return outFile;
@@ -305,7 +305,7 @@ class comremove( subprocManager ):
     Authors:
       Barrowed from https://github.com/ekim1337/PlexComskip
     '''
-    self.log.debug( "Running file size check to make sure too much wasn't removed");
+    self.__log.debug( "Running file size check to make sure too much wasn't removed");
     in_file_size  = os.path.getsize( in_file  );
     cut_file_size = os.path.getsize( cut_file );
     replace       = False
@@ -316,7 +316,7 @@ class comremove( subprocManager ):
       msg = 'Output file size was too similar; keeping original: {} -> {}'
     else:
       msg = 'Output file size looked odd (too big/too small); keeping original: {} -> {}'
-    self.log.info( 
+    self.__log.info( 
       msg.format(
         self.__size_fmt(in_file_size), self.__size_fmt(cut_file_size)
       )
@@ -329,7 +329,7 @@ class comremove( subprocManager ):
   ########################################################
   def convertTXT( self, txt_file, edl_file ):
     if os.stat(txt_file).st_size == 0:
-      self.log.warning('TXT file is empty!');
+      self.__log.warning('TXT file is empty!');
       return None;    
     with open(txt_file, 'r') as txt:
       with open(edl_file, 'w') as edl:
