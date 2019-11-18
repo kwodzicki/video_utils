@@ -185,8 +185,6 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
 
     self._createdFiles    = [];                                                 # List to store paths to all files created by transcode method
     self.__fileHandler    = None;                                               # logging fileHandler 
-    self.__isMP4          = False;
-    self.__isMKV          = False
   
   @property
   def container(self):
