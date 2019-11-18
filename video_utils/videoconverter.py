@@ -62,6 +62,8 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
   legal   = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
   tv_dir  = None
   mov_dir = None
+  __isMP4 = False
+  __isMKV = False
   def __init__(self, 
                out_dir       = None,
                log_dir       = None,

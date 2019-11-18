@@ -19,6 +19,121 @@ else:                                                                           
 imdbFMT = 'tt{}';                                                               # Format string for IMDb id
 yearPat = re.compile( r'\(([0-9]{4})\)' );                                      # Pattern for finding year in series name
 
+def TVDb_Search(series_name, year, episode_title, season = None, episode = None):
+  '''
+  Name:
+    TVDb_Search
+  Purpose:
+    To search TVDb to get the IMDb id
+  Inputs:
+    series_name   : Name of the series
+    year          : Year series started
+    episode_title : Title of the episode
+  Keywords:
+    season        : Integer for season number
+    episode       : Integer for episode number  
+  Outputs:
+    Returns IMDb ID in format ttxxxxxxx
+  '''
+  if not TVDb: return None;                                                     # If the TVDb was NOT loaded, just return None;
+  log = logging.getLogger(__name__)
+  log.info( 'Attempting to get IMDb ID from TVDb' );               
+
+  tvdb = TVDb.Search();                                                         # Initialize search for TVDb
+  try:                                                                          # Try to
+    res  = tvdb.series( series_name )                                           # Search for the series on the TVDb
+  except:                                                                       # On exception
+    pass;                                                                       # Do nothing
+  else:                                                                         # If try was success
+    log.debug( 'TVDb series search returned {} matches'.format( len(res) ) );   # Debugging information
+    for r in res:                                                               # Iterate over all search results
+      if r['firstAired'] and (str(year) in r['firstAired']):                    # If the local year is in the firstAird tag
+        log.debug( 'Found series with same firstAired year' );                  # Debugging information
+        if season:
+          eps = TVDb.Series_Episodes( r['id'], airedSeason = season ).all()     # Get episodes for just the given season
+        else:
+          eps = TVDb.Series( r['id'] ).Episodes.all()                           # Get list of all episodes in series
+
+        log.debug( 'TVDb returned {} episodes in the series'.format(len(eps)) );# Debugging information
+        if episode:                                                             # If episode is set
+          try:                                                                  # Try to
+            ep = eps[episode-1]                                                 # Get episode directory from episode number
+          except:                                                               # On excpetion
+            log.info('Episode number out of episode range')                     # Log info
+          else:                                                                 # Else
+            return ep['imdbId'] if ep['imdbId'] else None                       # Return IMDb id
+
+        for ep in eps:                                                          # If made here, iterate over all episodes
+          if (ep['episodeName'].lower() in episode_title.lower()):              # If the episode name is in the local title and there is an imdbId in the ep
+            log.debug( 'Found episode with same name' );
+            if ('imdbId' in ep) and (ep['imdbId'] != ''):                       # If imdbId key exists AND imdbId value is NOT empty
+              log.info( 'IMDb ID found from TVDb search' )
+              return ep['imdbId'] if ep['imdbId'] else None                     # Return it
+
+  log.warning( 'TVDb search failed' );
+  return None 
+
+def IMDb_Search(series_name, year, episode_title, season = None, episode = None):
+  '''
+  Name:
+    IMDb_Search
+  Purpose:
+    To search IMDb to get the IMDb id
+  Inputs:
+    series_name   : Name of the series
+    year          : Year series started
+    episode_title : Title of the episode
+  Keywords:
+    season        : Integer for season number
+    episode       : Integer for episode number  
+  Outputs:
+    Returns IMDb ID in format ttxxxxxxx
+  '''
+  log = logging.getLogger(__name__)
+  log.info( 'Attempting to get IMDb ID from IMDb' );               
+  imdb = IMDb();                                                                # Initialize IMDb instance
+  res  = imdb.search_movie( series_name );                                      # Search for the episode title on IMDb
+  log.debug( 'IMDb search returned {} matches'.format( len(res) ) );            # Debugging information
+  for r in res:                                                                 # Iterate over all the results from IMDb
+    if r['kind'].lower() == 'tv series':                                        # If object is a tv series 
+      log.debug('Found series with matching name');
+      if 'year' in r and year:                                                  # If the 'series year' key is in the result AND the local year is defined
+        log.debug('Series has year information');
+        if r['year'] != year: 
+          log.debug('Series year did NOT match');
+          continue;                                                             # If the result series year NOT match the local series year, skip series
+
+      log.info('Getting list of episodes from IMDb.com')
+      if season:                                                                # If season is set
+        url    = imdb.urls['movie_main'] % r.movieID + 'episodes' 
+        log.debug( 'Getting data from: {}'.format(url) )
+        cont   = imdb._retrieve( url )                                          # Get content from episodes page; taken from imdb.parser.http.IMDbHTTPAccessSystem.get_movie_episodes
+        data_d = imdb.mProxy.season_episodes_parser.parse( cont )               # Parse episodes information
+        if (season in data_d['data']['_seasons']):
+          url        = '{}?season={}'.format(url, season)
+          log.debug( 'Getting data from: {}'.format(url) )
+          other_cont = imdb._retrieve( url )
+          other_data = imdb.mProxy.season_episodes_parser.parse(other_cont)
+          episodes   = other_data['data']['episodes'][season]                   # Get dictionary of episodes for season
+          if (episode in episodes):
+            log.info( 'IMDb ID found from IMDb search')
+            return imdbFMT.format( episodes[episode].getID() )
+          else:
+            for key, val in episodes.items():
+              if val['title'].lower() in episode_title.lower():     # Check that the titles are the same
+                log.info( 'IMDb ID found from IMDb search')
+                return imdbFMT.format( val.getID() )     # Return the IMDb id
+      else:
+        imdb.update( r, 'episodes' )                                              # Get information for all episodes
+        for s in r['episodes']:                                                 # Iterate over all the seasons in the episodes dictionary
+          for e in r['episodes'][s]:                                            # Iterate over all the episodes in the season
+            if r['episodes'][s][e]['title'].lower() in episode_title.lower():   # Check that the titles are the same
+              log.info( 'IMDb ID found from IMDb search')
+              return imdbFMT.format( r['episodes'][s][e].getID() );             # Return the IMDb id
+             
+  log.warning( 'IMDb search failed' )
+  return None 
+
 def getIMDb_ID( series_name, episode_title, season_ep = None ):
   '''
   Name:
@@ -50,63 +165,14 @@ def getIMDb_ID( series_name, episode_title, season_ep = None ):
   )
 
   try:
-    s, e = [int(i) for i in season_ep.split('S')[-1].split('E')]
+    season, episode = re.findall( r'[sS](\d{2,4})[eE](\d{2,4})', season_ep )[0]
   except:
-    s = e = None
+    season = episode = None
+  else:
+    season  = int(season)
+    episode = int(episode)
 
-  ###############
-  ### IMDb serach
-  log.info( 'Attempting to get IMDb ID from IMDb' );               
-  imdb = IMDb();                                                                # Initialize IMDb instance
-  res  = imdb.search_movie( series_name );                                      # Search for the episode title on IMDb
-  log.debug( 'IMDb search returned {} matches'.format( len(res) ) );            # Debugging information
-  for r in res:                                                                 # Iterate over all the results from IMDb
-    if r['kind'].lower() == 'tv series':                                        # If object is a tv series 
-      log.debug('Found series with matching name');
-      if 'year' in r and year:                                                  # If the 'series year' key is in the result AND the local year is defined
-        log.debug('Series has year information');
-        if r['year'] != year: 
-          log.debug('Series year did NOT match');
-          continue;                                                             # If the result series year NOT match the local series year, skip series
-
-      log.info('Getting list of episodes from IMDb.com')
-      imdb.update( r, 'episodes' )                                              # Get information for all episodes
-      if (s is not None):                                                       # If s is not None, that means season and episode numbers should have been parsed from file name
-        if (s in r['episodes']) and (e in r['episodes'][s]):                    # If the season number is in the episodes dictionary AND the episode number is in the season
-          if r['episodes'][s][e]['title'].lower() in episode_title.lower():     # Check that the titles are the same
-            log.info( 'IMDb ID found from IMDb search')
-            return imdbFMT.format( r['episodes'][s][e].getID() );               # Return the IMDb id
-      else:                                                                     # Else.... we need to iterate
-        for s in r['episodes']:                                                 # Iterate over all the seasons in the episodes dictionary
-          for e in r['episodes'][s]:                                            # Iterate over all the episodes in the season
-            if r['episodes'][s][e]['title'].lower() in episode_title.lower():   # Check that the titles are the same
-              log.info( 'IMDb ID found from IMDb search')
-              return imdbFMT.format( r['episodes'][s][e].getID() );             # Return the IMDb id
-             
-  log.warning( 'IMDb search failed' )
-  
-  ###############
-  ### TVDb serach
-  if not TVDb: return None;                                                     # If the TVDb was NOT loaded, just return None;
-  log.info( 'Attempting to get IMDb ID from TVDb' );               
-
-  tvdb = TVDb.Search();                                                         # Initialize search for TVDb
-  try:                                                                          # Try to
-    res  = tvdb.series_name( series_name );                                     # Search for the series on the TVDb
-  except:                                                                       # On exception
-    pass;                                                                       # Do nothing
-  else:                                                                         # If try was success
-    log.debug( 'TVDb series search returned {} matches'.format( len(res) ) );   # Debugging information
-    for r in res:                                                               # Iterate over all search results
-      if str(year) in r['firstAired']:                                          # If the local year is in the firstAird tag
-        log.debug( 'Found series with same firstAired year' );                  # Debugging information
-        eps = TVDb.Series( r['id'] ).Episodes.all();                            # Get list of all episodes in series
-        log.debug( 'TVDb returned {} episodes in the series'.format(len(eps)) );# Debugging information
-        for ep in eps:                                                          # Iterate over all episodes
-          if (ep['episodeName'].lower() in episode_title.lower()):              # If the episode name is in the local title and there is an imdbId in the ep
-            log.debug( 'Found episode with same name' );
-            if ('imdbId' in ep) and (ep['imdbId'] != ''):                       # If imdbId key exists AND imdbId value is NOT empty
-              log.info( 'IMDb ID found from TVDb search' )
-              return ep['imdbId'];                                              # Return it
-  log.warning( 'TVDb search failed' );
-  return None;
+  imdbId = TVDb_Search(series_name, year, episode_title, season=season, episode=episode)    # Try to get id from TVDb
+  if imdbId:                                                                                # If got id
+    return imdbId                                                                           # Return ID
+  return IMDb_Search(series_name, year, episode_title, season=season, episode=episode)      # Just return output from IMDb_Search
