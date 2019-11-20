@@ -1,5 +1,5 @@
 import logging;
-import os, re;
+import os, re, time
 from imdb import IMDb;
 
 TVDb = None;                                                                    # Set tvdb to None
@@ -47,28 +47,39 @@ def TVDb_Search(series_name, year, episode_title, season = None, episode = None)
   else:                                                                         # If try was success
     log.debug( 'TVDb series search returned {} matches'.format( len(res) ) );   # Debugging information
     for r in res:                                                               # Iterate over all search results
+      time.sleep(0.1)                                                           # Sleep to reduce hammering server
       if r['firstAired'] and (str(year) in r['firstAired']):                    # If the local year is in the firstAird tag
         log.debug( 'Found series with same firstAired year' );                  # Debugging information
-        if season:
-          eps = TVDb.Series_Episodes( r['id'], airedSeason = season ).all()     # Get episodes for just the given season
-        else:
-          eps = TVDb.Series( r['id'] ).Episodes.all()                           # Get list of all episodes in series
+        if season:                                                              # If season defined
+          kwargs = {'airedSeason' : season, 'dvdSeason' : season}               # Set keyword arguments from Series_Episodes
+          try:
+            eps = TVDb.Series_Episodes( r['id'], **kwargs  ).all()              # Get episodes for just the given season
+          except Exception as err:
+            log.debug('TVDb Series/Episodes search failed: {}'.format(err))
+            eps = None
+        
+        if not eps:
+          try:
+            eps = TVDb.Series( r['id'] ).Episodes.all()                           # Get list of all episodes in series
+          except Exception as err:
+            log.debug('TVDb failed to grab all episodes: {}'.format(err))
 
-        log.debug( 'TVDb returned {} episodes in the series'.format(len(eps)) );# Debugging information
-        if episode:                                                             # If episode is set
-          try:                                                                  # Try to
-            ep = eps[episode-1]                                                 # Get episode directory from episode number
-          except:                                                               # On excpetion
-            log.info('Episode number out of episode range')                     # Log info
-          else:                                                                 # Else
-            return ep['imdbId'] if ep['imdbId'] else None                       # Return IMDb id
+        if eps:
+          log.debug( 'TVDb returned {} episodes in the series'.format(len(eps)) );# Debugging information
+          if episode:                                                             # If episode is set
+            try:                                                                  # Try to
+              ep = eps[episode-1]                                                 # Get episode directory from episode number
+            except:                                                               # On excpetion
+              log.info('Episode number out of episode range')                     # Log info
+            else:                                                                 # Else
+              return ep['imdbId'] if ep['imdbId'] else None                       # Return IMDb id
 
-        for ep in eps:                                                          # If made here, iterate over all episodes
-          if (ep['episodeName'].lower() in episode_title.lower()):              # If the episode name is in the local title and there is an imdbId in the ep
-            log.debug( 'Found episode with same name' );
-            if ('imdbId' in ep) and (ep['imdbId'] != ''):                       # If imdbId key exists AND imdbId value is NOT empty
-              log.info( 'IMDb ID found from TVDb search' )
-              return ep['imdbId'] if ep['imdbId'] else None                     # Return it
+          for ep in eps:                                                          # If made here, iterate over all episodes
+            if (ep['episodeName'].lower() in episode_title.lower()):              # If the episode name is in the local title and there is an imdbId in the ep
+              log.debug( 'Found episode with same name' );
+              if ('imdbId' in ep) and (ep['imdbId'] != ''):                       # If imdbId key exists AND imdbId value is NOT empty
+                log.info( 'IMDb ID found from TVDb search' )
+                return ep['imdbId'] if ep['imdbId'] else None                     # Return it
 
   log.warning( 'TVDb search failed' );
   return None 
