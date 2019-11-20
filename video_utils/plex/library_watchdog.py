@@ -211,7 +211,8 @@ class library_watchdog( FileSystemEventHandler ):
           except:
             self.log.exception('Failed to convert file')
 
-        self.converting.remove( file )                                          # Remove from converting list; this will tirgger update of queue file
+        if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):        # If events not set, remove file from converting list; if either is set, then transcode was likely halted so we want to convert on next run
+          self.converting.remove( file )                                        # Remove from converting list; this will tirgger update of queue file
  
     self.log.info('Plex watchdog stopped!')
     with self.Lock:                                                             # Get lock and cancel purgeThread timer; we get lock because may be in process of running method and want to wait until it finishes to cancel timer object
