@@ -94,28 +94,36 @@ class DVRconverter(comremove, videoconverter):
     Keywords:
       None.
     '''
-    in_file = os.path.realpath( in_file )                                         # Get real input file path 
+    in_file  = os.path.realpath( in_file )                                          # Get real input file path 
+    out_file = None                                                                 # Set out_file to None
     self.log.info('Input file: {}'.format( in_file ) );
-    file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
-    if not file:                                                                  # if the rename fails
-      self.log.critical('Error renaming file');                                        # Log error
-      return 1, info;                                                             # Return from function
+    file, info = plexDVR_Rename( in_file );                                         # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
+    if not file:                                                                    # if the rename fails
+      self.log.critical('Error renaming file');                                     # Log error
+      return 1, info;                                                               # Return from function
+ 
+    no_remove    = not self.remove                                                  # Set local no_remove value as opposite of remove flag 
+    self.in_file = file
+    if self.isValidFile():                                                          # If is a valid file; i.e., video stream size is smaller than file size
+      status = self.process( file, chapters = not self.destructive )                # Try to remove commercials from video
+      if not status:                                                                # If comremove failed
+        self.log.critical('Error cutting commercials');                             # Log error
+        return 1, info;                                                             # Exit script
   
-    status   = self.process( file, chapters = not self.destructive )              # Try to remove commercials from video
-    if not status:                                                                # If comremove failed
-      self.log.critical('Error cutting commercials');                                  # Log error
-      return 1, info;                                                             # Exit script
-  
-  
-    out_file = self.transcode( file );                                            # Run the transcode
+      out_file = self.transcode( file );                                            # Run the transcode
 
-    if os.path.isfile( file ):                                                    # If the renamed; i.e., hardlink to original file, exists
-      os.remove( file );                                                          # Delete it
+      if os.path.isfile( file ):                                                    # If the renamed; i.e., hardlink to original file, exists
+        os.remove( file );                                                          # Delete it
 
-    if (self.transcode_status != 0):
-      self.log.critical('Failed to transcode file. Assuming input is bad, will delete')
+      if (self.transcode_status != 0):
+        self.log.critical('Failed to transcode file. Assuming input is bad, will delete')
+    else:                                                                           # Else, file is not valid
+      self.log.warning('File determined to be invalid, deleting: {}'.format(in_file) )
+      no_remove = True                                                              # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
+      if os.path.isfile( file    ): os.remove( file )                               # If file exists, delete it
+      if os.path.isfile( in_file ): os.remove( in_file )                            # If infile exists, delete it
 
-    if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):              # If a file name was returned AND no_remove is False
-      plexDVR_Scan( in_file, no_remove = not self.remove)
+    if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):                # If a file name was returned AND no_remove is False
+      plexDVR_Scan( in_file, no_remove = no_remove)
 
-    return self.transcode_status, out_file, info;                                 # Return transcode status, new file path, and info
+    return self.transcode_status, out_file, info                                    # Return transcode status, new file path, and info

@@ -188,7 +188,10 @@ def plexDVR_Scan( recorded, no_remove = False, movie = False ):
 
   if not no_remove:                                                             # If no_remove is False, i.e., want to remove file
     log.debug('Removing original recoding' );                                   # Debug info
-    os.remove( recorded );                                                     # Remove the original recording file
+    try:
+      os.remove( recorded );                                                     # Remove the original recording file
+    except:
+      pass
 
     log.debug( 'Rescanning library' );                                          # Debug info
     proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );        # Rescan the library; note this is only done IF the file is removed

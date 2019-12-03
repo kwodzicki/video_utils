@@ -90,9 +90,10 @@ class library_watchdog( FileSystemEventHandler ):
         else:
           dt = t - self.recordings[i][2] 
           if (dt > self.recordTimeout):
-            file = os.path.join( *self.recordings[i][:2] )
             self.log.info(
-              'File is more than {:0.0f} s old, assuming record failed: {}'.format( dt, file )
+              'File is more than {:0.0f} s old, assuming record failed: {}'.format(
+                dt, os.path.join( *self.recordings[i][:2] )
+              )
             )
             self.recordings.pop( i )                                                # Remove info from the list
           else:                                                                     # Else

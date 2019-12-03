@@ -89,6 +89,25 @@ class mediainfo( object ):
     return self.__mediainfo.keys();
 
   ##############################################################################
+  def isValidFile(self):
+    '''
+    Purpose:
+      Method to check if file is valid. This is done by checking
+      that the size of the first video stream is less than the size
+      of the file. This many not work in all cases, but seems to be
+      true for MPEGTS files.
+    '''
+    if self.__mediainfo:
+      try:
+        fileSize   = self.__mediainfo['General'][0]['File_size'  ]
+        streamSize = self.__mediainfo['Video'  ][0]['Stream_size']
+      except:
+        return False
+      else:
+        return fileSize > streamSize
+    return None
+
+  ##############################################################################
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
     self.log.info('Running mediainfo command...');                              # If verbose is set, print some output
