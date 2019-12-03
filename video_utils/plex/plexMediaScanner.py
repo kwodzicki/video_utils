@@ -19,33 +19,16 @@ def plexMediaScanner( *args, **kwargs ):
   Name:
     plexMediaScanner
   Purpose:
-    A python function that will try to scan a specific directory
-    so that newly DVRed/transcoded files will be added.
-
-    When Plex records, it saves the file in a temporary folder. When
-    recording finishes, that folder is then moved to the proper 
-    location and the recording added to the library; however, the
-    transoded file will NOT be added. 
-
-    This function will attempt
-    to scan just the specific season directory (or full TV library
-    as last resort) to add transcoded file. 
-
-    After the scan is complete, pending the no_remove keyword,
-    the original recording file fill be removed. It is NOT removed
-    first because then Plex will see the transcoded file as a new
-    file and NOT a duplicate (I think)
+    A python function that will try to run the Plex Media Scanner CLI.
   Inputs:
-    recorded : Full path to the DVRd file; i.e., the file that 
-                 Plex recoded data to, should be a .ts file.
-                 This file MUST be in its final location, that
-                 is in the directory AFTER Plex moves it when
-                 recording is complete.
-  Outputs:
-    None
+    Any flags from the Plex Media Scanner Actions list; not that
+    you do NOT include hyphens (-). Note that if you are adding a section,
+    the --type, --agent, etc. flags should be input as keywords.
+    Can also input Modifies to actions here
   Keywords:
-    no_remove  : Set to True to keep the original file
-    movie      : Set if scanning for movie
+    Any flag/value pair from the Plex Media Scanner Items list   
+  Outputs:
+    Returns status code; 0 is successful scan
   '''
   log = logging.getLogger(__name__);
   if (os.environ['USER'].upper() != 'PLEX'):

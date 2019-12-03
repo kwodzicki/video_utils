@@ -9,7 +9,7 @@ from watchdog.events import FileSystemEventHandler
 
 from video_utils import _sigintEvent, _sigtermEvent
 from video_utils.videoconverter import videoconverter
-from video_utils.plex.utils import plexDVR_Scan
+from video_utils.plex.plexMediaScanner import plexMediaScanner
 
 class MakeMKV_Watchdog( FileSystemEventHandler ):
   def __init__(self, *args, **kwargs):
@@ -129,7 +129,8 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       except:
         self.log.exception('Failed to convert file')
       else:
-        plexDVR_Scan(out_file, no_remove=True, movie=not self.converter.is_episode)
+        plexMediaScanner('scan', directory = os.path.dirname(out_file),
+          section = 'TV Shows' if self.converter.is_episode else 'Movies')
 
       self.Queue.task_done() 
 

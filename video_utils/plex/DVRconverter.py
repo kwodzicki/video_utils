@@ -5,7 +5,8 @@ from video_utils import _sigintEvent, _sigtermEvent
 from video_utils.comremove import comremove
 from video_utils.videoconverter import videoconverter
 
-from video_utils.plex.utils import plexDVR_Rename, plexMediaScanner
+from video_utils.plex.plexMediaScanner import plexMediaScanner
+from video_utils.plex.utils import plexDVR_Rename
 
 class DVRconverter(comremove, videoconverter): 
   '''
