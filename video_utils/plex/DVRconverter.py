@@ -5,7 +5,7 @@ from video_utils import _sigintEvent, _sigtermEvent
 from video_utils.comremove import comremove
 from video_utils.videoconverter import videoconverter
 
-from video_utils.plex.utils import plexDVR_Rename, plexDVR_Scan
+from video_utils.plex.utils import plexDVR_Rename, plexMediaScanner
 
 class DVRconverter(comremove, videoconverter): 
   '''
@@ -126,6 +126,16 @@ class DVRconverter(comremove, videoconverter):
         self.log.critical('Failed to transcode file. Assuming input is bad, will delete')
 
     if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):                # If a file name was returned AND no_remove is False
-      plexDVR_Scan( in_file, no_remove = no_remove)
+      args   = ('scan',)                                                            # Set arguements for plexMediaScanner function
+      kwargs = {'section'   : 'TV Shows',
+                'directory' : os.path.dirname( in_file )}                           # Set keyword arguments for plexMediaScanner function
+      plexMediaScanner( *args, **kwargs )
+      if not no_remove:                                                             # If no_remove is NOT set, then we want to delete in_file and rescan the directory so original file is removed from Plex
+        try:                                                                        # Try to
+          os.remove( in_file )                                                      # Delete the file
+        except:                                                                     # On exception
+          pass                                                                      # Do nothing
+        if not os.path.isfile( in_file ):                                           # If file no longer exists; if it exists, don't want to run Plex Media Scanner for no reason
+          plexMediaScanner( *args, **kwargs )                                       # Run Ple Media Scanner to remove deleted file from library
 
     return self.transcode_status, out_file, info                                    # Return transcode status, new file path, and info
