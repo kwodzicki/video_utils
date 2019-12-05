@@ -37,7 +37,7 @@ class library_watchdog( FileSystemEventHandler ):
 
     self.__runThread = Thread( target = self.__run )                                # Thread for dequeuing files and converting
     self.__runThread.start()                                                        # Start the thread
-    self.__purgeThread = Thread( self.__purgeRecordings )                           # Initialize thread to clean up self.recordings list; thread sleeps for 3 hours inbetween runs
+    self.__purgeThread = Thread( target = self.__purgeRecordings )                  # Initialize thread to clean up self.recordings list; thread sleeps for 3 hours inbetween runs
     self.__purgeThread.start()                                                      # Start timer thread
 
   def on_created(self, event):
