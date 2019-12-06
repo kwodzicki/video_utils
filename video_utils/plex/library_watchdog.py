@@ -213,8 +213,9 @@ class library_watchdog( FileSystemEventHandler ):
         if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):        # If events not set, remove file from converting list; if either is set, then transcode was likely halted so we want to convert on next run
           self.converting.remove( file )                                        # Remove from converting list; this will tirgger update of queue file
  
-    self.log.info('Plex watchdog stopped!')
     with self.__Lock:                                                           # Get lock, set __stop event; we get lock because purgerecordings() may be running and want to wait until it finishes to set __stop event
       self.__stop.set()                                                         # Set stop event; this will kill the purge method
 
     self.Observer.stop()
+    self.log.info('Plex watchdog stopped!')
+

@@ -53,7 +53,7 @@ def plexMediaScanner( *args, **kwargs ):
 
   log.debug( 'Plex Media Scanner command: {}'.format( ' '.join(cmd) ) )
 
-  proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );
+  proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = _env );
   proc.communicate();
 
   return 0

@@ -137,6 +137,7 @@ class DVRconverter(comremove, videoconverter):
         except:                                                                     # On exception
           pass                                                                      # Do nothing
         if not os.path.isfile( in_file ):                                           # If file no longer exists; if it exists, don't want to run Plex Media Scanner for no reason
+          self.log.debug('Original file removed, rescanning: {}'.format(in_file))   # Debug information
           plexMediaScanner( *args, **kwargs )                                       # Run Ple Media Scanner to remove deleted file from library
 
     return self.transcode_status, out_file, info                                    # Return transcode status, new file path, and info
