@@ -58,30 +58,29 @@ class comremove( subprocManager ):
                   Show segment and commercial break chapter info
                   for FFmpeg.
     '''
-    self.__outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
-    self.__fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
-    edl_file     = None;
-    tmp_Files    = None;                                                        # Set the status to True by default
-    cut_File     = None;
+    self.__outDir  = os.path.dirname( in_file )                                     # Store input file directory in attribute
+    self.__fileExt = in_file.split('.')[-1]                                         # Store Input file extension in attrubute
+    edl_file     = None
+    tmp_Files    = None                                                             # Set the status to True by default
+    cut_File     = None
+    status       = False
+    edl_file     = self.comskip( in_file )                                          # Attempt to run comskip and get edl file path
+    if edl_file:                                                                    # If eld file path returned
+      if chapters:                                                                  # If chapters keyword set
+        status = self.comchapter( in_file, edl_file )                               # Generate .chap file
+        os.remove(edl_file)                                                         # Delete to edl file
+      else:                                                                         # Else, actually cut up file to remove commercials
+        tmp_Files  = self.comcut( in_file, edl_file )                               # Run the comcut method to extract just show segments; NOT comercials
+        if tmp_Files:                                                               # If list of tmp_Files returned; None on failure
+          cut_File   = self.comjoin( tmp_Files )                                    # Attempt to join the files and update status using return code from comjoin
+        if cut_File:                                                                # If path to output file returned; None on failure
+          self.check_size( in_file, cut_File )                                      # Check size to see that not too much removed
+          status = True                                                             # Set status to True
 
-    edl_file     = self.comskip( in_file );                                     # Attempt to run comskip and get edl file path
-    if edl_file:                                                                # If eld file path returned
-      if chapters:
-        self.comchapter( in_file, edl_file )
-        os.remove(edl_file)
-      else:
-        tmp_Files  = self.comcut( in_file, edl_file );                            # Run the comcut method to extract just show segments; NOT comercials
+    self.__outDir  = None                                                           # Reset attribute
+    self.__fileExt = None                                                           # Reset attribute
 
-        if tmp_Files:                                                               # If status is True
-          cut_File   = self.comjoin( tmp_Files );                                   # Attempt to join the files and update status using return code from comjoin
-
-        if cut_File:                                                                # If status is True
-          self.check_size( in_file, cut_File );
-
-    self.__outDir  = None;                                                        # Reset attribute
-    self.__fileExt = None;                                                        # Reset attribute
-
-    return True;                                                                # Return the status 
+    return status                                                                   # Return the status 
 
   ########################################################
   def comskip(self, in_file):

@@ -178,6 +178,37 @@ def progress( proc, interval = 60.0, nintervals = None ):
     return
 
 ###############################################################################
+def checkIntegrity(filePath):
+  '''
+  Name:
+    checkIntegrity
+  Purpose:
+    A function to test the integrity of a video file.
+    Runs ffmpeg with null output, checking errors for
+    'overread'. If overread found, then return False,
+    else True
+  Inputs:
+    filePath  : Full path of file to check
+  Keywords:
+    None.
+  Outputs:
+    Returns True if no overread errors, False if error
+  '''
+  cmd  = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', 
+            '-i', filePath, '-f', 'null', '-']                                              # Command to run
+  proc = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)                   # Run ffmpeg command
+  line = proc.stdout.readline()                                                             # Read line from stdout
+  while (line != ''):                                                                       # While line is NOT empty
+    if ('overread' in line):                                                                # If 'overread' in line
+      proc.terminate()                                                                      # Terminate process
+      proc.communicate()                                                                    # Wait for proc to finish
+      return False                                                                          # Return False
+    line = proc.stdout.readline()                                                           # Read another line
+
+  proc.communicate()                                                                        # Make sure process done
+  return True                                                                               # Return True
+
+###############################################################################
 def _testFile():                                                                 
     '''
     This is a grabage function used only for testing during development.
