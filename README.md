@@ -138,7 +138,7 @@ For more information use the `--help` flag when running the utility.
 #### Conversion of MakeMKV Output
 ###### MakeMKV\_Watchdog
 This watchdog is designed to be run as a service that will transcode files created by MakeMKV to h264/5 encoded files.
-Note that files should conform to the naming convention outlined in `./docs/Input\_File\_Naming.pdf`.
+Note that files should conform to the naming convention outlined in `./docs/Input_File_Naming.pdf`.
 When setting the output directory for converted files, it is suggested to set the directory to the directory where your Plex Libraries reside.
 For example, if your libraries are on a drive mounted at `/mnt/PlexHDD`, and movies and tv shows are in directories named `Movies` and `TV Shows`, respectively, then you will want to set the output directory to `/mnt/PlexHDD`.
 This way, output files will be placed inside your Plex Library tree; this watchdog will attempt to run Plex Scan if run as user `plex`.
