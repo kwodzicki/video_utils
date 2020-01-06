@@ -292,11 +292,11 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
     if not self.file_info( in_file ): return False;                             # If there was an issue with the file_info function, just return
     self._init_logger( log_file );                                              # Run method to initialize logging to file
     if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
-      self.__log.critical('No video or no audio, transcode cancelled!');          # Print log message
+      self.__log.critical('No video or no audio, transcode cancelled!');        # Print log message
       self.transcode_status = 10;                                               # Set transcode status
       return False;                                                             # Return
 
-    start_time = datetime.now();                                              # Set start date
+    start_time = datetime.now();                                                # Set start date
     self.transcode_status = None;                                               # Reset transcode status to None
     self.ffmpeg_logTime   = None;
     self.get_subtitles( );                                                      # Extract subtitles
@@ -304,19 +304,24 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
     out_file  = '{}.{}'.format( self.out_file, self.container );                # Set the output file path
     prog_file = self._inprogress_file( out_file )                               # Get file name for inprogress conversion; maybe a previous conversion was cancelled
 
-    self.__log.info( 'Output file: {}'.format( out_file ) );                      # Print the output file location
+    self.__log.info( 'Output file: {}'.format( out_file ) );                    # Print the output file location
     if os.path.exists( out_file ):                                              # IF the output file already exists
       if not os.path.exists( prog_file ):                                       # If the inprogress file does NOT exists, then conversion completed in previous attempt
-        self.__log.info('Output file Exists...Skipping!');                        # Print a message
+        self.__log.info('Output file Exists...Skipping!');                      # Print a message
         if self.remove: os.remove( self.in_file );                              # If remove is set, remove the source file
+        if os.path.isfile( self.chapterFile ):                                  # If a .chap file exists
+          try:
+            os.remove( self.chapterFile )                                       # Delete the file
+          except Exception as err:
+            log.error( 'Failed to delete chapter file: {}'.format(err) )        # Log error                                                        
         return False;                                                           # Return to halt the function
       elif self._being_converted( out_file ):                                   # Inprogress file exists, check if output file size is changing
-        self.__log.info('It seems another process is creating the output file')   # The output file size is changing, so assume another process is interacting with it
+        self.__log.info('It seems another process is creating the output file') # The output file size is changing, so assume another process is interacting with it
         return False;
       else:
         msg  = 'It looks like there was a previous attempt to transcode ' + \
                'the file. Re-attempting transcode...' 
-        self.__log.info( msg )                                                    # The output file size is changing, so assume another process is interacting with it
+        self.__log.info( msg )                                                  # The output file size is changing, so assume another process is interacting with it
         os.remove( out_file )                                                   # Delete the output file for another tyr
 
     open(prog_file, 'a').close()                                                # Touch inprogress file, acts as a kind of lock
