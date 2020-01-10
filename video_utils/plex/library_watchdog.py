@@ -7,7 +7,7 @@ from threading import Thread, Event, Lock
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from .. import _sigintEvent, _sigtermEvent
+from .. import isRunning#_sigintEvent, _sigtermEvent
 from ..config import plex_dvr
 
 from .DVRconverter import DVRconverter
@@ -123,7 +123,7 @@ class library_watchdog( FileSystemEventHandler ):
     prev = -1                                                                       # Set previous file size to -1
     curr = os.path.getsize(file)                                                    # Get current file size
     t0   = time.time()                                                              # Get current time
-    while (prev != curr) and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):# While sizes differ
+    while (prev != curr) and isRunning():                                           # While sizes differ
       if timeout and ((time.time() - t0) > timeout): return False                   # Check timeout
       time.sleep(0.5)                                                               # Sleep 0.5 seconds
       prev = curr                                                                   # Set previous size to current size
@@ -190,27 +190,31 @@ class library_watchdog( FileSystemEventHandler ):
     Keywords:
       None.
     '''
-    while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):         # While the kill event is NOT set
+    while isRunning():                                                          # While the kill event is NOT set
       try:                                                                      # Try
         file = self.converting[0]                                               # Get a file from the queue; block for 0.5 seconds then raise exception
       except:                                                                   # Catch exception
         time.sleep(1.0)
       else:
-        self._checkSize( file )                                                 # Wait to make sure file finishes copying/moving
-        if self.script:
-          self.log.info('Running script : {}'.format(self.script) )
-          proc = Popen( [self.script, file], stdout=DEVNULL, stderr=STDOUT )
-          proc.communicate()
-          status = proc.returncode
-          if (status != 0):
-            self.log.error( 'Script failed with exit code : {}'.format(status) )
+        try:
+          self._checkSize( file )                                                 # Wait to make sure file finishes copying/moving
+        except Exception as err:
+          self.log.warning( 'Error checking file, assuming not exist: Error - {}'.format(err) )
         else:
-          try:        
-            status, out_file, info = self.converter.convert( file )             # Convert file 
-          except:
-            self.log.exception('Failed to convert file')
+          if self.script:
+            self.log.info('Running script : {}'.format(self.script) )
+            proc = Popen( [self.script, file], stdout=DEVNULL, stderr=STDOUT )
+            proc.communicate()
+            status = proc.returncode
+            if (status != 0):
+              self.log.error( 'Script failed with exit code : {}'.format(status) )
+          else:
+            try:        
+              status, out_file, info = self.converter.convert( file )             # Convert file 
+            except:
+              self.log.exception('Failed to convert file')
 
-        if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):        # If events not set, remove file from converting list; if either is set, then transcode was likely halted so we want to convert on next run
+        if isRunning():                                                         # If events not set, remove file from converting list; if either is set, then transcode was likely halted so we want to convert on next run
           self.converting.remove( file )                                        # Remove from converting list; this will tirgger update of queue file
  
     with self.__Lock:                                                           # Get lock, set __stop event; we get lock because purgerecordings() may be running and want to wait until it finishes to set __stop event
