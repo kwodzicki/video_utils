@@ -79,6 +79,19 @@ class DVRconverter(comremove, videoconverter):
       srt           = not no_srt)
 
     self.destructive = destructive
+
+  ######################################################################################
+  def _cleanUp(self, *args):
+    '''
+    Method to delete arbitary number of files, catching exceptions
+    '''
+    for arg in args:
+      if os.path.isfile(arg):
+        try:
+          os.remove(arg)
+        except Exception as err:
+          self.log.warning('Failed to delete file: {} --- {}'.format(arg, err))
+
   ######################################################################################
   def convert(self, in_file):
     '''
@@ -93,7 +106,7 @@ class DVRconverter(comremove, videoconverter):
     Inputs:
       in_file  : Path to file to process
     Outputs:
-      Returns status of transocde
+      Returns success of transocde
     Keywords:
       None.
     '''
@@ -101,6 +114,7 @@ class DVRconverter(comremove, videoconverter):
     out_file     = None                                                             # Set out_file to None
     info         = None
     no_remove    = not self.remove                                                  # Set local no_remove value as opposite of remove flag 
+    success      = False                                                            # Default success to bad
     self.in_file = in_file                                                          # Set in_file class attribute; this will trigger mediainfo parsing
 
     self.log.info('Input file: {}'.format( in_file ) )
@@ -110,25 +124,29 @@ class DVRconverter(comremove, videoconverter):
     if (not self.isValidFile()):                                                    # If is NOT a valid file; i.e., video stream size is larger than file size OR found 'overread' errors in file
       self.log.warning('File determined to be invalid, deleting: {}'.format(in_file) )
       no_remove = True                                                              # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
-      if os.path.isfile( in_file ): os.remove( in_file )                            # If infile exists, delete it
+      self._cleanUp( in_file )                                                      # If infile exists, delete it
     else:                                                                           # Is, is a valid file
       file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
       if not file:                                                                  # if the rename fails
-        self.log.critical('Error renaming file');                                   # Log error
-        return 1, out_file, info                                                             # Return from function
+        self.log.critical('Error renaming file: {}'.foramt(in_file))                # Log error
+        return success, out_file, info                                              # Return from function
  
-      status = self.process( file, chapters = not self.destructive )                # Try to remove commercials from video
-      if not status:                                                                # If comremove failed
-        self.log.critical('Error cutting commercials');                             # Log error
-        return 1, out_file, info                                                             # Exit script
-  
-      out_file = self.transcode( file );                                            # Run the transcode
+      success = self.process( file, chapters = not self.destructive )               # Try to remove commercials from video
+      if not success:                                                               # If comremove failed
+        self.log.critical('Error cutting commercials, assuming bad file deleting: {}'.format(in_file) )# Log error
+        no_remove = True                                                            # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
+        self._cleanUp( in_file, file )                                              # If infile or file exists, delete it
+      else:
+        out_file = self.transcode( file );                                          # Run the transcode
 
-      if os.path.isfile( file ):                                                    # If the renamed; i.e., hardlink to original file, exists
-        os.remove( file );                                                          # Delete it
+        self._cleanUp( file )                                                       # If the renamed; i.e., hardlink to original file, exists
 
-      if (self.transcode_status != 0):
-        self.log.critical('Failed to transcode file. Assuming input is bad, will delete')
+        if (self.transcode_success == 0):
+          success = True
+        else:
+          self.log.critical('Failed to transcode file. Assuming input is bad, will delete')
+          no_remove = True                                                          # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
+          self._cleanup( in_file, out_file )                                        # If infile exists, delete it
 
     if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):                # If a file name was returned AND no_remove is False
       args   = ('scan',)                                                            # Set arguements for plexMediaScanner function
@@ -136,12 +154,9 @@ class DVRconverter(comremove, videoconverter):
                 'directory' : os.path.dirname( in_file )}                           # Set keyword arguments for plexMediaScanner function
       plexMediaScanner( *args, **kwargs )
       if not no_remove:                                                             # If no_remove is NOT set, then we want to delete in_file and rescan the directory so original file is removed from Plex
-        try:                                                                        # Try to
-          os.remove( in_file )                                                      # Delete the file
-        except:                                                                     # On exception
-          pass                                                                      # Do nothing
+        self._cleanUp( in_file )                                                    # Delete the file
         if not os.path.isfile( in_file ):                                           # If file no longer exists; if it exists, don't want to run Plex Media Scanner for no reason
           self.log.debug('Original file removed, rescanning: {}'.format(in_file))   # Debug information
           plexMediaScanner( *args, **kwargs )                                       # Run Ple Media Scanner to remove deleted file from library
 
-    return self.transcode_status, out_file, info                                    # Return transcode status, new file path, and info
+    return success, out_file, info                                                   # Return transcode success, new file path, and info
