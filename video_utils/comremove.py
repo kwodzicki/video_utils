@@ -119,7 +119,8 @@ class comremove( subprocManager ):
 #      self.addProc(cmd, stdout = log, stderr = err);
 #    else:
 #      self.addProc(cmd);
-    if not self.wait( timeout = 8 * 3600 ):
+    self.run( block = False )                                                   # Start command but do NOT block until done; next line handles blocking
+    if not self.wait( timeout = 8 * 3600 ):                                     # Wait for 8 hours for comskip to finish; this should be more than enough time
       self.__log.error('comskip NOT finished after 8 hours; killing')
       self.kill()
       
@@ -127,7 +128,7 @@ class comremove( subprocManager ):
       self.__log.info('comskip ran successfully');
       if not os.path.isfile( edl_file ):
         self.__log.warning('No EDL file was created; trying to convert TXT file')
-        edl_file = self.convertTXT( txt_file, edl_file );
+        edl_file = self.convertTXT( txt_file, edl_file )
       for file in [txt_file, logo_file]:
         try:
           os.remove( file );
@@ -329,9 +330,13 @@ class comremove( subprocManager ):
 
   ########################################################
   def convertTXT( self, txt_file, edl_file ):
-    if os.stat(txt_file).st_size == 0:
+    if not os.path.isfile(txt_file):
+      self.__log.error('TXT file does NOT exist!')
+      return None
+    elif os.stat(txt_file).st_size == 0:
       self.__log.warning('TXT file is empty!');
       return None;    
+
     with open(txt_file, 'r') as txt:
       with open(edl_file, 'w') as edl:
         line = txt.readline();

@@ -7,11 +7,11 @@ from threading import Thread, Event, Lock
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from video_utils import _sigintEvent, _sigtermEvent
-from video_utils.config import plex_dvr
+from .. import _sigintEvent, _sigtermEvent
+from ..config import plex_dvr
 
-from video_utils.plex.DVRconverter import DVRconverter
-from video_utils.plex.utils import DVRqueue
+from .DVRconverter import DVRconverter
+from .utils import DVRqueue
 
 class library_watchdog( FileSystemEventHandler ):
   def __init__(self, *args, **kwargs):
@@ -123,7 +123,7 @@ class library_watchdog( FileSystemEventHandler ):
     prev = -1                                                                       # Set previous file size to -1
     curr = os.path.getsize(file)                                                    # Get current file size
     t0   = time.time()                                                              # Get current time
-    while (prev != curr):                                                           # While sizes differ
+    while (prev != curr) and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):# While sizes differ
       if timeout and ((time.time() - t0) > timeout): return False                   # Check timeout
       time.sleep(0.5)                                                               # Sleep 0.5 seconds
       prev = curr                                                                   # Set previous size to current size
