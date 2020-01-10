@@ -35,6 +35,9 @@ def _handle_sigterm(*args, **kwargs):
   _sigtermEvent.set()
   log.error('Caught terminate...')
 
+def isRunning():
+  return (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set())
+
 signal.signal(signal.SIGINT,  _handle_sigint)
 signal.signal(signal.SIGTERM, _handle_sigterm)
 

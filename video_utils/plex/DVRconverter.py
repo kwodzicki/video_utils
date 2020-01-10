@@ -1,7 +1,7 @@
 import logging
 import os
 
-from .. import _sigintEvent, _sigtermEvent
+from .. import isRunning#_sigintEvent, _sigtermEvent
 from ..comremove import comremove
 from ..videoconverter import videoconverter
 from ..utils.ffmpeg_utils import checkIntegrity
@@ -133,6 +133,7 @@ class DVRconverter(comremove, videoconverter):
  
       success = self.process( file, chapters = not self.destructive )               # Try to remove commercials from video
       if not success:                                                               # If comremove failed
+        if not isRunning(): return success, out_file, info
         self.log.critical('Error cutting commercials, assuming bad file deleting: {}'.format(in_file) )# Log error
         no_remove = True                                                            # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
         self._cleanUp( in_file, file )                                              # If infile or file exists, delete it
@@ -141,14 +142,15 @@ class DVRconverter(comremove, videoconverter):
 
         self._cleanUp( file )                                                       # If the renamed; i.e., hardlink to original file, exists
 
-        if (self.transcode_success == 0):
+        if (self.transcode_status == 0):
           success = True
         else:
+          if not isRunning(): return success, out_file, info
           self.log.critical('Failed to transcode file. Assuming input is bad, will delete')
           no_remove = True                                                          # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
           self._cleanup( in_file, out_file )                                        # If infile exists, delete it
 
-    if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):                # If a file name was returned AND no_remove is False
+    if isRunning():#(not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):                # If a file name was returned AND no_remove is False
       args   = ('scan',)                                                            # Set arguements for plexMediaScanner function
       kwargs = {'section'   : 'TV Shows',
                 'directory' : os.path.dirname( in_file )}                           # Set keyword arguments for plexMediaScanner function
