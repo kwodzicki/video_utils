@@ -5,10 +5,10 @@ from subprocess import Popen, STDOUT, DEVNULL
 
 from xml.etree import ElementTree as ET
 
-from video_utils.utils.checkCLI import checkCLI
+from ..utils.checkCLI import checkCLI
 
 try:                                                                        # Try to...
-    from video_utils.videotagger.metadata.getMetaData import getMetaData;   # Import getMetaData function from makemkv_to_mp4
+    from .metadata.getMetaData import getMetaData                           # Import getMetaData function from makemkv_to_mp4
 except:                                                                     # On exception...
     getMetaData = None
  

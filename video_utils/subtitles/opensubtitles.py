@@ -8,7 +8,7 @@ from base64 import standard_b64decode;
 from zlib import decompress;
 from xmlrpc.client import ServerProxy;
 
-from video_utils.config import opensubtitles as opensubs_config
+from ..config import opensubtitles as opensubs_config
   
 ext = ('.avi', '.m4v', '.mp4', '.mkv', '.mpeg', '.mov', '.wmv');                # List of some common video extensions
 

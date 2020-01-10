@@ -1,11 +1,10 @@
-#!/usr/bin/env python
-import logging;
-import os, sys, re;
-from urllib.request import urlopen;
-from mutagen import mp4;
+import logging
+import os, sys, re
+from urllib.request import urlopen
+from mutagen import mp4
 
 try:                                                                            # Try to...
-  from video_utils.videotagger.metadata.getMetaData import getMetaData;         # Import getMetaData function from makemkv_to_mp4
+  from .metadata.getMetaData import getMetaData                                 # Import getMetaData function from makemkv_to_mp4
 except:                                                                         # On exception...
   getMetaData = None                                                            # Set getMetaData to None
 	

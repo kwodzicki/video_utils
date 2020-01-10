@@ -1,10 +1,10 @@
-import logging;
-import os, time, re;
-import numpy as np;
-from datetime import datetime, timedelta;
-from subprocess import Popen, PIPE, STDOUT;
+import logging
+import os, time, re
+import numpy as np
+from datetime import datetime, timedelta
+from subprocess import Popen, PIPE, STDOUT
 
-from video_utils import _sigintEvent, _sigtermEvent
+from .. import _sigintEvent, _sigtermEvent
 
 _progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' );                     # Regex pattern for locating file duration in ffmpeg ouput 
 _durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' );                # Regex pattern for locating file processing location

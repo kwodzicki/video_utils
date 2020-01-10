@@ -1,6 +1,6 @@
-import logging;
-import stat, os;
-from video_utils.config import lib_path 
+import logging
+import stat, os
+from .config import lib_path 
 
 '''Settings for screen logger and file logger'''
 screenFMT  = { 

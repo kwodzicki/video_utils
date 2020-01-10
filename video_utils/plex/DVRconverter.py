@@ -1,14 +1,14 @@
 import logging
 import os
 
-from video_utils import _sigintEvent, _sigtermEvent
-from video_utils.comremove import comremove
-from video_utils.videoconverter import videoconverter
+from .. import _sigintEvent, _sigtermEvent
+from ..comremove import comremove
+from ..videoconverter import videoconverter
+from ..utils.ffmpeg_utils import checkIntegrity
 
-from video_utils.plex.plexMediaScanner import plexMediaScanner
-from video_utils.plex.utils import plexDVR_Rename
+from .plexMediaScanner import plexMediaScanner
+from .utils import plexDVR_Rename
 
-from video_utils.utils.ffmpeg_utils import checkIntegrity
 
 class DVRconverter(comremove, videoconverter): 
   '''

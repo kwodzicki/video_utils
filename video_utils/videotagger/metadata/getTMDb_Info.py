@@ -1,20 +1,20 @@
-import logging;
-import json;
+import logging
+import json
 
 
-from urllib.request import urlopen;
+from urllib.request import urlopen
 
 try:
-  from video_utils.api_keys import tmdb as tmdb_key;       # Attempt to import the API key from the api_keys module
+  from ...api_keys import tmdb as tmdb_key                  # Attempt to import the API key from the api_keys module
 except:
-  tmdb_key = os.environ.get('TMDB_API_KEY', None);         # On exception, try to get the API key from the TMDB_API_KEY environment variable
+  tmdb_key = os.environ.get('TMDB_API_KEY', None)         # On exception, try to get the API key from the TMDB_API_KEY environment variable
 
 if not tmdb_key:
   msg = "API key for TMDb could NOT be imported!";
   logging.getLogger(__name__).error( msg );
   raise Exception( msg );
 
-from video_utils.config import TMDb as TMDb_config;
+from ...config import TMDb as TMDb_config
 
 ###
 def parseRating( rating ):

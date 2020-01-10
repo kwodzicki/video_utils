@@ -1,9 +1,9 @@
-import logging;
-import os, re;
-from datetime import timedelta;
-from subprocess import Popen, PIPE, STDOUT, DEVNULL;
+import logging
+import os, re
+from datetime import timedelta
+from subprocess import Popen, PIPE, STDOUT, DEVNULL
 
-from video_utils.utils.checkCLI import checkCLI
+from .utils.checkCLI import checkCLI
 
 try:
   checkCLI( 'comskip' )
@@ -11,7 +11,8 @@ except:
   logging.getLogger(__name__).error( "comskip is NOT installed or not in your PATH!" )
   raise 
 
-from video_utils.utils.subprocManager import subprocManager;
+from .utils.subprocManager import subprocManager;
+
 # Following code may be useful for fixing issues with audio in
 # video files that cut out
 # ffmpeg -copyts -i "concat:in1.ts|in2.ts" -muxpreload 0 -muxdelay 0 -c copy joint.ts

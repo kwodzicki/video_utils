@@ -2,7 +2,7 @@ import logging
 import os, re 
 from subprocess import check_output, Popen, PIPE, STDOUT, DEVNULL
 
-from video_utils.plex.utils import getPlexMediaScanner, getPlexLibraries
+from .utils import getPlexMediaScanner, getPlexLibraries
 
 try:
   _scanner, _env = getPlexMediaScanner();                                           # Attempt to get Plex Media Scanner command

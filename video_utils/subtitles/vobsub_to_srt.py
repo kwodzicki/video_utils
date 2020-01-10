@@ -1,8 +1,8 @@
 import logging
 import os, time
-from subprocess import Popen, DEVNULL, STDOUT;
+from subprocess import Popen, DEVNULL, STDOUT
 
-from video_utils.utils.checkCLI import checkCLI
+from ..utils.checkCLI import checkCLI
 
 try:
   checkCLI( 'vobsub2srt' )
@@ -10,7 +10,7 @@ except:
   logging.getLogger(__name__).warning( 'vobsub2srt is NOT installed' )
   raise
 
-from video_utils.utils.subprocManager import subprocManager;
+from ..utils.subprocManager import subprocManager;
 from .srt_cleanup import srt_cleanup;
 
 def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, threads = None ):

@@ -1,9 +1,9 @@
-import logging;
-import re;
-import subprocess as subproc;
-from xml.etree import ElementTree as ET;
+import logging
+import re
+import subprocess as subproc
+from xml.etree import ElementTree as ET
 
-from video_utils.audio.DolbyDownmix import getDownmixFilter;
+from .audio.DolbyDownmix import getDownmixFilter
 
 cmd  = ['mediainfo', '--version']
 proc = subproc.Popen( cmd, stdout = subproc.PIPE, stderr = subproc.PIPE );

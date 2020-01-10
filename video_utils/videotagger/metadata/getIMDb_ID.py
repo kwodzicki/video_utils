@@ -1,10 +1,10 @@
-import logging;
+import logging
 import os, re, time
-from imdb import IMDb;
+from imdb import IMDb
 
-TVDb = None;                                                                    # Set tvdb to None
+TVDb = None                                                                     # Set tvdb to None
 try:
-  from video_utils.api_keys import tvdb as tvdb_key;                            # Attempt to import the API key from the api_keys module
+  from ...api_keys import tvdb as tvdb_key                                      # Attempt to import the API key from the api_keys module
 except:
   tvdb_key = os.environ.get('TVDB_API_KEY', None);                              # On exception, try to get the API key from the TVDB_API_KEY environment variable
 

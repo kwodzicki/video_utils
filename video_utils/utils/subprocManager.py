@@ -4,8 +4,8 @@ from subprocess import Popen, STDOUT, DEVNULL
 from threading import Thread, Event
 from multiprocessing import cpu_count
 
-from video_utils import _sigintEvent, _sigtermEvent                             # Import kill event
-from video_utils.utils.checkCLI import checkCLI
+from .. import _sigintEvent, _sigtermEvent                             # Import kill event
+from ..utils.checkCLI import checkCLI
 
 nthreads = cpu_count() // 2                                                     # Set global nthreads as half the number of cpus
 

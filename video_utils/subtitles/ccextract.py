@@ -2,7 +2,7 @@ import logging
 import os
 from subprocess import Popen, STDOUT, DEVNULL
 
-from video_utils.utils.checkCLI import checkCLI
+from ..utils.checkCLI import checkCLI
 
 try:
   checkCLI( 'ccextractor' )

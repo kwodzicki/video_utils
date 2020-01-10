@@ -1,9 +1,9 @@
-import logging;
-import os, re, time, pickle;
+import logging
+import os, re, time, pickle
 from threading import Lock
 from subprocess import check_output, Popen, PIPE, STDOUT, DEVNULL
 
-from video_utils.videotagger.metadata.getIMDb_ID import getIMDb_ID;
+from ..videotagger.metadata.getIMDb_ID import getIMDb_ID
 
 _plex_server  = 'Plex Media Server';                                            # Name of the Plex server command
 _plex_scanner = 'Plex Media Scanner';                                           # Name of the Plex scanner command

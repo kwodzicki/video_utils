@@ -2,7 +2,7 @@ import logging;
 import os
 from subprocess import call, check_output, DEVNULL, STDOUT;
 
-from video_utils.utils.checkCLI import checkCLI
+from ..utils.checkCLI import checkCLI
 
 try:
   checkCLI( 'mkvextract' )

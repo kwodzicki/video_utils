@@ -1,32 +1,33 @@
 # Built-in imports
-import logging;
-import os, re, time;
-from datetime import datetime;
-from subprocess import PIPE, STDOUT;
+import logging
+import os, re, time
+from datetime import datetime
+from subprocess import PIPE, STDOUT
 
 # Parent classes
-from .mediainfo import mediainfo;
-from .utils.ffmpeg_utils   import cropdetect, progress;
-from .utils.subprocManager import subprocManager;
+from . import _sigintEvent, _sigtermEvent
+from .mediainfo import mediainfo
+from .utils.ffmpeg_utils   import cropdetect, progress
+from .utils.subprocManager import subprocManager
 
 # Subtitle imports
-from .subtitles.opensubtitles import opensubtitles;
+from .subtitles.opensubtitles import opensubtitles
 try:
-  from .subtitles.vobsub_extract import vobsub_extract;
+  from .subtitles.vobsub_extract import vobsub_extract
 except:
-  vobsub_extract = None;
+  vobsub_extract = None
 try:
-  from .subtitles.vobsub_to_srt import vobsub_to_srt;
+  from .subtitles.vobsub_to_srt import vobsub_to_srt
 except:
-   vobsub_to_srt = None;
+   vobsub_to_srt = None
 try:
-  from .subtitles.ccextract import ccextract;
+  from .subtitles.ccextract import ccextract
 except:
-   ccextract = None;
+   ccextract = None
 
 # Metadata imports
-from .videotagger.metadata.getMetaData import getMetaData;
-from .videotagger.mp4Tags import mp4Tags;
+from .videotagger.metadata.getMetaData import getMetaData
+from .videotagger.mp4Tags import mp4Tags
 try:
     from .videotagger.mkvTags import mkvTags
 except:
@@ -34,8 +35,6 @@ except:
 
 # Logging formatter
 from ._logging import fileFMT;
-
-from video_utils import _sigintEvent, _sigtermEvent
 
 _sePat = re.compile( r'[sS]\d{2,}[eE]\d{2,} - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 

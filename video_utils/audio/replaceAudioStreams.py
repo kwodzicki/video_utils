@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-import os, shutil, subprocess, psutil;
-from threading import Thread;
-from datetime import timedelta;
-from time import sleep;
+import os, shutil, subprocess, psutil
+from threading import Thread
+from datetime import timedelta
+from time import sleep
 
-from video_utils.mediainfo import mediainfo;
-from video_utils.videotagger.metadata.getMetaData  import getMetaData
-from video_utils.videotagger.mp4Tags import mp4Tags;
+from ..mediainfo import mediainfo
+from ..videotagger.metadata.getMetaData  import getMetaData
+from ..videotagger.mp4Tags import mp4Tags
 
-from video_utils.audio.audioDelay import audioDelay;
-from video_utils.audio.DolbyDownmix  import DolbyDownmix;
+from .audioDelay import audioDelay
+from .DolbyDownmix  import DolbyDownmix
 
 ################################################################################
 def extractAudio( info, inFile, outDir, result, time = None ):
