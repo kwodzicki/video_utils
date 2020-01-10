@@ -119,8 +119,10 @@ class comremove( subprocManager ):
 #      self.addProc(cmd, stdout = log, stderr = err);
 #    else:
 #      self.addProc(cmd);
-    self.run();
-
+    if not self.wait( timeout = 8 * 3600 ):
+      self.__log.error('comskip NOT finished after 8 hours; killing')
+      self.kill()
+      
     if sum(self.returncodes) == 0:
       self.__log.info('comskip ran successfully');
       if not os.path.isfile( edl_file ):
