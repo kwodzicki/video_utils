@@ -210,7 +210,7 @@ class library_watchdog( FileSystemEventHandler ):
               self.log.error( 'Script failed with exit code : {}'.format(status) )
           else:
             try:        
-              status, out_file, info = self.converter.convert( file )             # Convert file 
+              status, out_file = self.converter.convert( file )                 # Convert file 
             except:
               self.log.exception('Failed to convert file')
 

@@ -208,7 +208,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
 
 
   ################################################################################
-  def transcode( self, in_file, log_file = None ):
+  def transcode( self, in_file, log_file = None, metaData = None ):
     '''
     Name:
        transcode
@@ -244,6 +244,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
        to signal any errors.
     Keywords:
        log_file  : File to write logging information to
+       metaData  : Pass in result from previous call to getMetaData
     Return codes:
         0 : Everything finished cleanly
        10 : No video OR no audio streams
@@ -288,7 +289,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
 
     _sigintEvent.clear()                                                        # Clear the 'global' kill event that may have been set by SIGINT
     self._createdFiles = []                                                     # Reset created files list
-    if not self.file_info( in_file ): return False;                             # If there was an issue with the file_info function, just return
+    if not self.file_info( in_file, metaData = metaData ): return False         # If there was an issue with the file_info function, just return
     self._init_logger( log_file );                                              # Run method to initialize logging to file
     if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
       self.__log.critical('No video or no audio, transcode cancelled!');        # Print log message
@@ -482,7 +483,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
       self.__log.warning('Metadata tagging disabled!!!');                              # If mp4tags attribute is False, print message
 
   ##############################################################################
-  def file_info( self, in_file ):
+  def file_info( self, in_file, metaData = None):
     '''
     Function to extract some information from the input file name and set up
     some output file variables.
@@ -520,7 +521,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
       self.__log.warning('Failed to parse file name, metadata tagging will fail')
       self.IMDb  = None
     
-    self._metaData()
+    self._metaData( metaData = metaData )
     self.__log.info('Getting video, audio, information...');                      # If verbose is set, print some output
 
     self.video_info = self.get_video_info( x265 = self.x265 );                  # Get and parse video information from the file
@@ -687,7 +688,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
     self._create_dirs();                                                        # Create all output directories
 
   ###################################################################
-  def _metaData(self):
+  def _metaData(self, metaData = None):
     ''''
     Name:
       _metaData
@@ -705,7 +706,10 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
     self.metaKeys = None;                                                       # Default metaKeys to None;
  
     if (self.IMDb is not None) and (self.IMDb[:2] == 'tt') and self.tagging:
-      self.metaData = getMetaData( self.IMDb );
+      if not metaData: 
+        self.metaData = getMetaData( self.IMDb );
+      else:
+        self.metaData = metaData
       self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
       if len(self.metaKeys) == 0:                                               # If no keys returned
         self.__log.warning('Failed to download metadata for file!!!');

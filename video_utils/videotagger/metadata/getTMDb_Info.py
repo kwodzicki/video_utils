@@ -1,8 +1,4 @@
 import logging
-import json
-
-
-from urllib.request import urlopen
 
 try:
   from ...api_keys import tmdb as tmdb_key                  # Attempt to import the API key from the api_keys module
@@ -14,6 +10,8 @@ if not tmdb_key:
   logging.getLogger(__name__).error( msg );
   raise Exception( msg );
 
+import requests
+import time
 from ...config import TMDb as TMDb_config
 
 ###
@@ -51,26 +49,38 @@ def parseRelease( release ):
           return year, mpaa;                                                    # Return the year and rating to break the loop
   return year, mpaa;                                                            # Return the year and rating        
 ###
-def downloadInfo( url, external = False, attempts = 3 ):
+def downloadInfo( url, **kwargs ):
   '''Function to download and parse json data from the API'''
-  attempt = 0;                                                                  # Initialize attempt to zero (0)
-  url += ('&' if external else '?') + 'api_key=' + tmdb_key;                    # Append the API key to the url
-  
-  while attempt < attempts:                                                     # While attempt is less than attempts
+  log     = logging.getLogger(__name__)
+  retries = kwargs.pop('retries', 3)
+  attempt = 0                                                                   # Initialize attempt to zero (0)
+  json    = None
+  if ('api_key' not in kwargs): kwargs['api_key'] = tmdb_key
+    
+  while attempt < retries:                                                      # While attempt is less than retries 
     try:                                                                        # Try;
-      response = urlopen( url ).read();                                         # Get the JSON response from the URL
+      response = request.get( url, params=kwargs)                               # Get the JSON response from the URL
     except:                                                                     # On exceptiong
-      attempt += 1;                                                             # Increment attempt
+      attempt += 1                                                              # Increment attempt
+      time.sleep( 0.01 )
     else:                                                                       # If try was successful
       break;                                                                    # Break the while loop if the line above did NOT raise exception
-  if attempt == attempts:                                                       # If the attempt is equal to the maximum number of attempts
+  if attempt == retries:                                                        # If the attempt is equal to the maximum number of retries 
     log.warning('Failed to access themoviedb.org API!!!');                      # Log a warning
     return None;                                                                # Return None
-  if type(response) is not str: response = str(response, 'utf-8');              # Convert response to a string
-  return json.loads( response );                                                # Parse the response and return it
+  else:
+    try:
+      json = response.json()
+    except:
+      log.warning('Failed to get JSON from API')
+    try:
+      response.close()
+    except:
+      pass
+  return json                                                                   # Parse the response and return it
 
 ##################
-def getTVInfo( info, attempts = 3 ):
+def getTVInfo( info, retries = 3 ):
   '''Function to get information about TV Episodes/series'''
   log = logging.getLogger(__name__);
   if 'season_number'  not in info or \
@@ -86,7 +96,7 @@ def getTVInfo( info, attempts = 3 ):
 
   # Work on series information
   url    = TMDb_config['urlSeries'].format( show_id );                          # Set series info URL
-  series = downloadInfo( url, attempts = attempts );                            # Get series info
+  series = downloadInfo( url, retries = retries );                            # Get series info
   if series is None:                                                            # If downloadInfo returned None
     log.warning('Failed to get series information!');                           # Log a warning
   else:                                                                         # Else...
@@ -100,7 +110,7 @@ def getTVInfo( info, attempts = 3 ):
   if 'seriesName' not in outData: return {};                                    # If the 'seriesName' tag is NOT in the dictionary by now, just return
 
   # Work on rating information
-  rating = downloadInfo( url + '/content_ratings', attempts = attempts );       # Attempt to download rating information
+  rating = downloadInfo( url + '/content_ratings', retries=retries );       # Attempt to download rating information
   if rating is None:
     log.warning('Failed to get rating information!');
   else:
@@ -109,7 +119,7 @@ def getTVInfo( info, attempts = 3 ):
 
   # Work on some episode specific information
   url     = TMDb_config['urlEpisode'].format(show_id, season, episode);         # Set URL for episode data download
-  episode = downloadInfo( url, attempts = attempts );                           # Download some episode data
+  episode = downloadInfo( url, retries = retries);                           # Download some episode data
   if episode is None:                                                           # If downloadInfo return None
     log.warning('Failed to get episode information!');                          # Log an error
   else:                                                                         # Else...
@@ -126,7 +136,7 @@ def getTVInfo( info, attempts = 3 ):
       log.warning('No crew information for the episode...');                    # Log a warning
     outData.update( episode );
   # Work on credits information
-  credits = downloadInfo( url + '/credits', attempts = attempts );              # Download episode credits
+  credits = downloadInfo( url + '/credits', retries = retries );              # Download episode credits
   if credits is None:
     log.warning('Failed to get credits information');                           # Log an error
   else:
@@ -138,14 +148,14 @@ def getTVInfo( info, attempts = 3 ):
   return outData;
 
 ###################################################################
-def getMovieInfo( info, attempts = 3 ):
+def getMovieInfo( info, retries = 3 ):
   '''Function to get information about Movies'''
   log = logging.getLogger(__name__);
   outData = {}
   url     = TMDb_config['urlMovie'].format(info['id']);                         # Set URL for movie
 
   # Work on movie base information
-  data = downloadInfo( url, attempts = attempts );                              # Get the movie data
+  data = downloadInfo( url, retries = retries );                              # Get the movie data
   if data is None:
     log.warning('Failed to get movie base information');
   else:
@@ -159,7 +169,7 @@ def getMovieInfo( info, attempts = 3 ):
       outData['production companies'] = data['production_companies'];
 
   # Work on movie credit information
-  credits = downloadInfo( url + '/credits', attempts = attempts );              # Download credits 
+  credits = downloadInfo( url + '/credits', retries = retries );              # Download credits 
   if credits is None:                                                           # If None is returned from downloadInfo
     log.warning('Failed to get movie credit information');                      # Log a warning
   else:                                                                         # Else, something must have downloaded
@@ -175,7 +185,7 @@ def getMovieInfo( info, attempts = 3 ):
       log.warning('No cast information in the credits...');                     # Log a warning
 
   # Work on movie release information
-  release = downloadInfo( url + '/release_dates', attempts = attempts );        # Download release information
+  release = downloadInfo( url + '/release_dates', retries = retries );        # Download release information
   if release is None:                                                           # If None is returned from downloadInfo
     log.warning('Failed to get movie release information');                     # Log a warning
   else:
@@ -186,7 +196,7 @@ def getMovieInfo( info, attempts = 3 ):
   return outData;                                                               # Return the data
 
 ###################################################################
-def getTMDb_Info(IMDb_ID, attempts = None, logLevel = 30):
+def getTMDb_Info(IMDb_ID, retries = 3, logLevel = 30):
   '''
   Name:
     getTMDb_Info
@@ -204,21 +214,22 @@ def getTMDb_Info(IMDb_ID, attempts = None, logLevel = 30):
       function are not downloading the same data.
   '''
   log = logging.getLogger(__name__);                                            # Initialize a logger
-  if not attempts: attempts = 3;
 #   if logLevel is None: logLevel = logging.INFO;                                 # Set the default logging level
 #   log.setLevel( logLevel );                                                     # Actually set the logging level
   tmdb = TMDb( IMDb_ID );                                                       # Initialize instance of the TMDb class
   movie, tv = False, False;                                                     # Initialize movie and tv variables to False
 
   log.info('Attempting to get information from themoviedb.org...');             # Log some information
-  info = downloadInfo( TMDb_config['urlFind'].format(IMDb_ID), True, attempts );# Search themoviedb.org using the IMDb ID
+  info = downloadInfo( TMDb_config['urlFind'].format(IMDb_ID), 
+      external_source='imdb_id', retries = retries
+  )                                                                             # Search themoviedb.org using the IMDb ID
   if info is None:                                                              # If no information was return, then there was an issue
     log.warning('Failed to find matching content on themoviedb.org!');          # Log a warning message
   elif 'movie_results' in info and 'tv_episode_results' in info:                # Else, if the two keys are in the dictionary
     if len(info['movie_results']) == 1:                                         # If the length of movie results is one (1)
-      movie = getMovieInfo(info['movie_results'][0], attempts);                 # Parse the movie data
+      movie = getMovieInfo(info['movie_results'][0], retries);                 # Parse the movie data
     if len(info['tv_episode_results']) == 1:                                    # Else, if the length of tv/episode results is one (1)
-      tv = getTVInfo(info['tv_episode_results'][0], attempts);                  # Parse the episode data
+      tv = getTVInfo(info['tv_episode_results'][0], retries);                  # Parse the episode data
     if (movie and tv) or tv:                                                    # If both movie and TV data returned OR just TV data returned, assume TV
       tmdb.data['is_episode'] = True;                                           # Set is episod to Ture
       tmdb.data.update( tv );                                                   # Update the tmdb.data with the TV information
@@ -244,7 +255,7 @@ class TMDb( object ):
     '''Return a list of valid keys.'''
     return list( self.data.keys() )
   def has_key(self, key):
-    """Return true if a given section is defined."""
+    '''Return true if a given section is defined.'''
     try:
       self.__getitem__(key)
     except KeyError:
@@ -254,7 +265,7 @@ class TMDb( object ):
     '''Return the IMDb ID in the same convesion as is used in IMDbPY'''
     return self.IMDb_ID.replace('tt','');
   def set_item(self, key, item):
-    """Directly store the item with the given key."""
+    '''Directly store the item with the given key.'''
     self.data[key] = item
   def update(self, new_data):
     '''Update the data dictionary with the new_data'''
@@ -263,5 +274,5 @@ class TMDb( object ):
     '''Return the value for a given key.'''
     return self.data[key]
   def __contains__(self, input):
-    """Return true if self.data contains input."""
+    '''Return true if self.data contains input.'''
     return input in self.data;

@@ -11,8 +11,9 @@ _plex_scanner = 'Plex Media Scanner';                                           
 _pgrep          = ['pgrep', '-fa', _plex_server];                               # Command for getting information about runnin Plex Server, if any
 _LD_pattern     = re.compile( r'(?:LD_LIBRARY_PATH=([\w\d\S]+))' );             # Pattern for finding LD_LIBRARY_PATH in command
 _splt_pattern   = re.compile( r'(?:([^"\s]\S*)|"(.+?)")' );                     # Pattern for spliting output of the pgrep command
-_se_pattern     = re.compile( r'([sS]\d{2,}[eE]\d{2,})' );                      # Pattern for locating season/episode numbering
+_se_pattern     = re.compile( r'[sS](\d{2,})[eE](\d{2,})' );                    # Pattern for locating season/episode numbering
 _season_pattern = re.compile( r'(?:[sS](\d+)[eE]\d+)' );                        # Pattern for extracting season number from season/episode numbering      
+_year_paatern   = re.compile( r'\(([0-9]{4})\)' );                                      # Pattern for finding yea
 
 ################################################################################
 def plexDVR_Scan( recorded, no_remove = False, movie = False ):
@@ -146,13 +147,36 @@ def plexFile_Info( in_file ):
 
   fileBase          = os.path.basename( in_file );                              # Get base name of input file
   fname, ext        = os.path.splitext( fileBase )
+
+  title    = None
+  year     = None
+  seasonEp = None
+  episode  = fname
+
   try:
-    series, se, title = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
+    title, seasonEp, episode = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
   except:
-    series = ''
-    se     = ''
-    title  = fname
-  return series, se, title, ext
+    log.warning('Error splitting file name, does it match Plex convention?')
+  else:
+    year = _year_pattern.findall( title )                                               # Try to find year in series name
+    if (len(year) == 1):                                                                # If year found
+      year  = int( year[0] )                                                            # Set year
+      title = _year_pattern.sub('', title)                                              # Remove year for series name
+    else:
+      year = None
+    title = title.strip()                                                               # Strip any leading/trailing spaces from series title
+
+    try:
+      seasonEp = _se_pattern.findall( seasonEp )[0]
+    except:
+      seasonEp = None
+    else:
+      if (len(seasonEp) == 2):
+        seasonEp = [int(i) for i in seasonEp] 
+      else:
+        seasonEp = None
+
+  return title, year, seasonEp, episode, ext
 
 ################################################################################
 def plexDVR_Rename( in_file, hardlink = True ):
@@ -170,21 +194,25 @@ def plexDVR_Rename( in_file, hardlink = True ):
     hardlink  : Boolean, if set to True, will rename input file, else
                creates hard link to file. Default is to hard link
   '''
-  log                    = logging.getLogger(__name__);
-  fileDir                = os.path.dirname(  in_file );
-  series, se, title, ext = plexFile_Info( in_file );
+  log     = logging.getLogger(__name__)
+  fileDir = os.path.dirname(  in_file )
+  title, year, seasonEp, episode, ext = plexFile_Info( in_file )
 
-  if len( _se_pattern.findall(se) ) != 1:
+  if not seasonEp:
     log.warning( 'Season/episode info NOT found; may be date? Things may break' );
 
   log.debug('Attempting to get IMDb ID')
-  imdbId = getIMDb_ID( series, title, season_ep = se );                         # Try to get IMDb id
+  info = getMetaData( title=title, year=year, episode=episode, seasonEp=seasonEp )    # Try to get IMDb id
 
-  if not imdbId: 
+  try:
+    IMDbID = info.getID()
+  except:
     log.warning( 'No IMDb ID! Renaming file without it')
-    imdbId = '';                                                                # If no IMDb id found, set imdbId to emtpy string
+    IMDbID = ''
+  if IMDbID:
+    if (IMDbID[:2] != 'tt'): IMDbID = 'tt{}'.format(IMDbID)
 
-  new = '{} - {}.{}{}'.format(se.lower(), title, imdbId, ext);                  # Build new file name
+  new = '{} - {}.{}{}'.format(se.lower(), title, IMDbID, ext);                  # Build new file name
   new = os.path.join( fileDir, new );                                           # Build new file path
   if hardlink:
     log.debug( 'Creating hard link to input file' )
@@ -200,7 +228,7 @@ def plexDVR_Rename( in_file, hardlink = True ):
   else:
     log.debug( 'Renaming input file' )
     os.replace( in_file, new );                                                  # Rename the file, overwiting destination if it exists
-  return new, (series, se, title);
+  return new, info
 
 ################################################################################
 class DVRqueue( list ):

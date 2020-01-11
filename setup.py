@@ -17,7 +17,7 @@ setuptools.setup(
   packages         = setuptools.find_packages(),
   install_requires = [ "mutagen", "imdbpy", "tvdbsimple",
                        "soundfile", "numpy", "scipy",
-                       "psutil", "watchdog"],
+                       "requests", "psutil", "watchdog"],
   scripts          = ['bin/comremove',
                       'bin/mp4tagger',
                       'bin/MakeMKV_Watchdog',

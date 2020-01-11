@@ -84,7 +84,7 @@ def TVDb_Search(series_name, year, episode_title, season = None, episode = None)
   log.warning( 'TVDb search failed' );
   return None 
 
-def IMDb_Search(series_name, year, episode_title, season = None, episode = None):
+def IMDb_Search(series_name, series_year, episode_title, season = None, episode = None):
   '''
   Name:
     IMDb_Search
@@ -92,7 +92,7 @@ def IMDb_Search(series_name, year, episode_title, season = None, episode = None)
     To search IMDb to get the IMDb id
   Inputs:
     series_name   : Name of the series
-    year          : Year series started
+    series_year   : Year series started
     episode_title : Title of the episode
   Keywords:
     season        : Integer for season number
@@ -108,9 +108,9 @@ def IMDb_Search(series_name, year, episode_title, season = None, episode = None)
   for r in res:                                                                 # Iterate over all the results from IMDb
     if r['kind'].lower() == 'tv series':                                        # If object is a tv series 
       log.debug('Found series with matching name');
-      if 'year' in r and year:                                                  # If the 'series year' key is in the result AND the local year is defined
+      if ('year' in r) and series_year:                                         # If the 'series year' key is in the result AND the local year is defined
         log.debug('Series has year information');
-        if r['year'] != year: 
+        if (r['year'] != series_year): 
           log.debug('Series year did NOT match');
           continue;                                                             # If the result series year NOT match the local series year, skip series
 
@@ -163,16 +163,16 @@ def getIMDb_ID( series_name, episode_title, season_ep = None ):
   '''
   log = logging.getLogger(__name__);                                            # Initialize logger
   
-  year = yearPat.findall( series_name );                                        # Try to find a year in the series name
-  if len(year) == 1:                                                            # If found a year
-    year   = int(year[0]);                                                      # Get year from list
+  series_year = yearPat.findall( series_name );                                 # Try to find a year in the series name
+  if len(series_year) == 1:                                                     # If found a year
+    series_year = int(series_year[0]);                                          # Get year from list
     series_name = yearPat.sub('', series_name);                                 # Replace year in the series name with nothing
   else:                                                                         # Else
-    year   = None;                                                              # Set year equal to None
+    series_year   = None;                                                       # Set year equal to None
   series_name = series_name.strip();                                            # Remove leading/trailing spaces
   log.debug(
     'Series: {}, Year: {}, Ep #: {}, Title: {}'.format(
-      series_name, year, season_ep, episode_title)
+      series_name, series_year, season_ep, episode_title)
   )
 
   try:
@@ -183,7 +183,7 @@ def getIMDb_ID( series_name, episode_title, season_ep = None ):
     season  = int(season)
     episode = int(episode)
 
-  imdbId = TVDb_Search(series_name, year, episode_title, season=season, episode=episode)    # Try to get id from TVDb
+  imdbId = TVDb_Search(series_name, series_year, episode_title, season=season, episode=episode)    # Try to get id from TVDb
   if imdbId:                                                                                # If got id
     return imdbId                                                                           # Return ID
-  return IMDb_Search(series_name, year, episode_title, season=season, episode=episode)      # Just return output from IMDb_Search
+  return IMDb_Search(series_name, series_year, episode_title, season=season, episode=episode)      # Just return output from IMDb_Search

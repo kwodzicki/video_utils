@@ -12,7 +12,7 @@ TMDb = {
   'urlBase'    : 'https://api.themoviedb.org/3/',
   'urlImage'   : 'http://image.tmdb.org/t/p/original/',
 };
-TMDb['urlFind']    = TMDb['urlBase'] + 'find/{}?external_source=imdb_id';
+TMDb['urlFind']    = TMDb['urlBase'] + 'find/{}';
 TMDb['urlMovie']   = TMDb['urlBase'] + 'movie/{}';
 TMDb['urlSeries']  = TMDb['urlBase'] + 'tv/{}';
 TMDb['urlEpisode'] = TMDb['urlBase'] + 'tv/{}/season/{}/episode/{}';

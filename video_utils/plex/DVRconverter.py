@@ -129,23 +129,23 @@ class DVRconverter(comremove, videoconverter):
       file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
       if not file:                                                                  # if the rename fails
         self.log.critical('Error renaming file: {}'.foramt(in_file))                # Log error
-        return success, out_file, info                                              # Return from function
+        return success, out_file                                                    # Return from function
  
       success = self.process( file, chapters = not self.destructive )               # Try to remove commercials from video
       if not success:                                                               # If comremove failed
-        if not isRunning(): return success, out_file, info
+        if not isRunning(): return success, out_file
         self.log.critical('Error cutting commercials, assuming bad file deleting: {}'.format(in_file) )# Log error
         no_remove = True                                                            # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
         self._cleanUp( in_file, file )                                              # If infile or file exists, delete it
       else:
-        out_file = self.transcode( file );                                          # Run the transcode
+        out_file = self.transcode( file, metaData = info )                          # Run the transcode
 
         self._cleanUp( file )                                                       # If the renamed; i.e., hardlink to original file, exists
 
         if (self.transcode_status == 0):
           success = True
         else:
-          if not isRunning(): return success, out_file, info
+          if not isRunning(): return success, out_file
           self.log.critical('Failed to transcode file. Assuming input is bad, will delete')
           no_remove = True                                                          # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
           self._cleanup( in_file, out_file )                                        # If infile exists, delete it
@@ -161,4 +161,4 @@ class DVRconverter(comremove, videoconverter):
           self.log.debug('Original file removed, rescanning: {}'.format(in_file))   # Debug information
           plexMediaScanner( *args, **kwargs )                                       # Run Ple Media Scanner to remove deleted file from library
 
-    return success, out_file, info                                                   # Return transcode success, new file path, and info
+    return success, out_file                                                        # Return transcode success, new file path, and info
