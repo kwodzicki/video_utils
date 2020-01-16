@@ -245,8 +245,10 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
     Keywords:
        log_file  : File to write logging information to
        metaData  : Pass in result from previous call to getMetaData
-    Return codes:
+    Return:
+        Check .transcode_status
         0 : Everything finished cleanly
+        1 : Output file exists
        10 : No video OR no audio streams
     File Naming:
        MOVIE:
@@ -308,6 +310,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
     if os.path.exists( out_file ):                                              # IF the output file already exists
       if not os.path.exists( prog_file ):                                       # If the inprogress file does NOT exists, then conversion completed in previous attempt
         self.__log.info('Output file Exists...Skipping!');                      # Print a message
+        self.transcode_status = 1
         if self.remove: os.remove( self.in_file );                              # If remove is set, remove the source file
         if os.path.isfile( self.chapterFile ):                                  # If a .chap file exists
           try:

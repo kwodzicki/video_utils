@@ -140,7 +140,7 @@ def getEpisode( title, episode, seasonEp = None, year = None ):
     else:
       ep = episodeByTitle( series, episode )
   
-    if ('year' in series):
+    if ep and ('year' in series):
       ep['first_air_date'] = series['year']
       ep['seriesName']     = '{} ({})'.format(series['title'], series['year'])
 

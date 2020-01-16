@@ -114,7 +114,9 @@ def parseSeriesInfo( info ):
     extra keys are copied as well
   '''
   log = logging.getLogger(__name__)
-  info['show_id'] = info.pop('id', None)
+  if ('show_id' not in info):
+    info['show_id'] = info.pop('id', None)
+
   info['show_external_ids'] = info.pop('external_ids', {} )
 
   if ('name'   in info):
@@ -312,20 +314,20 @@ def episodeByTitle( show_id, episode ):
     episode : Name of the episode to get
   '''
   log = logging.getLogger(__name__)
-  log.debug( 'Searching for episode base on episode name' )
+  log.debug( 'Searching for episode base on episode title' )
   series = getSeriesInfo( show_id )                                                         # Get full series info
   if not series:
     return None
   log.debug( 'Iterating over all season/episodes' ) 
 
   for season in series['seasons']:                                                          # Iterate over all seasons
-    url    = TMDb_config['urlSeason'].format( series['id'], season['season_number'] )
+    url    = TMDb_config['urlSeason'].format( series['show_id'], season['season_number'] )
     season = downloadInfo( url )
     if not season:
       continue     
     for ep in season['episodes']:
       if (ep['name'].lower() in episode.lower()):
-        info = getEpisodeInfo( series['id'], season['season_number'], ep['episode_number'] )
+        info = getEpisodeInfo( series['show_id'], season['season_number'], ep['episode_number'] )
         info.update( series )
         log.info( 'Found episode based on episode name search' )
         return info
@@ -362,7 +364,7 @@ def episodeBySeasonEp( show_id, episode, seasonEp ):
   return episodeByTitle( series, episode )
 
 #########################################################################################
-def getEpisode( title, episode, seasonEp = None, year = None ):
+def getEpisode( title, episode, seasonEp = None, year = None, depth = 5 ):
   '''
   Purpose:
     Function to get series information for given episode if
@@ -374,6 +376,7 @@ def getEpisode( title, episode, seasonEp = None, year = None ):
     seasonEp  : Tuple or list containing season and episode numbers
     year      : Year of series; speeds thing us and helps make sure
                   series is grabbed.
+    depth     : How many series to check before giving up
   Outputs:
     Returns dictionary if found; None if not found
   '''
@@ -383,7 +386,8 @@ def getEpisode( title, episode, seasonEp = None, year = None ):
   if year: kwargs['year'] = year
 
   seriesSearch = downloadInfo( TMDb_config['tvSearch'], **kwargs )  
-  for series in seriesSearch['results']:
+  for idx, series in enumerate( seriesSearch['results'] ):
+    log.info( 'Checking series: {} for match'.format( series['name'] ) )
     if seasonEp:
       ep = episodeBySeasonEp( series['id'], episode, seasonEp )
     else:
@@ -391,7 +395,11 @@ def getEpisode( title, episode, seasonEp = None, year = None ):
 
     if ep:
       return ep
- 
+
+    if (idx == (depth-1)):
+      log.warning( 'Checked {} series and found no match'.format(depth) )                   # If depth is zero, then checked as deep as we want to go
+      break
+
   return None
       
 ###################################################################
@@ -401,6 +409,7 @@ def getTMDb_Info(
     episode  = None,
     seasonEp = None,
     year     = None,
+    depth    = 5,
     retries  = 3):
   '''
   Name:
@@ -421,6 +430,7 @@ def getTMDb_Info(
     episode  : Name of episode to search for.
     seasonEp : Tuple or list containing season and episode numbers
     year     : Year of movie or series; required for movie search
+    depth    : How deep to go into search results to find match
   Outputs:
     Returns TMDb instance; very loosely based on IMDb() object
   Author and History:
@@ -441,7 +451,7 @@ def getTMDb_Info(
       if info and (info['total_results'] == 1):
         info = getMovieInfo( info['results'][0]['id'] )                                    # Parse the movie data
   elif title and episode:
-    info = getEpisode( title, episode, seasonEp = seasonEp, year = year )
+    info = getEpisode( title, episode, seasonEp = seasonEp, year = year, depth = depth)
 
   if info:
     tmdb.update( info )

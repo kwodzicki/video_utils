@@ -145,10 +145,11 @@ class DVRconverter(comremove, videoconverter):
         if (self.transcode_status == 0):
           success = True
         else:
-          if not isRunning(): return success, out_file
-          self.log.critical('Failed to transcode file. Assuming input is bad, will delete')
+          if not isRunning(): 
+            return success, out_file
+          self.log.critical('Failed to transcode file. Will delete input')          # Only
           no_remove = True                                                          # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
-          self._cleanup( in_file, out_file )                                        # If infile exists, delete it
+          self._cleanUp( in_file, out_file )                                        # If infile exists, delete it
 
     if isRunning():#(not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):                # If a file name was returned AND no_remove is False
       args   = ('scan',)                                                            # Set arguements for plexMediaScanner function
