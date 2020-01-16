@@ -7,6 +7,23 @@ except:
 imdb   = IMDb()                                                                     # Initialize IMDb instanc
 
 ########################################################################################
+def updateSeriesInfo( series, episode ):
+  '''
+  Purpose:
+    To update series information in the episode object
+  Inputs:
+    series  : imdbpy Movie object containing information about series
+    episode : imdbpy Movie object containing information about episode
+  Keywords:
+    None.
+  Returns:
+    Update episode object
+  '''
+  if ('year' in series):
+    episode['first_air_date'] = series['year']
+  return episode
+
+########################################################################################
 def episodeByID( episode ):
   '''
   Purpose:
@@ -67,6 +84,7 @@ def episodeBySeasonEp( series, episode, seasonEp ):
         if val['title'].lower() in episode.lower():                                     # Check that the titles are the same
           epID = val.getID()
           return imdb.get_movie( epID )
+  return None
 
 ########################################################################################
 def episodeByTitle( series, episode ):
@@ -186,3 +204,4 @@ def getIMDb_Info(
   elif title and episode:                                                           # If title and episode are set, assume we want an episode
     return getEpisode( title, episode, seasonEp = seasonEp, year = year )
 
+  return None

@@ -29,9 +29,9 @@ except:
 from .videotagger.metadata.getMetaData import getMetaData
 from .videotagger.mp4Tags import mp4Tags
 try:
-    from .videotagger.mkvTags import mkvTags
+  from .videotagger.mkvTags import mkvTags
 except:
-    mkvTags = None
+  mkvTags = None
 
 # Logging formatter
 from ._logging import fileFMT;
@@ -707,7 +707,7 @@ class videoconverter( subprocManager, mediainfo, opensubtitles ):
  
     if (self.IMDb is not None) and (self.IMDb[:2] == 'tt') and self.tagging:
       if not metaData: 
-        self.metaData = getMetaData( self.IMDb );
+        self.metaData = getMetaData( IMDbID = self.IMDb )
       else:
         self.metaData = metaData
       self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information

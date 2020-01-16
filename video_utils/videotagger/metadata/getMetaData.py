@@ -30,7 +30,7 @@ def getMetaData( **kwargs ):
     that informaiton is returned from this function. If neither site
     returns informaiton, then an empty dictionary is returned.
   Inputs:
-    IMDbID  : The IMDb id for the video
+    None
   Keywords:
     IMDbID   : The id from the URL of a movie on imdb.com.
                  Ex. For the movie 'Push', the URL is:
@@ -53,22 +53,28 @@ def getMetaData( **kwargs ):
     IMDb = getIMDb_Info( **kwargs )                                             # Get information from imdb.com
     if IMDb:                                                                    # If valid data returned from IMDb.com
       if ('episode of' in IMDb) and getTVDb_Info:                               # If the data is for an episode and getTVDb_Info imported correclty
-        seriesID = IMDb['episode of'].getID()                                   # Get the imdbID for the series
-        kwargs['IMDbID'] = seriesID                                             # Set IMDbID in kwargs to be series ID for thetvdb search
-        TVDb = getTVDb_Info( **kwargs )                                         # Get information from TVDb based on imdbId if TVDb is available
+        episode     = kwargs.get( 'episode', IMDb['title'] )                    # Get episode name for kwargs; use IMDb as fall back
+        seasonEp    = kwargs.get('seasonEp', (IMDb['season'], IMDb['episode'])) # Add seasonEp to keywords
+        TVDb_kwargs = {'IMDbID'   : IMDb['episode of'].getID(),
+                       'seasonEp' : seasonEp}                                   # Initialize keyword args for TVDb
+        TVDb        = getTVDb_Info( episode, **TVDb_kwargs )                    # Get information from TVDb based on imdbId if TVDb is available
         if TVDb:                                                                # If information is downloaded
           if ('seriesName' in TVDb):                                            # If there is a seriesName tag in the info
             IMDb['seriesName'] = TVDb['seriesName'];                            # Redefine the series name
 
-#  if getTMDb_Info:                                                              # If getTMDb_Info imported correctly
-#    TMDb = getTMDb_Info( IMDbID, attempts = attempts )                          # If TMDb is True, get information from themoviedatabase.org
-#    if TMDb:                                                                    # If TMDb is valid
-#      if TMDb['is_episode'] and getTVDb_Info:                                   # If the data if for an episode and getTVDb_Info imported correlcty
-#        if not TVDb:                                                            # If information from thetvdb.com as not yet been downloaded
-#          TVDb = getTVDb_Info( Info = TMDb );                                   # Get information from TVDb
-#        if TVDb:                                                                # If information is downloaded
-#          if 'seriesName' in TVDb:                                              # If there is a seriesName tag in the info
-#            TMDb.set_item('seriesName', TVDb['seriesName']);                    # Redefine the series name
+  if getTMDb_Info:                                                              # If getTMDb_Info imported correctly
+    TMDb = getTMDb_Info( **kwargs )                                             # If TMDb is True, get information from themoviedatabase.org
+    if TMDb:                                                                    # If TMDb is valid
+      if TMDb.is_episode and getTVDb_Info:                                      # If the data if for an episode and getTVDb_Info imported correlcty
+        if (not TVDb):                                                          # If information from thetvdb.com as not yet been downloaded
+          episode     = kwargs.get( 'episode', IMDb['title'] )                    # Get episode name for kwargs; use IMDb as fall back
+          seasonEp    = kwargs.get('seasonEp', (IMDb['season'], IMDb['episode'])) # Add seasonEp to keywords
+          IMDbID      = TMDb['show_external_ids'].get('imdb_id', None) 
+          TVDb_kwargs = {'IMDbID'   : IMDbID, 'seasonEp' : seasonEp}                                   # Initialize keyword args for TVDb
+          TVDb        = getTVDb_Info( episode, **TVDb_kwargs )                    # Get information from TVDb based on imdbId if TVDb is available
+        if TVDb:                                                                # If information is downloaded
+          if ('seriesName' in TVDb):                                            # If there is a seriesName tag in the info
+            TMDb.set_item('seriesName', TVDb['seriesName']);                    # Redefine the series name
 
   if (not TMDb) and (not IMDb):                                                 # If both are not valid
     return {};                                                                  # Return empty dictionary
@@ -77,6 +83,7 @@ def getMetaData( **kwargs ):
   elif (not TMDb) and IMDb:                                                     # Else, if IMBd is not valid AND TMDb is...
     return IMDb;                                                                # Return IMBd
   else:                                                                         # Else, both must valid
+    TMDb.IMDbID = IMDb.getID()                                                  # Set IMDbID attribute of TMDb
     for key in IMDb.keys():                                                     # Iterate over all keys in IMDb
       if not TMDb.has_key(key):                                                 # If TMDb does NOT have the key
         try:                                                                    # Try to

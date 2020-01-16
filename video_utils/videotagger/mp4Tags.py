@@ -16,16 +16,16 @@ The value is a str, but is probably text that can be decoded as UTF-8. Multiple
 values per key are supported.
 '''
 
-freeform = lambda x: '----:com.apple.iTunes:{}'.format( x );                    # Function to return freeform tag
+freeform = lambda x: '----:com.apple.iTunes:{}'.format( x );                                # Function to return freeform tag
 ################################################################################
 def encode( input ):
 	'''Function to encode data to correct type'''
-	if type(input) is list:                                                       # If the input is type list
+	if type(input) is list:                                                             # If the input is type list
 		try:                                                                        # Try to...
-			return [ str.encode( i['name'] ) for i in input ];                        # Convert to binary strings taking the 'name' of every element of i
+			return [ str.encode( i['name'] ) for i in input ];                  # Convert to binary strings taking the 'name' of every element of i
 		except:                                                                     # On exception
-			return [ str.encode( i ) for i in input ];                                # Convert each element to binary string
-	else:                                                                         # Else, not a list
+			return [ str.encode( i ) for i in input ];                          # Convert each element to binary string
+	else:                                                                               # Else, not a list
 		return [ str.encode( input ) ];                                             # Just get binary string
 ################################################################################
 def getPlot( metaData, short = False ):
@@ -72,38 +72,38 @@ def mp4Tags( file, IMDbid=None, metaData = None ):
 	Author and History: 
 		Kyle R. Wodzicki     Created 18 Feb. 2018
 	'''
-	log = logging.getLogger(__name__);                                            # Set up a logger
-	log.debug( 'Testing file is MP4' );                                           # Debugging information
-	if not file.endswith('.mp4'):                                                 # If the input file does NOT end in '.mp4'
+	log = logging.getLogger(__name__);                                                  # Set up a logger
+	log.debug( 'Testing file is MP4' );                                                 # Debugging information
+	if not file.endswith('.mp4'):                                                       # If the input file does NOT end in '.mp4'
 		log.error('Input file is NOT an MP4!!!'); return 1;                         # Print message and return code one (1)
 
-	log.debug( 'Testing file too large' );                                        # Debugging information
-	if os.stat(file).st_size > sys.maxsize:                                       # If the file size is larger than the supported maximum size
+	log.debug( 'Testing file too large' );                                              # Debugging information
+	if os.stat(file).st_size > sys.maxsize:                                             # If the file size is larger than the supported maximum size
 		log.error('Input file is too large!'); return 11;                           # Print message and return code eleven (11)
 		
-	if metaData is None:                                                          # IF the metaData key is NOT set
+	if metaData is None:                                                                # IF the metaData key is NOT set
 		log.debug( 'No metadata input, attempting to download' );                   # Debugging information
 		if IMDbid is None:                                                          # If no IMDbid was input
-			log.debug( 'No IMDb ID input, extracting from file name' );               # Debugging information
-			try:                                                                      # Try to...
-				IMDbid = file.split('.')[-2];                                           # Get IMDbid from file name (using makemkv_to_mp4 file naming convention)
-			except:                                                                   # On exception
-				log.warning( 'Could NOT get IMDb ID from file!' );                      # Warning information information
-				return 2;                                                               # Return 2
-			if IMDbid[:2] != 'tt':                                                    # If the first to characters of the IMDb ID are NOT 'tt'
-				log.warning( 'IMDb ID not vaild!' );                                    # Warning information information
-				return 2;                                                               # Return 2
+			log.debug( 'No IMDb ID input, extracting from file name' );         # Debugging information
+			try:                                                                # Try to...
+				IMDbid = file.split('.')[-2];                               # Get IMDbid from file name (using makemkv_to_mp4 file naming convention)
+			except:                                                             # On exception
+				log.warning( 'Could NOT get IMDb ID from file!' );          # Warning information information
+				return 2;                                                   # Return 2
+			if IMDbid[:2] != 'tt':                                              # If the first to characters of the IMDb ID are NOT 'tt'
+				log.warning( 'IMDb ID not vaild!' );                        # Warning information information
+				return 2;                                                   # Return 2
 		if getMetaData:                                                             # If getMetaData is defined
-			metaData = getMetaData( IMDbid );                                         # Get the metaData from imdb.com and themoviedb.org
+			metaData = getMetaData( IMDbID = IMDbid )                           # Get the metaData from imdb.com and themoviedb.org
 		else:                                                                       # Else, function was NOT loaded
-			log.error('IMDbPY and API key(s) NOT installed!');                        # Log an error
-			return 10;                                                                # Return from function
-	if len(metaData.keys()) < 2:                                                  # If less than two (2) tags in dictionary
+			log.error('IMDbPY and API key(s) NOT installed!');                  # Log an error
+			return 10;                                                          # Return from function
+	if len(metaData.keys()) < 2:                                                        # If less than two (2) tags in dictionary
 		log.warning('Failed to download metaData! Tag(s) NOT written!');            # Log a warning that the metaData failed to download
 		return 3;                                                                   # Return code 3
-	if IMDbid is None: IMDbid = 'tt' + metaData.getID();                          # Get IMDb ID if it is NOT set
-	filedir, filebase = os.path.dirname( file ), os.path.basename( file );        # Get the directory and baseanem of the file
-	re_test = re.match(re.compile(r's\d{2}e\d{2} - '), filebase);                 # Test for if the file name starts with a specific pattern, then it is an episode
+	if IMDbid is None: IMDbid = 'tt' + metaData.getID();                                # Get IMDb ID if it is NOT set
+	filedir, filebase = os.path.dirname( file ), os.path.basename( file );              # Get the directory and baseanem of the file
+	re_test = re.match(re.compile(r's\d{2}e\d{2} - '), filebase);                       # Test for if the file name starts with a specific pattern, then it is an episode
 	se_test = 'series title' in metaData and 'season' in metaData and 'episode' in metaData;  # Test for if there is a season AND episode tag in the imdb information
 
 	log.debug('Setting up title information base on episode/movie');              # Debugging information

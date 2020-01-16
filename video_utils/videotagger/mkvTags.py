@@ -150,7 +150,7 @@ def mkvTags( file, IMDbid=None, metaData = None ):
             log.error('IMDbPY and API key(s) NOT installed!');                      # Log an error
             return 10;                                                              # Return from function
         else:                                                                       # If import successfull
-            metaData = getMetaData( IMDbid );                                       # Get the metaData from imdb.com and themoviedb.org
+            metaData = getMetaData( IMDbID = IMDbid )                               # Get the metaData from imdb.com and themoviedb.org
     if len(metaData.keys()) < 2:                                                    # If less than two (2) tags in dictionary
         log.warning('Failed to download metaData! Tag(s) NOT written!');            # Log a warning that the metaData failed to download
         return 3;                                                                   # Return code 3

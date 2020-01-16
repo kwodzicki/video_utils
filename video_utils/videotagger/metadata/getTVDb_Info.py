@@ -33,6 +33,9 @@ def tvdbSeriesSearch( title = None, IMDbID = None):
   '''
   log = logging.getLogger(__name__)
   if IMDbID:
+    if (IMDbID[:2] != 'tt'):
+      IMDbID = 'tt{}'.format( IMDbID )
+    log.debug( 'Search TVDb using IMDb ID' )
     try:
       resp = TVDb.Search().series( imdbId = IMDbID )                                  # Set up a search instance of tvdbsimple
     except:
@@ -41,6 +44,7 @@ def tvdbSeriesSearch( title = None, IMDbID = None):
       return resp
 
   if title:
+    log.debug( 'Search TVDb using series title' )
     try:
       resp = TVDb.Search().series( name = title )                                     # Set up a search instance of tvdbsimple
     except:
@@ -131,12 +135,11 @@ def episodeByTitle( series, episode, eps = None ):
   return {}
 
 ########################################################################################
-def getTVDb_Info(
-    IMDbID   = None,
+def getTVDb_Info( episode,
     title    = None,
-    episode  = None,
     seasonEp = None,
     year     = None,
+    IMDbID   = None,
     tmdbInfo = None):
   '''
   Name:
@@ -144,36 +147,23 @@ def getTVDb_Info(
   Purpose:
     A python function to download tv show informaiton from thetvdb.com
   Inputs:
-  Keywords:
-    IMDbID   : The id from the URL of a movie on imdb.com.
-                 Ex. For the movie 'Push', the URL is:
-                 http://www.imdb.com/title/tt0465580/
-                 Making the imdb id tt0465580
-    title    : Name of movie or series to search for.
-                 If searching for movie, must include year
-                 If seraching for episode, must include episode
     episode  : Name of episode to search for.
+  Keywords:
+    title    : Name of series to search for.
+    IMDbID   : The IMDb ID for the TV series
     seasonEp : Tuple or list containing season and episode numbers
     year     : Year of movie or series; required for movie search
-    tmdbInfo   : A dictionary containing the series name and first
-             air data; this information is intended to be from
-             themoviedb.org (i.e., getTMDb_Info). Dictionary
-             should be of form:
-             Info = {'seriesName'     : 'Name of Series', 
-                     'first_air_data' : 'YYYY-MM-DD'}
   Outputs:
     Returns the dictionary of information downloaded from thetvdb.com
     about the series.
   '''
   log = logging.getLogger(__name__)                                                     # Initialize logger
-  if (not tmdbInfo) and (not IMDbID) and (not title):
-    return None
 
-  if tmdbInfo and (not title):
-    title = tmdbInfo['seriesName']
+  if (not title) and (not IMDbID):
+    raise Exception('Must input series name OR series IMDb ID' )
 
   resp = tvdbSeriesSearch(title = title, IMDbID = IMDbID)
-  log.debug( 'TVDb series search returned {} matches'.format( len(resp) ) )
+  log.debug( 'TVDb series search returned {} matche(s)'.format( len(resp) ) )
   for r in resp:                                                                        # Iterate over all search
     time.sleep(0.1)                                                                     # Sleep to reduce hammeri
     if year and r['firstAired']:
@@ -192,5 +182,4 @@ def getTVDb_Info(
       ep['seriesName']     = r['seriesName']
       return ep
   
-  log.warning( 'TVDb search failed' );
-  return {} 
+  return None

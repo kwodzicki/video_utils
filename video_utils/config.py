@@ -12,10 +12,17 @@ TMDb = {
   'urlBase'    : 'https://api.themoviedb.org/3/',
   'urlImage'   : 'http://image.tmdb.org/t/p/original/',
 };
-TMDb['urlFind']    = TMDb['urlBase'] + 'find/{}';
-TMDb['urlMovie']   = TMDb['urlBase'] + 'movie/{}';
-TMDb['urlSeries']  = TMDb['urlBase'] + 'tv/{}';
-TMDb['urlEpisode'] = TMDb['urlBase'] + 'tv/{}/season/{}/episode/{}';
+TMDb['urlFind']     = TMDb['urlBase'] + 'find/{}'
+
+TMDb['movieSearch'] = TMDb['urlBase'] + 'search/movie'
+TMDb['urlMovie']    = TMDb['urlBase'] + 'movie/{}'
+
+TMDb['tvSearch']    = TMDb['urlBase'] + 'search/tv'
+TMDb['urlSeries']   = TMDb['urlBase'] + 'tv/{}'
+TMDb['urlSeason']   = TMDb['urlBase'] + 'tv/{}/season/{}'
+TMDb['urlEpisode']  = TMDb['urlBase'] + 'tv/{}/season/{}/episode/{}'
+
+TMDb['multiSearch'] = TMDb['urlBase'] + 'search/multi'
 
 lib_path = os.path.join( os.path.expanduser('~'), 'Library', 'Application Support', 'video_utils' ) 
 

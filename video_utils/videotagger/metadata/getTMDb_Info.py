@@ -26,16 +26,31 @@ def parseRating( rating ):
 ###
 def parseCrew( crew ):
   '''Function to parse information from the crew data'''
-  director, writer = [], [];                                                    # Initialize director and writer as lists
+  director, writer = [], []                                                     # Initialize director and writer as lists
   for person in crew:                                                           # Iterate over everyone in crew
     if person['job'] == 'Director':                                             # If person is a director
-      director.append( person );                                                # Append to director list
+      director.append( person )                                                 # Append to director list
     elif person['job'] == 'Writer':                                             # If person is a writer
-      writer.append( person );                                                  # Append to writer list   
-  return director, writer;                                                      # Return director and writer lists
+      writer.append( person )                                                   # Append to writer list   
+  info = {}
+  if (len(director) > 0):
+    info['director'] = director
+  if (len(writer) > 0):
+    info['writer'] = writer
+  return info                                                                   # Return director and writer lists
+
 ###
 def sortCast( cast ):
   return sorted(cast, key=lambda x: x['order'])[:30];
+
+def parseCredits( credits ):
+  info = {}
+  if ('crew' in credits):
+    info.update( parseCrew( credits['crew'] ) )
+  if ('cast' in credits):
+    info['cast'] = sortCast( credits['cast'] )
+  return info 
+
 ###
 def parseRelease( release ):
   '''Function to parse information from the release data'''
@@ -49,6 +64,7 @@ def parseRelease( release ):
           return year, mpaa;                                                    # Return the year and rating to break the loop
   return year, mpaa;                                                            # Return the year and rating        
 ###
+
 def downloadInfo( url, **kwargs ):
   '''Function to download and parse json data from the API'''
   log     = logging.getLogger(__name__)
@@ -56,10 +72,13 @@ def downloadInfo( url, **kwargs ):
   attempt = 0                                                                   # Initialize attempt to zero (0)
   json    = None
   if ('api_key' not in kwargs): kwargs['api_key'] = tmdb_key
-    
+  if ('append_to_response' in kwargs):
+    if not isinstance( kwargs['append_to_response'], str):
+      kwargs['append_to_response'] = ','.join( kwargs['append_to_response'] )   # If not string instance, then join using coma
+
   while attempt < retries:                                                      # While attempt is less than retries 
     try:                                                                        # Try;
-      response = request.get( url, params=kwargs)                               # Get the JSON response from the URL
+      response = requests.get( url, params=kwargs)                               # Get the JSON response from the URL
     except:                                                                     # On exceptiong
       attempt += 1                                                              # Increment attempt
       time.sleep( 0.01 )
@@ -79,177 +98,380 @@ def downloadInfo( url, **kwargs ):
       pass
   return json                                                                   # Parse the response and return it
 
-##################
-def getTVInfo( info, retries = 3 ):
-  '''Function to get information about TV Episodes/series'''
-  log = logging.getLogger(__name__);
-  if 'season_number'  not in info or \
-     'episode_number' not in info or \
-     'show_id'        not in info:
-    return {};
-  else:   
-    show_id = info['show_id'];
-    season  = info['season_number'];
-    episode = info['episode_number']
-  outData = {'season'  : season, 
-             'episode' : episode};
+#########################################################################################
+def parseSeriesInfo( info ):
+  '''
+  Purpose:
+    Function to parse information about series
+    from JSON data returned by TMDb API to
+    keys that match the imdbpy package
+  Inputs:
+    info : Dictionary of JSON data returned by call to API
+  Keywords:
+    None.
+  Returns:
+    Dictionary with keys matching those of imdbpy;
+    extra keys are copied as well
+  '''
+  log = logging.getLogger(__name__)
+  info['show_id'] = info.pop('id', None)
+  info['show_external_ids'] = info.pop('external_ids', {} )
 
-  # Work on series information
-  url    = TMDb_config['urlSeries'].format( show_id );                          # Set series info URL
-  series = downloadInfo( url, retries = retries );                            # Get series info
-  if series is None:                                                            # If downloadInfo returned None
-    log.warning('Failed to get series information!');                           # Log a warning
-  else:                                                                         # Else...
-    if 'name'   in series: outData['seriesName'] = series.pop('name');          # Add series name to output dictionary
-    if 'genres' in series: outData['genre']      = series.pop('genres');        # Set the genres
-    if 'production_companies' in series:                                        # If 'production companies' in info
-      outData['production companies'] = series.pop('production_companies');     # Set the production companies tag to list of the names of the production companies
-    if 'first_air_date' in series:                                              # If first_air_date in the series dictionary
-      outData['first_air_date'] = series.pop('first_air_date');                 # Add it to the outdata
-    outData.update( series );
-  if 'seriesName' not in outData: return {};                                    # If the 'seriesName' tag is NOT in the dictionary by now, just return
+  if ('name'   in info):
+    info['seriesName'] = info.pop('name')                                                   # Add series name to output dictionary
+  if ('genres' in info):
+    info['genre']      = info.pop('genres')                                                 # Set the genres
+  if ('production_companies' in info):                                                      # If 'production companies' in info
+    info['production companies'] = info.pop('production_companies')                         # Set the production companies tag to list of the names of the production companies
 
   # Work on rating information
-  rating = downloadInfo( url + '/content_ratings', retries=retries );       # Attempt to download rating information
-  if rating is None:
+  if ('content_ratings' not in info):
     log.warning('Failed to get rating information!');
   else:
-    rating = parseRating( rating );                                             # Parse the rating information
-    if rating is not None: outData['mpaa'] = ' ' + rating;                      # Prepend space to the rating and add to output dictionary
+    rating = parseRating( info['content_ratings'] )                                         # Parse the rating information
+    if rating: info['mpaa'] = ' ' + rating                                                  # Prepend space to the rating and add to output dictionary
 
+  if ('seriesName' not in info):
+    return None                                                                             # If the 'seriesName' tag is NOT in the dictionary by now, just return
+
+  return info 
+
+#########################################################################################
+def parseEpisodeInfo( info, retries = 3 ):
+  '''
+  Purpose:
+    Function to parse information about episodes
+    from JSON data returned by TMDb API to
+    keys that match the imdbpy package
+  Inputs:
+    info : Dictionary of JSON data returned by call to API
+  Keywords:
+    None.
+  Returns:
+    Dictionary with keys matching those of imdbpy;
+    extra keys are copied as well
+  '''
   # Work on some episode specific information
-  url     = TMDb_config['urlEpisode'].format(show_id, season, episode);         # Set URL for episode data download
-  episode = downloadInfo( url, retries = retries);                           # Download some episode data
-  if episode is None:                                                           # If downloadInfo return None
-    log.warning('Failed to get episode information!');                          # Log an error
-  else:                                                                         # Else...
-    if 'name'       in episode: outData['title'] = episode.pop('name');         # Set episode name in output
-    if 'overview'   in episode: outData['plot']  = [episode.pop('overview')];   # Set episode plot in output
-    if 'still_path' in episode: 
-      if type(episode['still_path']) is str:                                    # If still_path is type string
-        outData['full-size cover url'] = TMDb_config['urlImage']+episode['still_path'];      # Set poster path
-    if 'crew' in episode:                                                       # if the crew tag is NOT in the episode dictionary
-      crew = parseCrew( episode.pop('crew') );                                  # Parse crew information
-      if len(crew[0]) > 0: outData['director'] = crew[0];                       # Add director(s) to output dictionary
-      if len(crew[1]) > 0: outData['writer']   = crew[1];                       # Add writers(s) to output dictionary
-    else:                                                                       # Else...
-      log.warning('No crew information for the episode...');                    # Log a warning
-    outData.update( episode );
-  # Work on credits information
-  credits = downloadInfo( url + '/credits', retries = retries );              # Download episode credits
-  if credits is None:
-    log.warning('Failed to get credits information');                           # Log an error
+  log = logging.getLogger(__name__)
+  if ('name'       in info):
+    info['title'] = info.pop('name')              # Set episode name in output
+  if ('overview'   in info):
+    info['plot']  = [info.pop('overview')]        # Set episode plot in output
+  if ('still_path' in info) and  isinstance( info['still_path'], str):                                    # If still_path is type string
+    info['full-size cover url'] = TMDb_config['urlImage'] + info['still_path']          # Set poster path
+  if ('credits' in info):                                                       # if the crew tag is NOT in the episode dictionary
+    info.update( parseCredits( info['credits'] ) )
   else:
-    if 'cast' in credits: 
-      outData['cast'] = sortCast( credits['cast'] );                            # Set episode cast in output
-    else:
-      log.warning('No cast information in the credits...');                     # Log an error
+    log.warning('No credits information...');                     # Log an error
 
-  return outData;
+  return info 
 
 ###################################################################
-def getMovieInfo( info, retries = 3 ):
-  '''Function to get information about Movies'''
+def parseMovieInfo( info ):
+  '''
+  Purpose:
+    Function to parse information about Movies
+    from JSON data returned by TMDb API to
+    keys that match the imdbpy package
+  Inputs:
+    info : Dictionary of JSON data returned by call to API
+  Keywords:
+    None.
+  Returns:
+    Dictionary with keys matching those of imdbpy;
+    extra keys are copied as well
+  '''
   log = logging.getLogger(__name__);
-  outData = {}
-  url     = TMDb_config['urlMovie'].format(info['id']);                         # Set URL for movie
-
-  # Work on movie base information
-  data = downloadInfo( url, retries = retries );                              # Get the movie data
-  if data is None:
-    log.warning('Failed to get movie base information');
-  else:
-    if 'title'                in data: outData['title'] = data['title'];
-    if 'overview'             in data: outData['plot']  = [data['overview']];
-    if 'genres'               in data: outData['genre'] = data['genres'];
-    if 'poster_path'          in data:
-      if type(data['poster_path']) is str:                                      # If poster_path is type string
-        outData['full-size cover url']  = TMDb_config['urlImage']+data['poster_path'];       # Set post url
-    if 'production_companies' in data: 
-      outData['production companies'] = data['production_companies'];
+  if ('overview'    in info):
+    info['plot']  = [data['overview']];
+  if ('genres'      in info):
+    info['genre'] = info['genres'];
+  if ('poster_path' in info):
+    if isinstance(info['poster_path'], str):                                                # If poster_path is type string
+      info['full-size cover url']  = TMDb_config['urlImage'] + info['poster_path']          # Set post url
+  if ('production_companies' in info): 
+    info['production companies'] = info['production_companies']
 
   # Work on movie credit information
-  credits = downloadInfo( url + '/credits', retries = retries );              # Download credits 
-  if credits is None:                                                           # If None is returned from downloadInfo
-    log.warning('Failed to get movie credit information');                      # Log a warning
-  else:                                                                         # Else, something must have downloaded
-    if 'crew' in credits:                                                       # If crew is NOT in the credits dictionary
-      crew = parseCrew( credits['crew'] );                                      # Parse the crew information
-      if len(crew[0]) > 0: outData['director'] = crew[0];                       # Add director(s) to output dictionary
-      if len(crew[1]) > 0: outData['writer']   = crew[1];                       # Add writers(s) to output dictionary
-    else:                                                                       # Else...
-      log.warning('No crew information in the credits...');                     # Log a warning
-    if 'cast' in credits:                                                       # If cast is NOT in the credits dictionary
-      outData['cast'] = sortCast( credits['cast'] );                            # Sort the cast
-    else:                                                                       # Else...
-      log.warning('No cast information in the credits...');                     # Log a warning
-
+  if ('credits' not in info):                                                               # If None is returned from downloadInfo
+    log.warning('Failed to get movie credit information')                                   # Log a warning
+  else:                                                                                     # Else, something must have downloaded
+    info.update( parseCredits( info['credits'] ) )
+  
   # Work on movie release information
-  release = downloadInfo( url + '/release_dates', retries = retries );        # Download release information
-  if release is None:                                                           # If None is returned from downloadInfo
-    log.warning('Failed to get movie release information');                     # Log a warning
+  if ('release_dates' not in info):                                                         # If None is returned from downloadInfo
+    log.warning('Failed to get movie release information')                                  # Log a warning
   else:
-    year, mpaa = parseRelease( release );                                       # Parse the year and rating data based on release information
-    if year is not None: outData['year'] = year;                                # If year is NOT None, add to the output dictionary
-    if mpaa is not None: outData['mpaa'] = mpaa;                                # If mpaa is NOT None, add to the output dictionary
+    year, mpaa = parseRelease( info['release_dates'] )                                      # Parse the year and rating data based on release information
+    if year is not None: info['year'] = year                                                # If year is NOT None, add to the output dictionary
+    if mpaa is not None: info['mpaa'] = mpaa                                                # If mpaa is NOT None, add to the output dictionary
 
-  return outData;                                                               # Return the data
+  return info                                                                               # Return the data
 
+#########################################################################################
+def getMovieInfo( movie_id ):
+  '''
+  Purpose:
+    To get/parse json data from the api for a given movie
+  Inputs:
+    movie_id  : TMDb movie id to get information for
+  Keywords:
+    None.
+  Returns:
+    dictionary of information if data retrieved, else None
+  '''
+  url  = TMDb_config['urlMovie'].format( movie_id )                                         # Set URL for movie
+  info = downloadInfo( url, append_to_response=['credits','release_dates','external_ids'] )                                              # Get the movie data
+  if info:
+    return parseMovieInfo( info )                                                           # Parse the movie data
+  return None
+
+#########################################################################################
+def getEpisodeInfo( show_id, season, episode ):
+  '''
+  Purpose:
+    To get/parse json data from the api for a given episode
+  Inputs:
+    show_id  : TMDb show id to get information for
+    season   : Season number of episode to get data for
+    episode  : Episode number of episode to get data for
+  Keywords:
+    None.
+  Returns:
+    dictionary of information if data retrieved, else None
+  '''
+  url  = TMDb_config['urlEpisode'].format( show_id, season, episode )
+  info = downloadInfo( url, append_to_response=['credits','external_ids'] )
+  if info:
+    return parseEpisodeInfo( info )
+  return None
+
+#########################################################################################
+def getSeriesInfo( show_id ):
+  '''
+  Purpose:
+    To get/parse json data from the api for a given series
+  Inputs:
+    show_id  : TMDb show id to get information for
+  Keywords:
+    None.
+  Returns:
+    dictionary of information if data retrieved, else None
+  '''
+  url  = TMDb_config['urlSeries'].format( show_id )                                         # Set series info URL
+  info = downloadInfo( url, append_to_response=['external_ids','content_ratings','genres']) # Get full series info
+  if info:
+    return parseSeriesInfo( info )
+
+  return None
+ 
+#########################################################################################
+def searchByIMDbID( IMDbID ):
+  '''
+  Purpose:
+    Function to serach for movie/episode given an
+    IMDb ID
+  Inputs:
+    IMDbID   : IMDb ID to search for
+  '''
+  log  = logging.getLogger(__name__)                                                        # Initialize a logger
+  movie, tv = False, False                                                                  # Initialize movie and tv variables to False
+
+  log.info('Attempting to get information from themoviedb.org...')                          # Log some information
+  info = downloadInfo( TMDb_config['urlFind'].format(IMDbID), 
+      external_source='imdb_id')                                                                             # Search themoviedb.org using the IMDb ID
+  if info is None:                                                                          # If no information was return, then there was an issue
+    log.warning('Failed to find matching content on themoviedb.org!')                       # Log a warning message
+  elif ('movie_results' in info) and ('tv_episode_results' in info):                        # Else, if the two keys are in the dictionary
+    if len(info['movie_results']) == 1:                                                     # If the length of movie results is one (1)
+      movie = getMovieInfo( info['movie_results'][0]['id'] )                                # Parse the movie data
+    if len(info['tv_episode_results']) == 1:                                                # Else, if the length of tv/episode results is one (1)
+      ep       = info['tv_episode_results'][0] 
+      seasonEp = ( ep['season_number'], ep['episode_number'], ) 
+      tv       = episodeBySeasonEp( ep['show_id'], ep['name'], seasonEp )                   # Parse the episode data
+    if (movie and tv) or tv:                                                                # If both movie and TV data returned OR just TV data returned, assume TV
+      tv['is_episode'] = True                                                               # Set is episod to Ture
+      return tv                                                                             # Update the tmdb.data with the TV information
+    elif movie:                                                                             # Else, only movie data was returned
+      return movie                                                                          # Update the tmdb.data with the movie information
+    else:                                                                                   # Else, something went wrong
+      log.warning('Failed to get information from themoviedb.org!')                         # Log a warning
+      log.warning('More than one movie or TV show returned?')                               # Log a warning
+  else:                                                                                     # Else, tags may have changed in the API
+    log.warning('Something went wrong with the API...Tag changes in JSON?')                 # Log a warning
+  return {}                                                                                 # Return the TMDb class instance
+
+#########################################################################################
+def episodeByTitle( show_id, episode ):
+  '''
+  Purpose:
+    Function to get episode information for given episode
+    based on episode title
+  Inputs:
+    series  : idmbpy Movie object of series information
+    episode : Name of the episode to get
+  '''
+  log = logging.getLogger(__name__)
+  log.debug( 'Searching for episode base on episode name' )
+  series = getSeriesInfo( show_id )                                                         # Get full series info
+  if not series:
+    return None
+  log.debug( 'Iterating over all season/episodes' ) 
+
+  for season in series['seasons']:                                                          # Iterate over all seasons
+    url    = TMDb_config['urlSeason'].format( series['id'], season['season_number'] )
+    season = downloadInfo( url )
+    if not season:
+      continue     
+    for ep in season['episodes']:
+      if (ep['name'].lower() in episode.lower()):
+        info = getEpisodeInfo( series['id'], season['season_number'], ep['episode_number'] )
+        info.update( series )
+        log.info( 'Found episode based on episode name search' )
+        return info
+
+  log.info( 'Search by episode name returned no results' ) 
+  return None
+ 
+#########################################################################################
+def episodeBySeasonEp( show_id, episode, seasonEp ):
+  '''
+  Purpose:
+    Function to get episode information based on
+    episode and season number. This function only
+    get information for episodes in given season to
+    reduce pinging IMDb. If search files to find
+    episode with given number, will try to find
+    based on name
+  Inputs:
+    series   : idmbpy Movie object of series information
+    episode  : Name of the episode to get
+    seasonEp : Tuple or list containing season and episode numbers
+  '''
+  log = logging.getLogger(__name__)
+  log.debug( 'Searching for episode base on season/episode number' )
+  info = getEpisodeInfo( show_id, *seasonEp ) 
+  if info:
+    series = getSeriesInfo( show_id )
+    if series:
+      info.update( series )
+    log.info( 'Found episode based on season/episode number' )
+    return info
+
+  log.info( 'Search by season/episode number returned no results, trying by name...' )
+  return episodeByTitle( series, episode )
+
+#########################################################################################
+def getEpisode( title, episode, seasonEp = None, year = None ):
+  '''
+  Purpose:
+    Function to get series information for given episode if
+    IMDb ID was used to get episode.
+  Inputs:
+    title   : Series title to search for
+    episode : Episode title to search for
+  Keywords:
+    seasonEp  : Tuple or list containing season and episode numbers
+    year      : Year of series; speeds thing us and helps make sure
+                  series is grabbed.
+  Outputs:
+    Returns dictionary if found; None if not found
+  '''
+
+  log    = logging.getLogger(__name__)
+  kwargs = {'query' : title}
+  if year: kwargs['year'] = year
+
+  seriesSearch = downloadInfo( TMDb_config['tvSearch'], **kwargs )  
+  for series in seriesSearch['results']:
+    if seasonEp:
+      ep = episodeBySeasonEp( series['id'], episode, seasonEp )
+    else:
+      ep = episodeByTitle( series['id'], episode )
+
+    if ep:
+      return ep
+ 
+  return None
+      
 ###################################################################
-def getTMDb_Info(IMDb_ID, retries = 3, logLevel = 30):
+def getTMDb_Info(
+    IMDbID   = None, 
+    title    = None,
+    episode  = None,
+    seasonEp = None,
+    year     = None,
+    retries  = 3):
   '''
   Name:
     getTMDb_Info
   Purpose:
-    A main python class and a collection of parser functions
-    to retrieve information from themoviedb.org based on 
-    IMDb IDs. Both movie and tv data can be downloaded and parsed.
+    A python functio that attempts to download information
+    from tmdb.com.
+  Inputs:
+    None.
+  Keywords:
+    IMDbID   : The id from the URL of a movie on imdb.com.
+                 Ex. For the movie 'Push', the URL is:
+                 http://www.imdb.com/title/tt0465580/
+                 Making the imdb id tt0465580
+    title    : Name of movie or series to search for.
+                 If searching for movie, must include year
+                 If seraching for episode, must include episode
+    episode  : Name of episode to search for.
+    seasonEp : Tuple or list containing season and episode numbers
+    year     : Year of movie or series; required for movie search
+  Outputs:
+    Returns TMDb instance; very loosely based on IMDb() object
   Author and History:
-    Kyle R. Wodzicki     Created Dec. 2017
-  
-    Modified 20 Jan. 2018
-      Added a 'is_episode' boolean to the self.data dictionary
-      so that the tv database could be moved to the getMetaData
-      function so that both this function and the getIMDb_Info
-      function are not downloading the same data.
+    Kyle R. Wodicki     Created 16 Sep. 2017
   '''
-  log = logging.getLogger(__name__);                                            # Initialize a logger
-#   if logLevel is None: logLevel = logging.INFO;                                 # Set the default logging level
-#   log.setLevel( logLevel );                                                     # Actually set the logging level
-  tmdb = TMDb( IMDb_ID );                                                       # Initialize instance of the TMDb class
-  movie, tv = False, False;                                                     # Initialize movie and tv variables to False
+  log  = logging.getLogger(__name__)                                                        # Initialize a logger
+  tmdb = TMDb( )                                                                            # Initialize instance of the TMDb class
+  info = {}
 
-  log.info('Attempting to get information from themoviedb.org...');             # Log some information
-  info = downloadInfo( TMDb_config['urlFind'].format(IMDb_ID), 
-      external_source='imdb_id', retries = retries
-  )                                                                             # Search themoviedb.org using the IMDb ID
-  if info is None:                                                              # If no information was return, then there was an issue
-    log.warning('Failed to find matching content on themoviedb.org!');          # Log a warning message
-  elif 'movie_results' in info and 'tv_episode_results' in info:                # Else, if the two keys are in the dictionary
-    if len(info['movie_results']) == 1:                                         # If the length of movie results is one (1)
-      movie = getMovieInfo(info['movie_results'][0], retries);                 # Parse the movie data
-    if len(info['tv_episode_results']) == 1:                                    # Else, if the length of tv/episode results is one (1)
-      tv = getTVInfo(info['tv_episode_results'][0], retries);                  # Parse the episode data
-    if (movie and tv) or tv:                                                    # If both movie and TV data returned OR just TV data returned, assume TV
-      tmdb.data['is_episode'] = True;                                           # Set is episod to Ture
-      tmdb.data.update( tv );                                                   # Update the tmdb.data with the TV information
-    elif movie:                                                                 # Else, only movie data was returned
-      tmdb.data.update( movie );                                                # Update the tmdb.data with the movie information
-    if len(tmdb.data.keys()) > 1:                                               # If there is more than one key ('is_episode' is always present) in the data attribute...
-      log.info('Information downloaded from themoviedb.org!');                  # Print log information for success
-    else:                                                                       # Else, something went wrong
-      log.warning('Failed to get information from themoviedb.org!');            # Log a warning
-      log.warning('More than one movie or TV show returned?');                  # Log a warning
-  else:                                                                         # Else, tags may have changed in the API
-    log.warning('Something went wrong with the API...Tag changes in JSON?');    # Log a warning
-  return tmdb;                                                                  # Return the TMDb class instance
+  if IMDbID:
+    info = searchByIMDbID( IMDbID )
+  elif title and (not episode):
+    log.info( 'Assuming movie search based on keywords' )
+    if not year:
+      log.error( 'Must input year for movie search!' )
+    else:
+      info = downloadInfo( TMDb_config['movieSearch'], query=title, year=year )
+      if info and (info['total_results'] == 1):
+        info = getMovieInfo( info['results'][0]['id'] )                                    # Parse the movie data
+  elif title and episode:
+    info = getEpisode( title, episode, seasonEp = seasonEp, year = year )
+
+  if info:
+    tmdb.update( info )
+
+  return tmdb
 
 ###################################################################
 class TMDb( object ):
-  def __init__(self, IMDb_ID):
-    self.IMDb_ID = IMDb_ID
-    self.data    = {'is_episode' : False};
-  
+  def __init__(self):
+    self.IMDbID = None
+    self.data   = {'is_episode' : False};
+
+  @property
+  def is_episode(self):
+    return self.data['is_episode']
+  @is_episode.setter
+  def is_episode(self, val):
+    self.data['is_episode'] = val
+
+  def getID(self, external = None):
+    if self.IMDbID:
+      return self.IMDbID.replace('tt', '')
+    elif external:
+      try:
+        return self.data['external_ids'].get( external, None )
+      except:
+        return None
+    else:
+      return self.data['id']
+ 
   ####################
   def keys(self):
     '''Return a list of valid keys.'''
@@ -261,9 +483,6 @@ class TMDb( object ):
     except KeyError:
       return False
     return True
-  def getID(self):
-    '''Return the IMDb ID in the same convesion as is used in IMDbPY'''
-    return self.IMDb_ID.replace('tt','');
   def set_item(self, key, item):
     '''Directly store the item with the given key.'''
     self.data[key] = item
