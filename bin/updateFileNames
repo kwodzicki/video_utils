@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+
+import sys
+from video_utils.utils.updateFileNames import updateFileNames 
+
+updateFileNames( sys.argv[1] )
