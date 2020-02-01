@@ -67,7 +67,7 @@ if __name__ == "__main__":
   parser.add_argument("--fileExt",             type   = str, nargs='+',    help = "Set file extensions to look for in watched directories; only files with given extension(s) will be processed. Default is just '.mkv'") 
   parser.add_argument("-t", "--threads",       type   = int,               help = "Set number of CPUs to use. Default: Half the number of CPUs available");  
   parser.add_argument("-c", "--cpulimit",      type   = int,               help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Default is 75 percent per thread.");
-  parser.add_argument("--lang",                type   = str, nargs='+'     help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using spaces; i.e., '--lang eng fra' for Enlish and French. Default: eng for English");
+  parser.add_argument("--lang",                type   = str, nargs='+',    help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using spaces; i.e., '--lang eng fra' for Enlish and French. Default: eng for English");
   parser.add_argument("-v", "--verbose",       type   = str, default=MakeMKVFMT['level'], help = "Set logging level");
   parser.add_argument("--no-remove",           action = "store_true",      help = "Set to disbale removing input file after transcode. Default is to delete soruce file.");
   parser.add_argument("--no-srt",              action = "store_true",      help = "Set to disbale conversion of VobSub(s) to SRT.");

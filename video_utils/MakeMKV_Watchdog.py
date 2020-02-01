@@ -163,7 +163,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       file, metaData = self.fileRename( file )
     
       try:        
-        out_file = self.converter.transcode( file, metaData = metData )         # Convert file 
+        out_file = self.converter.transcode( file, metaData = metaData )        # Convert file 
       except:
         self.log.exception('Failed to convert file')
       else:

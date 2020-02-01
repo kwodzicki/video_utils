@@ -36,7 +36,7 @@ except:
 # Logging formatter
 from ._logging import fileFMT;
 
-_sePat = re.compile( r'[sS]\d{2,}[eE]\d{2,} - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
+_sePat = re.compile( r'[sS](\d{2,})[eE](\d{2,}) - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
 class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   '''
@@ -527,33 +527,24 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     else:
       self.new_log_dir = self.log_dir
 
-    # Getting information from IMDb.com
-    try:
-      self.IMDb  = self.in_file.split('.')[-2];
-    except:
-      self.__log.warning('Failed to parse file name, metadata tagging will fail')
-      self.IMDb  = None
-    
     self._metaData( metaData = metaData )
-    self.__log.info('Getting video, audio, information...');                      # If verbose is set, print some output
+    self.__log.info('Getting video, audio, information...');                            # If verbose is set, print some output
 
-    self.video_info = self.get_video_info( x265 = self.x265 );                  # Get and parse video information from the file
+    self.video_info = self.get_video_info( x265 = self.x265 );                          # Get and parse video information from the file
     if self.video_info is None: return;                    
-    self.audio_info = self.get_audio_info( self.lang );                     # Get and parse audio information from the file
+    self.audio_info = self.get_audio_info( self.lang );                                 # Get and parse audio information from the file
     if self.audio_info is None: return;               
 
     ### Set up output file path and log file path. NO FILE EXTENSIONS USED HERE!!!
-    if self.is_episode:                                                         # If the file is an episode, set up file name with video info, and audio info
-        self.file_name += [ self.video_info['file_info'], 
-                            self.audio_info['file_info'] ];
-    else:                                                                       # Else, file is a movie, set up file name with year, video info, audio info, and IMDB ID
-        self.file_name += [ self.year,
-                            self.video_info['file_info'],
-                            self.audio_info['file_info'] ];
-    if self.IMDb is not None: self.file_name += [self.IMDb];              # Append the IMDB ID to the file name if it is NOT None.
+    print( self.video_info['file_info'], self.audio_info['file_info'] )
+
+    self.file_name += [ self.video_info['file_info'], self.audio_info['file_info'] ]
+
+    #if self.IMDb is not None: self.file_name += [self.IMDb];               # Append the IMDB ID to the file name if it is NOT None.
 
     self.file_name = '.'.join(self.file_name)
     self.__log.debug( 'File name: {}'.format( self.file_name) )
+
     # Generate file paths for the output file and the ffmpeg log files
     self.ffmpeg_log_file = os.path.join(self.new_log_dir, self.file_name);          # Set the ffmpeg log file path without extension
     self.out_file    = [self.new_out_dir, '', self.file_name];                  # Set the output file path without extension
@@ -706,74 +697,72 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     Outputs:
       Updates class attributes
     ''' 
-    self.metaData = None;                                                       # Default metaData to None;
-    self.metaKeys = None;                                                       # Default metaKeys to None;
- 
-    if (self.IMDb is not None) and (self.IMDb[:2] == 'tt') and self.tagging:
-      if not metaData: 
-        self.metaData = getMetaData( IMDbID = self.IMDb )
-      else:
-        self.metaData = metaData
-      self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
-      if len(self.metaKeys) == 0:                                               # If no keys returned
-        self.__log.warning('Failed to download metadata for file!!!');
-        self.__log.warning( 'Metadata tagging is disabled!!!' );                  # Print message that the mp4 tagging is disabled                
-        self.tagging = False;                                                   # Disable mp4 tagging
-    elif self.tagging:
-      self.__log.warning('IMDb ID not in file name!');
-    else:
-      self.__log.info('Metadata tagging is disabled.');
+    self.metaData = None;                                                               # Default metaData to None;
+    self.metaKeys = None;                                                               # Default metaKeys to None;
 
-#   self.new_out_dir = self.out_dir;                                            # Reset output directory to original directory
-    self.file_base  = os.path.basename(self.in_file);                           # Get the base name of the file
+    self.file_base  = os.path.basename(self.in_file)                                   # Get the base name of the file
     file_split      = self.file_base.split('.')[:-1];                           # Split base name on period and ignore extension 
     self.title      = file_split[0];                                            # Get title of movie or TV show
     self.season_dir = None;
     self.out_file   = None;
+
+    if metaData:
+      self.metaData = metaData
+    else:
+      ID = file_split[-1]
+      seasonEp = _sePat.findall( self.file_base )
+      if seasonEp: 
+        self.is_episode = True
+        kwargs = {'TVDbID' : ID, 'seasonEp' : tuple( map(int, seasonEp[0]) ) }
+      else:
+        kwargs = {'TMDbID' : ID}
+
+      self.metaData = getMetaData( **kwargs )
+
+    self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
+
+    if len(self.metaKeys) == 0:                                               # If no keys returned
+      self.__log.warning('Failed to download metadata for file!!!');
+      self.__log.warning( 'Metadata tagging is disabled!!!' );                  # Print message that the mp4 tagging is disabled                
+      self.tagging = False;                                                   # Disable mp4 tagging
+      return False
+
+
     ### Determine if the file is an episode of a TV show, or a movie. TV episodes
     ### files begin with the patter 'sXXeXX - ', where XX is a number for the
     ### seasons and episode
+    self.file_name = file_split                                                 # Join file base name using periods
     
-    if self.metaKeys is None:                                                   # If the metaKeys attribute is None
-      se_test = False;                                                          # Then the se_test is False
-    else:                                                                       # Else, the metaKeys attribute is not None
-      se_test = ('series title' in self.metaKeys);                              # Check that 'series title' key in metaKeys
-      se_test = ('seriesName'   in self.metaKeys) or  se_test;                  # Check that 'seriesName' key in metaKeys OR previous criteria
-      se_test = ('episode'      in self.metaKeys) and se_test;                  # Check that 'episode' key in metaKeys AND previous criteria
-      se_test = ('season'       in self.metaKeys) and se_test;                  # Check that 'season'  key in metaKeys AND previous criteria
+    if self.metaKeys is None:                                                           # If the metaKeys attribute is None
+      se_test = False;                                                                  # Then the se_test is False
+    else:                                                                               # Else, the metaKeys attribute is not None
+      se_test = ('series title' in self.metaKeys);                                      # Check that 'series title' key in metaKeys
+      se_test = ('seriesName'   in self.metaKeys) or  se_test;                          # Check that 'seriesName' key in metaKeys OR previous criteria
+      se_test = ('episode'      in self.metaKeys) and se_test;                          # Check that 'episode' key in metaKeys AND previous criteria
+      se_test = ('season'       in self.metaKeys) and se_test;                          # Check that 'season'  key in metaKeys AND previous criteria
 
-    if _sePat.match(self.file_base) or se_test:                                 # If either the pattern test (regex match to _sePat) OR the IMDb information test (se_test) is true, assume it's an episode
-      self.is_episode  = True;                                                  # Set is_episode to True
-      self.year        = None;
-      if not self.in_place: self.new_out_dir = self.tv_dir;                     # Reset output directory to original directory
-
-      if file_split[-1][:2] == 'tt' or file_split[-1][:2] == '':                # If the first two characters of the last element of the split file name are 'tt' OR it is an empty string
-        self.file_name = file_split[:-1];                                       # Join file base name using periods EXCLUDING the IMDB id
-      else:                                                                     # If the first two characters of the last element of the split file name are NOT 'tt'
-        self.file_name = file_split;                                            # Join file base name using periods
-
-      if se_test and (not self.in_place):
-        try:                                                                    # Try to use the seriesName tag from the metaData
-          st = self.metaData['seriesName'];                                     # Set Series directory name
-        except:                                                                 # If this tag does NOT exist, use the series title tag
-          st = self.metaData['series title'];                                   # Set Series directory name
-        if self.encode: st = st.encode(self.fmt);                               # Encode if python2
-        for n in range( len(self.illegal) ):                                    # Iterate over all illegal characters
-          if self.illegal[n] in st:                                             # If an illegal character is found in the string
-            st = st.replace(self.illegal[n], self.legal[n]);                  # Replace the character with a legal character
+    if self.is_episode:
+      if not self.in_place:
+        self.new_out_dir = self.tv_dir                                                  # Reset output directory to original directory
+        try:                                                                            # Try to use the seriesName tag from the metaData
+          st = self.metaData['seriesName'];                                             # Set Series directory name
+        except:                                                                         # If this tag does NOT exist, use the series title tag
+          st = self.metaData['series title'];                                           # Set Series directory name
+        if self.encode: st = st.encode(self.fmt);                                       # Encode if python2
+        for n in range( len(self.illegal) ):                                            # Iterate over all illegal characters
+          if self.illegal[n] in st:                                                     # If an illegal character is found in the string
+            st = st.replace(self.illegal[n], self.legal[n]);                            # Replace the character with a legal character
         if ('first_air_date' in self.metaData):
           airYear = self.metaData['first_air_date'].split('-')[0] 
           st = '{} ({})'.format(st, airYear)
-        self.new_out_dir = os.path.join(self.new_out_dir, st);                  # Set Series directory name
-        sn = 'Season {:02d}'.format(self.metaData['season']);                   # Set up name for Season Directory
-        self.new_out_dir = os.path.join(self.new_out_dir, sn);                  # Add the season directory to the output directory
-#        if re_test is False:                                                    # If the re_test is False
-#          self.file_name[0] = 's{:02d}e{:02d} - {}'.format(
-#            self.metaData['season'], self.metaData['episode'], self.file_name[0]
-#          )
-    else:                                                                       # Else the file is a movie
-      self.is_episode  = False;                                                 # Set is_episode to False
-      if not self.in_place: self.new_out_dir = self.mov_dir                     # Reset output directory to original directory
+        self.new_out_dir = os.path.join(self.new_out_dir, st);                          # Set Series directory name
+        sn = 'Season {:02d}'.format(self.metaData['season']);                           # Set up name for Season Directory
+        self.new_out_dir = os.path.join(self.new_out_dir, sn);                          # Add the season directory to the output directory
+    else:                                                                               # Else the file is a movie
+      self.is_episode  = False;                                                         # Set is_episode to False
+      if not self.in_place: self.new_out_dir = self.mov_dir                             # Reset output directory to original directory
+
+    return True
 
   ##############################################################################
   def _videoKeys(self):
