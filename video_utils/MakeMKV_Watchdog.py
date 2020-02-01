@@ -1,17 +1,21 @@
 import logging
 
-import os, time
+import os, time, re
 from threading import Thread
 from queue import Queue
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from . import _sigintEvent, _sigtermEvent
+from . import isRunning
 from .videoconverter import VideoConverter
+from .videotagger.metadata.getTMDb_Info import getTMDb_Info
+from .videotagger.metadata.getTVDb_Info import getTVDb_Info
 from .plex.plexMediaScanner import plexMediaScanner
 
+
 class MakeMKV_Watchdog( FileSystemEventHandler ):
+  seasonEp = re.compile( r'[sS](\d{2,4})[eE](\d{2,4})' )
   def __init__(self, *args, **kwargs):
     super().__init__()
     self.log         = logging.getLogger(__name__)
@@ -50,22 +54,53 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       self.Queue.put( event.src_path )                                              # Add split file path (dirname, basename,) tuple to to_convert list
       self.log.debug( 'New file added to queue : {}'.format( event.src_path) )      # Log info
 
-  def on_moved(self, event):
-    '''
-    Purpose:
-      Method to handle events when file is moved.
-    '''
-    if event.is_directory: return
-    if event.dest_path.endswith( self.fileExt ):
-      self.Queue.put( event.dest_path )                                              # Add split file path (dirname, basename,) tuple to to_convert list
-      self.log.debug( 'New file added to queue : {}'.format( event.dest_path) )      # Log info
-
   def join(self):
     '''
     Method to wait for the watchdog Observer to finish.
     The Observer will be stopped when _sigintEvent or _sigtermEvent is set
     '''
     self.Observer.join()                                                            # Join the observer thread
+
+  def fileRename(self, file):
+    '''
+    Method to rename file to Plex compatible naming based
+    on TVDb ID or TMDb ID in file name.
+    Assume using input file convention outlined in docs.
+    See following for Plex conventions:
+      https://support.plex.tv/articles/naming-and-organizing-your-tv-show-files/
+      https://support.plex.tv/articles/naming-and-organizing-your-movie-media-files/
+    Inputs:
+      file  : Full path to file
+    '''
+    fileDir, fileBase = os.path.split(file)
+    fileBase, fileExt = os.path.splitext( fileBase )
+
+    seasonEp = self.seasonEp.findall( fileBase )
+    if (len(seasonEp) == 1): 
+      self.log.info( 'File is episode: {}'.format(file) )
+      TVDbID = fileBase.split('.')[0]
+      info = getTVDb_Info( TVDbID = TVDbID, seasonEp = tuple( map(int, seasonEp[0]) ) )
+      if info:
+        fName = 'S{:02d}E{:02d} - {}.{}{}'.format(
+          info['airedSeason'], info['airedEpisodeNumber'], info['episodeName'], 
+          TVDbID, fileExt
+        )
+   
+    else:
+      self.log.info( 'File is movie: {}'.format(file) )
+      TMDbID, extra = fileBase.split('.')
+      info = getTMDb_Info( TMDbID = TMDbID )
+      if info:
+        fName = '{} ({}).{}.{}{}'.format(
+            info['title'], info['year'], extra, TMDbID, fileExt
+        )
+    if info: 
+      newFile = os.path.join( fileDir, fName )    
+      self.log.info( 'Renaming file: {} ---> {}'.format(file, newFile) )
+      os.rename( file, newFile )
+      return newFile, info
+
+    return file, None
 
   def _getDirListing(self, dir):
     '''
@@ -117,15 +152,18 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     Keywords:
       None.
     '''
-    while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):         # While the kill event is NOT set
+    while isRunning():                                                          # While the kill event is NOT set
       try:                                                                      # Try
         file = self.Queue.get( timeout = 0.5 )                                  # Get a file from the queue; block for 0.5 seconds then raise exception
       except:                                                                   # Catch exception
         continue                                                                # Do nothing
 
-      self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
+      self._checkSize( file )                                                   # Wait to make sure file finishes copying/moving
+
+      file, metaData = self.fileRename( file )
+    
       try:        
-        out_file = self.converter.transcode( file )  # Convert file 
+        out_file = self.converter.transcode( file, metaData = metData )         # Convert file 
       except:
         self.log.exception('Failed to convert file')
       else:

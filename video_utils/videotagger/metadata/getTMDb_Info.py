@@ -185,7 +185,7 @@ def parseMovieInfo( info ):
   '''
   log = logging.getLogger(__name__);
   if ('overview'    in info):
-    info['plot']  = [data['overview']];
+    info['plot']  = [info['overview']];
   if ('genres'      in info):
     info['genre'] = info['genres'];
   if ('poster_path' in info):
@@ -304,6 +304,13 @@ def searchByIMDbID( IMDbID ):
   return {}                                                                                 # Return the TMDb class instance
 
 #########################################################################################
+def getByTMDbID( TMDbID, seasonEp = None ):
+  if seasonEp:
+    return episodeBySeasonEp( TMDbID, seasonEp )
+  else:
+    return getMovieInfo( TMDbID )
+    
+#########################################################################################
 def episodeByTitle( show_id, episode ):
   '''
   Purpose:
@@ -329,6 +336,7 @@ def episodeByTitle( show_id, episode ):
       if (ep['name'].lower() in episode.lower()):
         info = getEpisodeInfo( series['show_id'], season['season_number'], ep['episode_number'] )
         info.update( series )
+        info['is_episode'] = True
         log.info( 'Found episode based on episode name search' )
         return info
 
@@ -336,7 +344,7 @@ def episodeByTitle( show_id, episode ):
   return None
  
 #########################################################################################
-def episodeBySeasonEp( show_id, episode, seasonEp ):
+def episodeBySeasonEp( show_id, seasonEp, episode = None ):
   '''
   Purpose:
     Function to get episode information based on
@@ -347,8 +355,9 @@ def episodeBySeasonEp( show_id, episode, seasonEp ):
     based on name
   Inputs:
     series   : idmbpy Movie object of series information
-    episode  : Name of the episode to get
     seasonEp : Tuple or list containing season and episode numbers
+  Keywords:
+    episode  : Name of the episode to get
   '''
   log = logging.getLogger(__name__)
   log.debug( 'Searching for episode base on season/episode number' )
@@ -357,11 +366,15 @@ def episodeBySeasonEp( show_id, episode, seasonEp ):
     series = getSeriesInfo( show_id )
     if series:
       info.update( series )
+    info['is_episode'] = True
     log.info( 'Found episode based on season/episode number' )
     return info
 
-  log.info( 'Search by season/episode number returned no results, trying by name...' )
-  return episodeByTitle( series, episode )
+  if episode:
+    log.info( 'Search by season/episode number returned no results, trying by name...' )
+    return episodeByTitle( series, episode )
+
+  return None
 
 #########################################################################################
 def getEpisode( title, episode, seasonEp = None, year = None, depth = 5 ):
@@ -389,7 +402,7 @@ def getEpisode( title, episode, seasonEp = None, year = None, depth = 5 ):
   for idx, series in enumerate( seriesSearch['results'] ):
     log.info( 'Checking series: {} for match'.format( series['name'] ) )
     if seasonEp:
-      ep = episodeBySeasonEp( series['id'], episode, seasonEp )
+      ep = episodeBySeasonEp( series['id'], seasonEp, episode = episode )
     else:
       ep = episodeByTitle( series['id'], episode )
 
@@ -404,11 +417,12 @@ def getEpisode( title, episode, seasonEp = None, year = None, depth = 5 ):
       
 ###################################################################
 def getTMDb_Info(
-    IMDbID   = None, 
     title    = None,
     episode  = None,
     seasonEp = None,
     year     = None,
+    TMDbID   = None,
+    IMDbID   = None, 
     depth    = 5,
     retries  = 3):
   '''
@@ -420,16 +434,17 @@ def getTMDb_Info(
   Inputs:
     None.
   Keywords:
-    IMDbID   : The id from the URL of a movie on imdb.com.
-                 Ex. For the movie 'Push', the URL is:
-                 http://www.imdb.com/title/tt0465580/
-                 Making the imdb id tt0465580
     title    : Name of movie or series to search for.
                  If searching for movie, must include year
                  If seraching for episode, must include episode
     episode  : Name of episode to search for.
     seasonEp : Tuple or list containing season and episode numbers
     year     : Year of movie or series; required for movie search
+    TMDbID   : The Movie Database ID
+    IMDbID   : The id from the URL of a movie on imdb.com.
+                 Ex. For the movie 'Push', the URL is:
+                 http://www.imdb.com/title/tt0465580/
+                 Making the imdb id tt0465580
     depth    : How deep to go into search results to find match
   Outputs:
     Returns TMDb instance; very loosely based on IMDb() object
@@ -440,7 +455,9 @@ def getTMDb_Info(
   tmdb = TMDb( )                                                                            # Initialize instance of the TMDb class
   info = {}
 
-  if IMDbID:
+  if TMDbID:
+    info = getByTMDbID( TMDbID, seasonEp = seasonEp )
+  elif IMDbID:
     info = searchByIMDbID( IMDbID )
   elif title and (not episode):
     log.info( 'Assuming movie search based on keywords' )

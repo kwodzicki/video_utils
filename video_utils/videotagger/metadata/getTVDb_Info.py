@@ -56,7 +56,7 @@ def tvdbSeriesSearch( title = None, IMDbID = None):
 
 
 ########################################################################################
-def episodeBySeasonEp(series, episode, seasonEp):
+def episodeBySeasonEp(series, seasonEp, episode=None):
   '''
   Purpose:
     Function to get episode information based on
@@ -67,8 +67,9 @@ def episodeBySeasonEp(series, episode, seasonEp):
     based on name
   Inputs:
     series   : Dictionary of series inforamtion
-    episode  : Name of the episode to get
     seasonEp : Tuple or list containing season and episode numbers
+  Keywords:
+    episode  : Name of the episode to get
   '''
   log = logging.getLogger(__name__)
   log.debug( 'Searching TVDb by season/episode number' )
@@ -135,10 +136,12 @@ def episodeByTitle( series, episode, eps = None ):
   return {}
 
 ########################################################################################
-def getTVDb_Info( episode,
+def getTVDb_Info(
+    episode  = None,
     title    = None,
     seasonEp = None,
     year     = None,
+    TVDbID   = None,
     IMDbID   = None,
     tmdbInfo = None):
   '''
@@ -147,39 +150,48 @@ def getTVDb_Info( episode,
   Purpose:
     A python function to download tv show informaiton from thetvdb.com
   Inputs:
-    episode  : Name of episode to search for.
+    None.
   Keywords:
+    episode  : Name of episode to search for.
     title    : Name of series to search for.
-    IMDbID   : The IMDb ID for the TV series
     seasonEp : Tuple or list containing season and episode numbers
     year     : Year of movie or series; required for movie search
+    TVDbID   : The TVDb series ID
+    IMDbID   : The IMDb ID for the TV series
   Outputs:
     Returns the dictionary of information downloaded from thetvdb.com
     about the series.
   '''
-  log = logging.getLogger(__name__)                                                     # Initialize logger
+  log    = logging.getLogger(__name__)                                                     # Initialize logger
+  checks = (title    and episode)
+  checks = (title    and IMDbID)  or checks
+  checks = (seasonEp and TVDbID)  or checks
 
-  if (not title) and (not IMDbID):
-    raise Exception('Must input series name OR series IMDb ID' )
+  if not checks: 
+    raise Exception( 'Not enough information to get metadata' )
+  
+  if TVDbID:
+    Series = [ TVDb.series.Series( TVDbID ).info() ]
+  else:
+    Series = tvdbSeriesSearch(title = title, IMDbID = IMDbID)
 
-  resp = tvdbSeriesSearch(title = title, IMDbID = IMDbID)
-  log.debug( 'TVDb series search returned {} matche(s)'.format( len(resp) ) )
-  for r in resp:                                                                        # Iterate over all search
+  log.debug( 'TVDb series search returned {} matche(s)'.format( len(Series) ) )
+  for series in Series:                                                                 # Iterate over all search
     time.sleep(0.1)                                                                     # Sleep to reduce hammeri
-    if year and r['firstAired']:
-      if (str(year) in r['firstAired']):                                                # If year is denfined and firestAired is defined and years match
+    if year and series['firstAired']:
+      if (str(year) in series['firstAired']):                                           # If year is denfined and firestAired is defined and years match
         log.debug( 'Found series with same firstAired year' )                           # Debugging information
       else:
         continue                                                                        # Else, skip series
 
     if seasonEp:
-      ep = episodeBySeasonEp( r, episode, seasonEp )
+      ep = episodeBySeasonEp( series, seasonEp, episode = episode )
     else:
-      ep = episodeByTitle( r, episode )
+      ep = episodeByTitle( series, episode )
 
     if ep:
-      ep['first_air_date'] = r['firstAired']
-      ep['seriesName']     = r['seriesName']
+      ep['first_air_date'] = series['firstAired']
+      ep['seriesName']     = series['seriesName']
       return ep
   
   return None
