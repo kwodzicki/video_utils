@@ -6,9 +6,9 @@ from subprocess import PIPE, STDOUT
 
 # Parent classes
 from . import _sigintEvent, _sigtermEvent
-from .mediainfo import mediainfo
+from .mediainfo import MediaInfo
+from .comremove import ComRemove
 from .utils.ffmpeg_utils   import cropdetect, progress
-from .utils.subprocManager import SubprocManager
 
 # Subtitle imports
 from .subtitles.opensubtitles import OpenSubtitles
@@ -38,7 +38,7 @@ from ._logging import fileFMT;
 
 _sePat = re.compile( r'[sS]\d{2,}[eE]\d{2,} - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
-class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
+class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   '''
   Name:
      VideoConverter
@@ -74,12 +74,9 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
                cpulimit      = 75, 
                x265          = False,
                remove        = False,
-               subfolder     = True, 
                vobsub        = False, 
                srt           = False,
                vobsub_delete = False,
-               username      = '',
-               userpass      = '',
                **kwargs):
     '''
     Keywords:
@@ -103,12 +100,6 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
                         DEFAULT: 75 per cent.
                         TO DISABLE LIMITING - set to 0.
        remove        : Set to True to remove mkv file after transcode
-       subfolder     : If True, when subtitles are extracted/downloaded, all
-                        files will be placed in a subfolder under the out_dir
-                        path. This is the default behavior. To disable this
-                        behavior, set to False. Note that this is ONLY for 
-                        movies. Episodes will NOT be placed in subfolders
-                        regardless of this keyword
        vobsub        : Set to extract VobSub file(s). If SRT is set, then
                         this keyword is also set. Setting this will NOT
                         enable downloading from opensubtitles.org as the
@@ -125,9 +116,8 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
                         the plain text of the password for slightly
                         better security
     '''
-    super().__init__();
+    super().__init__(**kwargs);
     self.__log = logging.getLogger( __name__ );                                   # Set log to root logger for all instances
-
     self.container = container
     if vobsub_extract is None:
       self.__log.warning('VobSub extraction is DISABLED! Check that mkvextract is installed and in your PATH');
@@ -152,10 +142,8 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
     self.miss_lang     = [];
     self.x265          = x265;      
     self.remove        = remove;       
-    self.subfolder     = subfolder;
     self.vobsub_delete = vobsub_delete;
-    self.username      = username;
-    self.userpass      = userpass;
+
     if lang:                                                                    # If lang is set
       self.lang = lang if isinstance(lang, (tuple,list,)) else [lang]           # Set lang attribute to lang if it is a tuple or list instance, else make lang a list
     if (len(self.lang) == 0):							# If lang is empty list
@@ -208,7 +196,11 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
 
 
   ################################################################################
-  def transcode( self, in_file, log_file = None, metaData = None ):
+  def transcode( self, in_file, 
+        log_file          = None, 
+        metaData          = None,
+        chapters          = False, 
+        removeCommercials = False):
     '''
     Name:
        transcode
@@ -245,10 +237,14 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
     Keywords:
        log_file  : File to write logging information to
        metaData  : Pass in result from previous call to getMetaData
+       chapters  : Set if commericals are to be marked with chapters.
+                     Default is to cut commericals out of video file
+       removeCommercials : Set to remove/mark commercial segments in file
     Return:
         Check .transcode_status
         0 : Everything finished cleanly
         1 : Output file exists
+        5 : comskip failed
        10 : No video OR no audio streams
     File Naming:
        MOVIE:
@@ -301,7 +297,6 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
     start_time = datetime.now();                                                # Set start date
     self.transcode_status = None;                                               # Reset transcode status to None
     self.ffmpeg_logTime   = None;
-    self.get_subtitles( );                                                      # Extract subtitles
 
     out_file  = '{}.{}'.format( self.out_file, self.container );                # Set the output file path
     prog_file = self._inprogress_file( out_file )                               # Get file name for inprogress conversion; maybe a previous conversion was cancelled
@@ -316,7 +311,7 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
           try:
             os.remove( self.chapterFile )                                       # Delete the file
           except Exception as err:
-            log.error( 'Failed to delete chapter file: {}'.format(err) )        # Log error                                                        
+            self.__log.error( 'Failed to delete chapter file: {}'.format(err) ) # Log error                                                        
         return False;                                                           # Return to halt the function
       elif self._being_converted( out_file ):                                   # Inprogress file exists, check if output file size is changing
         self.__log.info('It seems another process is creating the output file') # The output file size is changing, so assume another process is interacting with it
@@ -329,6 +324,13 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
 
     open(prog_file, 'a').close()                                                # Touch inprogress file, acts as a kind of lock
 
+    if removeCommercials:                                                       # If the removeCommercials keywords is set
+      if not self.removeCommercials( in_file, chapters = chapters ):            # Run the removeCommericals method
+        self.__log.error( 'Error cutting commercials, assuming bad file...' )
+        self.transcode_status = 5
+        self._cleanUp( prog_file )
+        return None
+
     self.ffmpeg_err_file  = self.ffmpeg_log_file + '.err';                      # Set up path for ffmpeg error file
     self.ffmpeg_log_file += '.log';                                             # Set up path for ffmpeg log file
 
@@ -337,24 +339,24 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
 
     if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):
       self.__log.info( 'Transcoding file...' )
-
-      if self.no_ffmpeg_log:                                                      # If creation of ffmpeg log files is disabled
+ 
+      if self.no_ffmpeg_log:                                                    # If creation of ffmpeg log files is disabled
         self.addProc( self.ffmpeg_cmd, 
                 stdout             = PIPE, 
                 stderr             = STDOUT,
-                universal_newlines = True);                                       # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
-      else:                                                                       # Else
+                universal_newlines = True);                                     # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
+      else:                                                                     # Else
         self.addProc( self.ffmpeg_cmd, 
           stdout = self.ffmpeg_log_file, stderr = self.ffmpeg_err_file
-        );                                                                        # Start the HandBrakeCLI command and direct all output to /dev/null
-      self.run(block = False);                                                    # Run process with block set to False so that method returns right away
+        );                                                                      # Start the HandBrakeCLI command and direct all output to /dev/null
+      self.run(block = False);                                                  # Run process with block set to False so that method returns right away
 
-      if self.no_ffmpeg_log:                                                      # If ffmpeg log files are disabled, we want to know a little bit about what is going on
-          self.applyFunc( progress, kwargs= {'nintervals' : 10} )                 # Apply the 'progess' function to the process to monitor ffmpeg progress
-      self.wait();                                                                # Call wait method to ensure that process has finished
+      if self.no_ffmpeg_log:                                                    # If ffmpeg log files are disabled, we want to know a little bit about what is going on
+          self.applyFunc( progress, kwargs= {'nintervals' : 10} )               # Apply the 'progess' function to the process to monitor ffmpeg progress
+      self.wait();                                                              # Call wait method to ensure that process has finished
 
-      if os.path.isfile( self.chapterFile ): os.remove( self.chapterFile )        # If the cahpter file exists, delete it
-      self.chapterFile = None                                                     # Set chapter file to None for safe measure
+      if os.path.isfile( self.chapterFile ): os.remove( self.chapterFile )      # If the cahpter file exists, delete it
+      self.chapterFile = None                                                   # Set chapter file to None for safe measure
 
     try: 
       self.transcode_status = self.returncodes[0];                              # Set transcode_status      
@@ -362,21 +364,22 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
       self.transcode_status = -1
 
     if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
-      self.__log.info( 'Transcode SUCCESSFUL!' );                                 # Print information
+      self.__log.info( 'Transcode SUCCESSFUL!' )                                # Print information
       self._write_tags( out_file )
+      self.get_subtitles( )                                                     # Extract subtitles
 
       inSize  = os.stat(self.in_file).st_size;                                  # Size of in_file
       outSize = os.stat(out_file).st_size;                                      # Size of out_file
       difSize = inSize - outSize;                                               # Difference in file size
       change  = 'larger' if outSize > inSize else 'smaller';                    # Is out_file smaller or larger than in file
       msg     = 'The new file is {:4.1f}% {} than the original!';               # Set up message to be printed
-      self.__log.info( msg.format(abs(difSize)/inSize*100, change) );             # Print the message about the size
+      self.__log.info( msg.format(abs(difSize)/inSize*100, change) );           # Print the message about the size
           
       if self.remove:                                                           # If remove is set
-        self.__log.info( 'Removing the input file...' );                          # Log some information
+        self.__log.info( 'Removing the input file...' );                        # Log some information
         os.remove( self.in_file );                                              # Delete the input file if remove is true
 
-      self.__log.info('Duration: {}'.format(datetime.now()-start_time))           # Print compute time
+      self.__log.info('Duration: {}'.format(datetime.now()-start_time))         # Print compute time
 
     else:                                                                       # Else, there was an issue with the transcode
       self.__log.critical( 'All transcode attempts failed!!! Removing all created files' ) # Log critical information
@@ -387,12 +390,19 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
         except:
           pass
     
-    try:
-      os.remove( prog_file )
-    except:
-      pass
+    self._cleanUp( prog_file )
 
-    return out_file;                                                            # Return output file from function, i.e., transcode was success
+    return out_file                                                             # Return output file from function, i.e., transcode was success
+
+  ##############################################################################
+  def _cleanUp(self, *args):
+    ''' Method to delete arbitrary number of files, catching exceptions'''
+    for arg in args:
+      if os.path.isfile( arg ):
+        try:
+          os.remove( arg )
+        except Excpetion as err:
+          self.__log.warning('Failed to delete file: {} --- {}'.format(arg, err))
 
   ##############################################################################
   def _ffmpeg_command(self, out_file): 
@@ -547,6 +557,7 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
     # Generate file paths for the output file and the ffmpeg log files
     self.ffmpeg_log_file = os.path.join(self.new_log_dir, self.file_name);          # Set the ffmpeg log file path without extension
     self.out_file    = [self.new_out_dir, '', self.file_name];                  # Set the output file path without extension
+    self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
     return True;
 
   ##############################################################################    
@@ -588,67 +599,58 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
     # Extract VobSub(s) and convert to SRT based on keywords
     def opensubs_all():
       '''Local function to download all subtitles from opensubtitles'''
-      self.__log.info('Attempting opensubtitles.org search...');                  # Logging information
-      self.login();                                                       # Login to the opensubtitles.org API
-      self.searchSubs();                                                  # Search for subtitles
-      if self.subs is None:                                               # If no subtitles are found
-        self._join_out_file( );                                                 # Combine out_file path list into single path with NO movie/episode directory and create directories
-      else:                                                                     # Else, some subtitles were found
+      self.__log.info('Attempting opensubtitles.org search...')                 # Logging information
+      self.login()                                                              # Login to the opensubtitles.org API
+      self.searchSubs()                                                         # Search for subtitles
+      if (self.subs is not None):                                               # If no subtitles are found
         found = 0;                                                              # Initialize found to zero (0)
-        for lang in self.subs:                                            # Iterate over all languages in the sub titles dictionary
-          if self.subs[lang] is not None: found+=1;                       # If one of the keys under that language is NOT None, then increment found
-        if found > 0:                                                           # If found is greater than zero (0), then subtitles were found
-          self._join_out_file( self.title );                                    # Combine out_file path list into single path with movie/episode directory and create directories
-          self.saveSRT( self.out_file );                                                 # Download the subtitles
-        else:                                                                   # Else, no subtitles were found
-          self._join_out_file( );                                               # Combine out_file path list into single path with NO movie/episode directory and create directories
-      self.logout();                                                      # Log out of the opensubtitles.org API
+        for lang in self.subs:                                                  # Iterate over all languages in the sub titles dictionary
+          if self.subs[lang] is not None: found+=1                              # If one of the keys under that language is NOT None, then increment found
+        if (found > 0):                                                         # If found is greater than zero (0), then subtitles were found
+          self.saveSRT( self.out_file )                                         # Download the subtitles
+      self.logout()                                                             # Log out of the opensubtitles.org API
 
     ######
     if (not self.vobsub) and (not self.srt):                                    # If both vobsub AND srt are False
-      self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
-      return;                                                                   # Return from the method
+      return                                                                    # Return from the method
 
-    self.text_info = self.get_text_info( self.lang );                       # Get and parse text information from the file
+    self.text_info = self.get_text_info( self.lang )                            # Get and parse text information from the file
     if self.text_info is None:                                                  # If there is not text information, then we cannot extract anything
       if self.srt:                                                              # If srt subtitles are requested
-        opensubs_all();                                                         # Run local function
+        opensubs_all()                                                          # Run local function
     elif self.vobsub or self.srt:                                               # Else, if vobsub or srt is set
       if self.format == "MPEG-TS":                                              # If the input file format is MPEG-TS, then must use CCExtractor
         if ccextract:                                                           # If the ccextract function import successfully
-          self._join_out_file( self.title );                                    # Build output directory with directory for episode/movie that will contain video and subtitle files
-          status = ccextract( self.in_file, self.out_file, self.text_info );    # Run ccextractor
+          status = ccextract( self.in_file, self.out_file, self.text_info )     # Run ccextractor
         else:
           self.__log.warning('ccextractor failed to import, falling back to opensubtitles.org');
-          opensubs_all();                                                       # Run local function
+          opensubs_all()                                                        # Run local function
       else:                                                                     # Assume other type of file
         if not vobsub_extract:                                                  # If the vobsub_extract function failed to import
-          self.__log.warning('vobsub extraction not possible');
+          self.__log.warning('vobsub extraction not possible')
           if self.srt:                                                          # If the srt flag is set
-            self.__log.info('Falling back to opensubtitles.org for SRT files');
-            opensubs_all();                                                     # Run local function
+            self.__log.info('Falling back to opensubtitles.org for SRT files')
+            opensubs_all()                                                      # Run local function
         else:
-          self._join_out_file( self.title );                                    # Combine out_file path list into single path with movie/episode directory and create directories
           self.vobsub_status, vobsub_files = vobsub_extract( 
             self.in_file, self.out_file, self.text_info, 
             vobsub = self.vobsub,
-            srt    = self.srt );                                                # Extract VobSub(s) from the input file and convert to SRT file(s).
+            srt    = self.srt )                                                 # Extract VobSub(s) from the input file and convert to SRT file(s).
           self._createdFiles.extend( vobsub_files )                             # Add list of files created by vobsub_extract to list of created files
           if (self.vobsub_status < 2) and self.srt:                             # If there weren't nay major errors in the vobsub extraction
             if not vobsub_to_srt:                                               # If SRT output is enabled AND vobsub_to_srt imported correctly
-              self.__log.warning('vobsub2srt conversion not possible. Leaving vobsub files.');
+              self.__log.warning('vobsub2srt conversion not possible. Leaving vobsub files.')
             else:
               self.srt_status, srt_files = vobsub_to_srt(   
                 self.out_file, self.text_info,   
                 vobsub_delete = self.vobsub_delete,   
                 cpulimit      = self.cpulimit,   
-                threads       = self.threads );                                 # Convert vobsub to SRT files
+                threads       = self.threads )                                  # Convert vobsub to SRT files
               self._createdFiles.extend( srt_files )
             failed = [i for i in self.text_info if i['srt'] is False];		# Check for missing srt files
             if len(failed) > 0:							# If missing files found
-              self._join_out_file( self.title );				# Combine out_file path list into single path with movie/episode directory and create directories
-              self.__log.info('Attempting opensubtitles.org search...');		# Logging information
-              self.login();							# Log into opensubtitles
+              self.__log.info('Attempting opensubtitles.org search...')         # Logging information
+              self.login()							# Log into opensubtitles
               for i in range(len(self.text_info)):				# Iterate over all entries in text_info
                 if self.text_info[i]['srt']: continue;				# If the srt file exists, skip
                 self.track_num  = self.text_info[i]['track']
@@ -659,12 +661,12 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
                   if os.path.isfile(tmpOut[0]):					# If the subtitle file exists
                     self.text_info[i]['srt'] = True				# update the srt presence flag
                     self._createdFiles.extend( tmpOut )				# Add subtitle file to list of created files
-              self.logout();							# Log out to of opensubtitles
+              self.logout()						        # Log out to of opensubtitles
     else:                                                                       # Else, not subtitle candidates were returned
-      self.__log.debug('No subtitle options set');                                # Log some information
-      self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
-##############################################################################
-  def _join_out_file(self, title = None ):
+      self.__log.debug('No subtitle options set')                               # Log some information
+
+  ##############################################################################
+  def _join_out_file(self):
     '''
     Name:
        _join_out_file
@@ -679,13 +681,12 @@ class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
     Outputs:
        None; Resest class attributes.
     Keywords:
-       title : Title to place into the second element of the.
-                DEFAULT is no title.
+       None
     '''
     if isinstance(self.out_file, list):                                         # If the out_file is a list instance
       self.__log.debug( 'Joining output file path' )
-      if self.subfolder and (title is not None) and (not self.is_episode):      # If title is set and subfolder is requested
-        self.out_file[1] = title;                                               # Place ttle in second element
+      if not self.is_episode:                                                   # If NOT episode
+        self.out_file[1] = self.title                                           # Place title in second element
       self.out_file    = os.path.join( *self.out_file );
       self.new_out_dir = os.path.dirname( self.out_file )                       # Update new_out_dir incase a title was added to path
     self._create_dirs();                                                        # Create all output directories

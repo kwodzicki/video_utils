@@ -20,7 +20,7 @@ else:
   cpulimitInstalled = True;                                                       # Set global cpulimitInstalled flag to True
 
 class SubprocManager(object):
-  def __init__(self, cpulimit = None, threads = None, interval = None):
+  def __init__(self, cpulimit = None, threads = None, interval = None, **kwargs):
     '''
     Keywords:
        cpulimit : Limit, in percent, for CPU usage. 
@@ -36,8 +36,8 @@ class SubprocManager(object):
                    but will also use more resources while checking for
                    process completion.
     '''
-    super().__init__();
-    self.__log           = logging.getLogger(__name__);                           # Get logger for the class
+    super().__init__(**kwargs);
+    self.__log           = logging.getLogger(__name__);                         # Get logger for the class
     self.cpulimit      = cpulimit;                                              # Set cpulimit attribute to user input cpulimit; see @properties at bottom for defaults
     self.threads       = threads;                                               # Set threads attribute to user input threads; see @properties at bottom for defaults
     self.interval      = interval;                                              # Set interval attribute to user input interval; see @properties at bottom for defaults

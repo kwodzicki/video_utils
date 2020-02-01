@@ -2,7 +2,6 @@ import logging
 import os
 
 from .. import isRunning#_sigintEvent, _sigtermEvent
-from ..comremove import ComRemove
 from ..videoconverter import VideoConverter
 from ..utils.ffmpeg_utils import checkIntegrity
 
@@ -10,7 +9,7 @@ from .plexMediaScanner import plexMediaScanner
 from .utils import plexDVR_Rename
 
 
-class DVRconverter(ComRemove, VideoConverter): 
+class DVRconverter(VideoConverter): 
   '''
   DVRconverter
 
@@ -76,21 +75,10 @@ class DVRconverter(ComRemove, VideoConverter):
       lang          = lang,
       remove        = not no_remove,
       subfolder     = False,
-      srt           = not no_srt)
+      srt           = not no_srt,
+      **kwargs)
 
     self.destructive = destructive
-
-  ######################################################################################
-  def _cleanUp(self, *args):
-    '''
-    Method to delete arbitary number of files, catching exceptions
-    '''
-    for arg in args:
-      if os.path.isfile(arg):
-        try:
-          os.remove(arg)
-        except Exception as err:
-          self.log.warning('Failed to delete file: {} --- {}'.format(arg, err))
 
   ######################################################################################
   def convert(self, in_file):
@@ -131,27 +119,28 @@ class DVRconverter(ComRemove, VideoConverter):
         self.log.critical('Error renaming file: {}'.foramt(in_file))                # Log error
         return success, out_file                                                    # Return from function
  
-      success = self.process( file, chapters = not self.destructive )               # Try to remove commercials from video
-      if not success:                                                               # If comremove failed
-        if not isRunning(): return success, out_file
-        self.log.critical('Error cutting commercials, assuming bad file deleting: {}'.format(in_file) )# Log error
+      if not isRunning(): return success, out_file
+      out_file = self.transcode( file,
+                metaData          = info, 
+                chapters          = not self.destructive,
+                removeCommercials = True )                                          # Run the transcode
+
+      self._cleanUp( file )                                                         # If the renamed; i.e., hardlink to original file, exists
+
+      if (self.transcode_status == 0):
+        success = True
+      elif (self.transcode_status == 5):
+        self.log.critical('Assuming bad file deleting: {}'.format(in_file) )        # Log error
         no_remove = True                                                            # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
-        self._cleanUp( in_file, file )                                              # If infile or file exists, delete it
-      else:
-        out_file = self.transcode( file, metaData = info )                          # Run the transcode
+        self._cleanUp( in_file )                                                    # If infile or file exists, delete it
+      elif not isRunning():                                                         # Else, if not runnint 
+        return success, out_file                                                    # Return status and out_file
+      else:                                                                         # Else
+        self.log.critical('Failed to transcode file. Will delete input')            # Only
+        no_remove = True                                                            # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
+        self._cleanUp( in_file, out_file )                                          # If infile exists, delete it
 
-        self._cleanUp( file )                                                       # If the renamed; i.e., hardlink to original file, exists
-
-        if (self.transcode_status == 0):
-          success = True
-        else:
-          if not isRunning(): 
-            return success, out_file
-          self.log.critical('Failed to transcode file. Will delete input')          # Only
-          no_remove = True                                                          # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
-          self._cleanUp( in_file, out_file )                                        # If infile exists, delete it
-
-    if isRunning():#(not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):                # If a file name was returned AND no_remove is False
+    if isRunning():                                                                 # If a file name was returned AND no_remove is False
       args   = ('scan',)                                                            # Set arguements for plexMediaScanner function
       kwargs = {'section'   : 'TV Shows',
                 'directory' : os.path.dirname( in_file )}                           # Set keyword arguments for plexMediaScanner function

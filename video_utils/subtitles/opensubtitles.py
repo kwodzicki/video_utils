@@ -29,7 +29,7 @@ class OpenSubtitles( ServerProxy ):
 
   server_lang = 'en';                                                    # Set up the server
   attempts    = 10;
-  def __init__( self, username = '', userpass = '', verbose = False):
+  def __init__( self, username = '', userpass = '', verbose = False, **kwargs):
     '''
     Name:
        __init__

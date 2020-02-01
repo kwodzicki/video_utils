@@ -6,10 +6,10 @@ from subprocess import Popen, PIPE, STDOUT, DEVNULL
 from .utils.checkCLI import checkCLI
 
 try:
-  checkCLI( 'comskip' )
+  COMSKIP = checkCLI( 'comskip' )
 except:
   logging.getLogger(__name__).error( "comskip is NOT installed or not in your PATH!" )
-  raise 
+  COMSKIP = None
 
 from .utils.subprocManager import SubprocManager;
 
@@ -45,7 +45,7 @@ class ComRemove( SubprocManager ):
     self.__fileExt  = None;
 
   ########################################################
-  def process(self, in_file, chapters = False ):
+  def removeCommercials(self, in_file, chapters = False ):
     '''
     Purpose:
       Main method for commercial identification and removal.
@@ -96,6 +96,10 @@ class ComRemove( SubprocManager ):
       comskip runs successfully. If comskip does not run
       successfully, then None is returned.
     '''
+    if not COMSKIP:
+      self.__log.info('comskip utility NOT found!')
+      return None 
+
     self.__log.info( 'Running comskip to locate commercial breaks')
     if (self.__outDir  is None): self.__outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
     if (self.__fileExt is None): self.__fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute

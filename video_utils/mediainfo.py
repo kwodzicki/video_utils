@@ -19,8 +19,8 @@ else:                                                                           
   output_fmt = 'XML';                                                           # Set output format to XML
 
 
-class mediainfo( object ):
-  def __init__( self, in_file = None ):
+class MediaInfo( object ):
+  def __init__( self, in_file = None, **kwargs ):
     '''
     Name:
        mediainfo
@@ -50,7 +50,7 @@ class mediainfo( object ):
         Changes mediainfo output type from XML to OLDXML as
         the xml tags have changes in newer versions.
     '''
-    super().__init__();
+    super().__init__(**kwargs);
     self.log     = logging.getLogger(__name__);
     self.cmd     = ['mediainfo', '--Full', '--Output={}'.format(output_fmt) ];  # The base command for mediainfo; just add [self.in_file]
     self.in_file = in_file;
