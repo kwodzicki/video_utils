@@ -5,7 +5,7 @@ from datetime import datetime
 from subprocess import PIPE, STDOUT
 
 # Parent classes
-from . import _sigintEvent, _sigtermEvent
+from . import _sigintEvent, _sigtermEvent, isRunning, LOGDIR
 from .mediainfo import MediaInfo
 from .comremove import ComRemove
 from .utils.ffmpeg_utils   import cropdetect, progress
@@ -337,7 +337,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.ffmpeg_cmd = self._ffmpeg_command( out_file );                         # Generate ffmpeg command list
     self._createdFiles.append( out_file )
 
-    if (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):
+    if isRunning():
       self.__log.info( 'Transcoding file...' )
  
       if self.no_ffmpeg_log:                                                    # If creation of ffmpeg log files is disabled
@@ -476,7 +476,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
   ##############################################################################
   def _write_tags(self, out_file):
-    if _sigintEvent.is_set() or _sigtermEvent.is_set(): return                  # If the kill event is set, skip tag writing for faster exit
+    if not isRunning(): return                                                  # If the kill event is set, skip tag writing for faster exit
     if self.metaKeys is None:                                                   # If the metaKeys attribute is None
       self.__log.warning('No metadata to write!!!');                              # Print message that not data to write
     elif self.tagging:                                                          # If mp4tags attribute is True
@@ -501,7 +501,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     Function to extract some information from the input file name and set up
     some output file variables.
     '''
-    if _sigintEvent.is_set() or _sigtermEvent.is_set(): return False
+    if not isRunning(): return False
 
     self.__log.info('Setting up some file information...');
 
@@ -523,7 +523,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       self.new_out_dir = self.out_dir                                                       # Use out_dir
 
     if self.log_dir is None: 
-      self.new_log_dir = os.path.join(self.new_out_dir, 'logs')          # Set log_dir to input directory if NOT set on init, else set to log_dir value
+      self.new_log_dir = os.path.join(self.new_out_dir, 'Logs')          # Set log_dir to input directory if NOT set on init, else set to log_dir value
     else:
       self.new_log_dir = self.log_dir
 
@@ -594,7 +594,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
         Kyle R. Wodzicki     Created 30 Dec. 2016
     '''
 
-    if _sigintEvent.is_set() or _sigtermEvent.is_set(): return
+    if not isRunning(): return
 
     # Extract VobSub(s) and convert to SRT based on keywords
     def opensubs_all():
@@ -774,9 +774,6 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     else:                                                                       # Else the file is a movie
       self.is_episode  = False;                                                 # Set is_episode to False
       if not self.in_place: self.new_out_dir = self.mov_dir                     # Reset output directory to original directory
-      self.file_name   = file_split[:-2];                                       # Join file base name using periods EXCLUDING the year and IMDB id
-      self.year        = file_split[-2];                                        # Get movie year and IMDB id from the file name; the second last and last elements, respectively
-      if self.year != '': self.title = '{} - {}'.format(self.title, self.year); # Append movie year to title variable
 
   ##############################################################################
   def _videoKeys(self):

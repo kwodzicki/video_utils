@@ -1,6 +1,7 @@
 import logging
 import stat, os
-from .config import lib_path 
+
+from . import LOGDIR
 
 '''Settings for screen logger and file logger'''
 screenFMT  = { 
@@ -18,7 +19,7 @@ fileFMT    = {
 }
 
 plexFMT    = {
-  'file'        : os.path.join( lib_path, 'Logs', 'Plex_DVR_Watchdog.log'),
+  'file'        : os.path.join( LOGDIR, 'Plex_DVR_Watchdog.log'),
   'name'        : 'plex_dvr',
   'maxBytes'    : 5 * 1024**2,
   'backupCount' : 4,
@@ -32,7 +33,7 @@ plexFMT    = {
 }
 
 MakeMKVFMT = {
-  'file'        : os.path.join( lib_path, 'Logs', 'MakeMKV_Watchdog.log'),
+  'file'        : os.path.join( LOGDIR, 'MakeMKV_Watchdog.log'),
   'name'        : 'MakeMKV',
   'maxBytes'    : 5 * 1024**2,
   'backupCount' : 4,

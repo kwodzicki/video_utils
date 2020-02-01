@@ -1,9 +1,9 @@
 import logging
+import os
 from threading import Event
 import signal
 
 from .version import __version__
-from ._logging import screenFMT
 from .utils.checkCLI import checkCLI
 
 # Check for required CLIs
@@ -14,6 +14,15 @@ __doc__     = "Collection of utilities to manipulate video files; " + \
   "namely transcoding, subtitle extraction, audio aligning/downmixing, "+\
   "and metadata editing."
 
+APPDIR = os.path.join(
+    os.path.expanduser( '~' ),
+    'Library',
+    'Application Support',
+    __name__
+)
+LOGDIR = os.path.join( APPDIR, 'Logs' )
+
+from ._logging import screenFMT
 
 # Set up the logger for the module
 log = logging.getLogger( __name__ );                                          # Get root logger based on package name
@@ -40,5 +49,6 @@ def isRunning():
 
 signal.signal(signal.SIGINT,  _handle_sigint)
 signal.signal(signal.SIGTERM, _handle_sigterm)
+
 
 del cli, screenFMT;

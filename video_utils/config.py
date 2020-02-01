@@ -1,6 +1,8 @@
 # Some global configuration settings
 import os, stat
 
+from . import APPDIR
+
 # do NOT use opensubtitles info in other programs, register for your own
 opensubtitles = {
   'url'        : 'https://api.opensubtitles.org:443/xml-rpc',
@@ -24,10 +26,8 @@ TMDb['urlEpisode']  = TMDb['urlBase'] + 'tv/{}/season/{}/episode/{}'
 
 TMDb['multiSearch'] = TMDb['urlBase'] + 'search/multi'
 
-lib_path = os.path.join( os.path.expanduser('~'), 'Library', 'Application Support', 'video_utils' ) 
-
 plex_dvr = {
-  'queueFile' : os.path.join( lib_path, 'plex_dvr_convert_queue.pic' ), 
+  'queueFile' : os.path.join( APPDIR, 'plex_dvr_convert_queue.pic' ), 
   'lock_file' : '/tmp/Plex_DVR_PostProcess.lock',
   'lock_perm' : stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | \
                 stat.S_IRGRP | stat.S_IWGRP  | \
