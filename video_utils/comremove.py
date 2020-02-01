@@ -11,13 +11,13 @@ except:
   logging.getLogger(__name__).error( "comskip is NOT installed or not in your PATH!" )
   raise 
 
-from .utils.subprocManager import subprocManager;
+from .utils.subprocManager import SubprocManager;
 
 # Following code may be useful for fixing issues with audio in
 # video files that cut out
 # ffmpeg -copyts -i "concat:in1.ts|in2.ts" -muxpreload 0 -muxdelay 0 -c copy joint.ts
 
-class comremove( subprocManager ):
+class ComRemove( SubprocManager ):
   # _comskip = ['comskip', '--hwassist', '--cuvid', '--vdpau'];
   _comskip = ['comskip'];
   _comcut  = ['ffmpeg', '-nostdin', '-y', '-i'];
@@ -237,7 +237,7 @@ class comremove( subprocManager ):
         cmd      = cmdBase + ['-ss', str(segStart), '-t', str(segDura)];        # Append start time and duration to cmdBase to start cuting command;
         cmd     += ['-c', 'copy', outFile];                                     # Append more options to the command
         tmpFiles.append( outFile );                                             # Append temporary output file path to tmpFiles list
-        self.addProc( cmd, single = True );                                     # Add the command to the subprocManager queue
+        self.addProc( cmd, single = True );                                     # Add the command to the SubprocManager queue
       segStart = comEnd;                                                        # The start of the next segment of the show is the end time of the current commerical break 
       info     = fid.readline();                                                # Read next line from edl file
       fnum    += 1;                                                             # Increment the file number

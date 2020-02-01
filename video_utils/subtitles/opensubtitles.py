@@ -12,7 +12,7 @@ from ..config import opensubtitles as opensubs_config
   
 ext = ('.avi', '.m4v', '.mp4', '.mkv', '.mpeg', '.mov', '.wmv');                # List of some common video extensions
 
-class opensubtitles( ServerProxy ):
+class OpenSubtitles( ServerProxy ):
   '''
   A python class to download SRT subtitles for opensubtitles.org.
   '''
@@ -49,13 +49,13 @@ class opensubtitles( ServerProxy ):
     Example:
       To download the top 5 subtiles for foreign language parts and full movie
       based on score in english, the call word look like:
-        subs = opensubtitles().getSubtitles('/path/to/file', nSubs=5)
+        subs = OpenSubtitles().getSubtitles('/path/to/file', nSubs=5)
       as the default for sorting is score and english is the
       default language.
       
       To download the 5 newest subtitles in Russian for foreign 
       language parts and full movie the call word look like:
-        subs = opensubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
+        subs = OpenSubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
     Author and history:
        Kyle R. Wodzicki     Created 12 Sep. 2017
          Modified 21 Sep. 2017 by Kyle R. Wodzicki
@@ -336,5 +336,5 @@ if __name__ == "__main__":
   sh = logging.StreamHandler();                                                 # Load a stream handler
   logger.addHandler(sh);                                                        # Add the stream handler to the logger
   
-  files = opensubtitles().getSubtitles( args.file, IMDb = args.imdb )
+  files = OpenSubtitles().getSubtitles( args.file, IMDb = args.imdb )
 #   exit( x );

@@ -8,7 +8,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from . import _sigintEvent, _sigtermEvent
-from .videoconverter import videoconverter
+from .videoconverter import VideoConverter
 from .plex.plexMediaScanner import plexMediaScanner
 
 class MakeMKV_Watchdog( FileSystemEventHandler ):
@@ -27,7 +27,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     else:                                                                           # Else
       self.fileExt = fileExt                                                        # Set fileExt attribute using fileExt keyword value
 
-    self.converter = videoconverter( **kwargs ) 
+    self.converter = VideoConverter( **kwargs ) 
     self.Queue     = Queue()                                                         # Initialize queue for sending files to converting thread
     self.Observer  = Observer()                                                      # Initialize a watchdog Observer
     for arg in args:                                                                # Iterate over input arguments

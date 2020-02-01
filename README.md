@@ -149,7 +149,7 @@ This watchdog does a few things:
  * Watches specified directory(ies) for new files, filtering by given extensions (default `.mkv`)
  * Attempts to extract subtitles to VobSub (requires [MKVToolNix][mkv])
    * Convert subtitles to SRT (requires [VobSub2SRT][vobsub]
- * Converts movie to MP4 format using the `videoconverter` class
+ * Converts movie to MP4 format using the `VideoConverter` class
  * Attempts to download and write MP4 tags to file
  * Attempts to run `Plex Media Scanner` to add output file to Plex Library
 
@@ -175,7 +175,7 @@ This watchdog does a few things:
  * Attempts to add chapters marking commercials in file using `comskip` CLI if installed; 
     can remove commercials if --destructive flag is set
  * Attempts to extract subtitles to SRT using `ccextractor` CLI if installed
- * Converts movie to MP4 format using the `videoconverter` class
+ * Converts movie to MP4 format using the `VideoConverter` class
  * Attempts to download and write MP4 tags to file
  * Attempts to run `Plex Media Scanner` to locate `.mp4` file; re-runs scanner if
     source `.ts` file is deleted
@@ -185,11 +185,11 @@ Just use the `--script` flag when setting up the service; this will override all
 
 ## Code example
 Of course you can always use these utilities in your own code.
-A brief example of how to use the videoconverter class is below:
+A brief example of how to use the VideoConverter class is below:
 
-    # create an instance of videoconverter class
-    from video_utils import videoconverter
-    converter = videoconverter()
+    # create an instance of VideoConverter class
+    from video_utils.videoconverter import VideoConverter
+    converter = VideoConverter()
 
     # set path to file to convert
     file = '/path/to/file/Forgetting Sarah Marshall..2008.tt0800039.mkv'

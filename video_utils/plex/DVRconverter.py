@@ -2,20 +2,20 @@ import logging
 import os
 
 from .. import isRunning#_sigintEvent, _sigtermEvent
-from ..comremove import comremove
-from ..videoconverter import videoconverter
+from ..comremove import ComRemove
+from ..videoconverter import VideoConverter
 from ..utils.ffmpeg_utils import checkIntegrity
 
 from .plexMediaScanner import plexMediaScanner
 from .utils import plexDVR_Rename
 
 
-class DVRconverter(comremove, videoconverter): 
+class DVRconverter(ComRemove, VideoConverter): 
   '''
   DVRconverter
 
   Purpose:
-    A class to combine the videoconverter and comremove classes for
+    A class to combine the VideoConverter and ComRemove classes for
     post-processing Plex DVR recordings
   '''
   def __init__(self,

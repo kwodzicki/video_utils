@@ -19,7 +19,7 @@ except:
 else:
   cpulimitInstalled = True;                                                       # Set global cpulimitInstalled flag to True
 
-class subprocManager(object):
+class SubprocManager(object):
   def __init__(self, cpulimit = None, threads = None, interval = None):
     '''
     Keywords:

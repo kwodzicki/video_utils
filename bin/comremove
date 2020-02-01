@@ -2,7 +2,7 @@
 
 import argparse;                                                              # Import library for parsing
 from video_utils.version   import __version__;
-from video_utils.comremove import comremove;
+from video_utils.comremove import ComRemove;
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="comskip");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
@@ -14,7 +14,7 @@ if __name__ == "__main__":
   parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
 
   args = parser.parse_args();                                                   # Parse the arguments
-  inst = comremove(
+  inst = ComRemove(
     ini       = args.ini,
     threads   = args.threads,
     cpulimit  = args.cpulimit,

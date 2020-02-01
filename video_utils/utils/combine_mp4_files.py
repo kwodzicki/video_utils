@@ -2,7 +2,7 @@
 import logging;
 import os;
 
-from ..utils.subprocManager import subprocManager
+from ..utils.subprocManager import SubprocManager
 
 def combine_mp4_files(inFiles, outFile):
   '''
@@ -21,7 +21,7 @@ def combine_mp4_files(inFiles, outFile):
   if len(inFiles) < 2:                                                          # If there are less than 2 ipputs
     log.critical('Need at least two (2) input files!')
     return;                                                                     # Return from function
-  manager = subprocManager();                                                   # Initialize subprocManager instance
+  manager = SubprocManager();                                                   # Initialize SubprocManager instance
   tmpFiles = [ '.'.join(f.split('.')[:-1])+'.ts' for f in inFiles];             # Iterate over inFiles list and create intermediate TS file paths
 
   cmdTS = ['ffmpeg', '-y', '-nostdin', 

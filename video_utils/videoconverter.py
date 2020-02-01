@@ -8,10 +8,10 @@ from subprocess import PIPE, STDOUT
 from . import _sigintEvent, _sigtermEvent
 from .mediainfo import mediainfo
 from .utils.ffmpeg_utils   import cropdetect, progress
-from .utils.subprocManager import subprocManager
+from .utils.subprocManager import SubprocManager
 
 # Subtitle imports
-from .subtitles.opensubtitles import opensubtitles
+from .subtitles.opensubtitles import OpenSubtitles
 try:
   from .subtitles.vobsub_extract import vobsub_extract
 except:
@@ -38,10 +38,10 @@ from ._logging import fileFMT;
 
 _sePat = re.compile( r'[sS]\d{2,}[eE]\d{2,} - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
-class videoconverter( subprocManager, mediainfo, opensubtitles ):
+class VideoConverter( SubprocManager, mediainfo, OpenSubtitles ):
   '''
   Name:
-     videoconverter
+     VideoConverter
   Purpose:
      A python class for converting video files h264 encoded files
      in either the MKV or MP4 container. Video files must be
