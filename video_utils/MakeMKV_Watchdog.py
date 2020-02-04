@@ -12,7 +12,7 @@ from .videoconverter import VideoConverter
 from .videotagger.metadata.getTMDb_Info import getTMDb_Info
 from .videotagger.metadata.getTVDb_Info import getTVDb_Info
 from .plex.plexMediaScanner import plexMediaScanner
-
+from .utils.rename2Plex import rename2Plex
 
 class MakeMKV_Watchdog( FileSystemEventHandler ):
   seasonEp = re.compile( r'[sS](\d{2,4})[eE](\d{2,4})' )
@@ -60,47 +60,6 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     The Observer will be stopped when _sigintEvent or _sigtermEvent is set
     '''
     self.Observer.join()                                                            # Join the observer thread
-
-  def fileRename(self, file):
-    '''
-    Method to rename file to Plex compatible naming based
-    on TVDb ID or TMDb ID in file name.
-    Assume using input file convention outlined in docs.
-    See following for Plex conventions:
-      https://support.plex.tv/articles/naming-and-organizing-your-tv-show-files/
-      https://support.plex.tv/articles/naming-and-organizing-your-movie-media-files/
-    Inputs:
-      file  : Full path to file
-    '''
-    fileDir, fileBase = os.path.split(file)
-    fileBase, fileExt = os.path.splitext( fileBase )
-
-    seasonEp = self.seasonEp.findall( fileBase )
-    if (len(seasonEp) == 1): 
-      self.log.info( 'File is episode: {}'.format(file) )
-      TVDbID = fileBase.split('.')[0]
-      info = getTVDb_Info( TVDbID = TVDbID, seasonEp = tuple( map(int, seasonEp[0]) ) )
-      if info:
-        fName = 'S{:02d}E{:02d} - {}.{}{}'.format(
-          info['airedSeason'], info['airedEpisodeNumber'], info['episodeName'], 
-          TVDbID, fileExt
-        )
-   
-    else:
-      self.log.info( 'File is movie: {}'.format(file) )
-      TMDbID, extra = fileBase.split('.')
-      info = getTMDb_Info( TMDbID = TMDbID )
-      if info:
-        fName = '{} ({}).{}.{}{}'.format(
-            info['title'], info['year'], extra, TMDbID, fileExt
-        )
-    if info: 
-      newFile = os.path.join( fileDir, fName )    
-      self.log.info( 'Renaming file: {} ---> {}'.format(file, newFile) )
-      os.rename( file, newFile )
-      return newFile, info
-
-    return file, None
 
   def _getDirListing(self, dir):
     '''
@@ -160,7 +119,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
       self._checkSize( file )                                                   # Wait to make sure file finishes copying/moving
 
-      file, metaData = self.fileRename( file )
+      file, metaData = rename2Plex( file )
     
       try:        
         out_file = self.converter.transcode( file, metaData = metaData )        # Convert file 
