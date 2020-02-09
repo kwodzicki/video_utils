@@ -1,239 +1,109 @@
 import logging
-import json
+import re
+from .Person import Person
 
 
-from urllib.request import urlopen
+TVDb2Stnd = {'airedSeason'        : 'season_number',
+             'airedEpisodeNumber' : 'episode_number',
+             'episodeName'        : 'name',
+             'firstAired'         : 'air_date',
+             'seriesName'         : 'name'}
 
-try:
-  from ...api_keys import tmdb as tmdb_key                  # Attempt to import the API key from the api_keys module
-except:
-  tmdb_key = os.environ.get('TMDB_API_KEY', None)         # On exception, try to get the API key from the TMDB_API_KEY environment variable
+TMDb2Stnd = {'first_air_date'     : 'air_date'}
 
-if not tmdb_key:
-  msg = "API key for TMDb could NOT be imported!";
-  logging.getLogger(__name__).error( msg );
-  raise Exception( msg );
+PARENTH   = re.compile( r'(\s+\([^\)]+\))$' )                           # Pattern to find any (xxx) data at and of string
 
-import requests
-from ...config import TMDb as TMDb_config
+def standardize( info, **kwargs ):
+  tvdb = kwargs.get('TVDb', False)                                      # IF the TVDb keyword is set
+  keys = TVDb2Stnd if tvdb else TMDb2Stnd                               # Set the keys dictionary based on tvdb
+  for key in info.keys():                                               # Iterate over all keys in info
+    if (key in keys):                                                   # If key is in keys
+      info[ keys[key] ] = info.pop(key)                                 # Pop key from dict and re-add as new standard key
+  if tvdb:                                                              # If tvdb then 
+    return tvdb2tmdb( info )                                            # Convert TVDb info to match TMDb 
+  return info
 
-class TMDbBaseAPI( object ):
-  URLBase   = 'https://api.themoviedb.org/3'
-  URLImage  = 'http://image.tmdb.org/t/p/original'
-  __api_key = tmdb_key
-  def __init__(self):
-    self.__log = logging.getLogger(__name__)
+def tvdb2tmdb( info ):
+  if ('name' in info):
+    info['name'] = PARENTH.sub('', info['name'])
 
-  #################################
-  def _getRequest(self, url, **kwargs):
-    '''
-    Purpose:
-      Method to issue requests.get()
-    Inputs:
-      All accepted by requests.get()
-    Keywords:
-      All accepted by requests.get()
-    Outputs:
-      requests Response object
-    '''
-    resp = None
-    if ('api_key' not in kwargs):
-      kwargs['api_key'] = self.__api_key
-    try:
-      resp  = requests.get( url, params=kwargs )
-    except Exception as err:
-      self.__log.error( 'TMDb request failed: {}'.format(err) )
-    else:
-      if not resp.ok:
-        self.__log.error( 'TMDb request is not okay' )
-        resp = self._closeRequest( resp )
-    return resp
-  #################################
-  def _closeRequest(self, resp):
-    '''
-    Purpose:
-      Method to close Response object
-    Inputs:
-      resp   : Response object
-    Keywords:
-      None
-    Outputs:
-      Returns None
-    '''
-    try:
-      resp.close()
-    except:
-      pass
-    return None
-  #################################
-  def _getJSON(self, *args, **kwargs):
-    '''
-    Purpose:
-      Method to try to get JSON data from request
-    Inputs:
-      All accepted by requests.get()
-    Keywords:
-      All accepted by requests.get()
-    Outputs:
-      Dictionary with JSON data if success, else, None
-    '''
-    json = None
-    resp = self._getRequest(*args, **kwargs)
-    if resp:
-      try:
-        json = resp.json()
-      except Exception as err:
-        self.__log.error('Failed to get JSON data')
-      resp = self._closeRequest( resp )
-    return json
+  if ('imdbId' in info):
+    info[ 'external_ids' ] = {'imdb_id' : info.pop('imdbId') }
 
+  credits = info.pop( 'credits', {} ) 
+  crew    = [] 
+  tmp     = {'name' : '',
+             'job'  : 'Director'}
+  if ('director' in info):
+    tmp['name'] = info.pop('director')
+    crew.append( tmp )
+  elif ('directors' in info):
+    for name in info.pop('directors'):
+      tmp['name'] = name
+      crew.append( tmp )
 
-class TMDbBase( TMDbBaseAPI ):
-  _isMovie   = False
-  _isSeries  = False
-  _isEpisode = False
-  _isPersion = False
-  URL        = None
-  def __init__(self, info = None):
-    super().__init__()
-    self._data = {}
-    if info:
-      self._data.update( info )
+  tmp['job'] = 'Writer'
+  if ('writers' in info):
+    for name in info.pop('writers'):
+      tmp['name'] = name
+      crew.append( tmp )
 
-  @property
-  def isMovie(self):
-    return self._isMovie
-  @property
-  def isSeries(self):
-    return self._isSeries
-  @property
-  def isEpisode(self):
-    return self._isEpisode
-  @property
-  def isPerson(self):
-    return self._isPerson
+  if crew:
+    credits['crew'] = crew
+    
+  guests = info.pop('guestStars', None)
+  if guests:
+    for i in range( len(guests) ):
+      guests[i] = {'name' : guests[i]}
+    credits['guest_stars'] = guests 
 
-  def __setitem__(self, key, item):
-    self._data[key] = item
-  def __getitem__(self, key):
-    return self._data[key]
-  def keys(self):
-    return self._data.keys()
+  if credits:
+    info['credits'] = credits
 
-  def _getExtra(self, *keys):
-    if self.URL:
-      for key in keys:
-        if (key not in self._data):
-          URL  = '{}/{}'.format(self.URL, key)
-          json = self._getJSON(URL)
-          if json:
-            self._data[key] = json
+  return info
 
-  def getID(self):
-    if ('id' in self._data):
-      return self._data['id']
-    return None
-  def getIMDbID(self):
-    if ('external_ids' in self._data) and ('imdb_id' in self._data['external_ids']):
-      return self._data['external_ids']['imdb_id']
-    return None
+def parseCredits( info, **kwargs ):
+  '''
+  Purpose:
+    Function to parse credits into Person objects
+  Inputs:
+    info   : Dictionary, or dictionary like, containing data from API call
+  Keywords:
+    None.
+  Returns:
+    Updated dictionary
+  '''
+  log     = logging.getLogger(__name__)
+  credits = info.pop('credits', None)
+  if credits:
+    log.debug('Found credits to parse')
+    for key, val in credits.items():
+      if isinstance(val, list):
+        log.debug( 'Parsing: {}'.format(key) )
+        for i in range( len(val) ):
+          val[i] = Person( data = val[i] )
+        if (key != 'crew') and ('order' in val[0]):
+          info[key] = sorted(val, key=lambda x: x.order)
+        else:
+          info[key] = val
+  return info
 
-class Movie( TMDbBase ):
-  def __init__(self, info):
-    super().__init__(info)
-    self._isMovie = True
+def imagePaths( info, **kwargs ):
+  imageURL = kwargs.get('imageURL', None)
+  if imageURL:
+    imageKeys = ['_path', 'poster', 'banner', 'fanart', 'filename']
+    for key, val in info.items():
+      if any( image in key for image in imageKeys ):
+        info[key] = imageURL.format( val )
+  return info
 
-class Series( TMDbBase ):
-  URL   = '{}/tv/{}'
-  extra = ['external_ids', 'content_ratings']
-  def __init__(self, info=None, ID=None):
-    if not info and not ID:
-      raise Exception( 'Must input info or ID' )
-    super().__init__(info)
-    if not info:
-      self.URL = self.URL.format( self.URLBase, ID )
-      json     = self._getJSON( self.URL, append_to_response=','.join(self.extra) )
-      if json:
-        self._data.update(json) 
-    else:
-      self.URL = self.URL.format( self.URLBase, self['id'] )
-      self._getExtra( *self.extra )
+def parseInfo( info, **kwargs ):
+  info = standardize(  info, **kwargs )
+  info = parseCredits( info, **kwargs )
+  info = imagePaths(   info, **kwargs )
+  return info
 
-    self._isSeries = True
-
-class Episode( TMDbBase ):
-  URL = '{}/tv/{}/season/{}/episode/{}'
-  def __init__(self, info = None):
-    super().__init__(info)
-    self.URL = self.URL.format(
-      self.URLBase, self['show_id'], self['season_number'], self['episode_number']
-    )
-    self._getExtra( 'external_ids' )
-    self._isEpisode = True
-
-  def getSeriesID(self):
-    return self['show_id']
-  def getSeries(self):
-    return Series( ID = self['show_id'] )
-
-class Person( TMDbBase ):
-  def __init__(self, info):
-    super().__init__(info)
-    self._isPerson = True
-
-
-
-#######################################################################################
-class TMDb( TMDbBaseAPI ):
-  def __init__(self, *args, **kwargs):
-    super().__init__()
-    self.__log = logging.getLogger(__name__)
-
-  def search( self, title = None, episode = None, seasonEp = None, year = None, page = None ):
-    params = {'query' : title}
-    if page: params['page'] = page
-
-    url  = '{}/search/multi'.format(self.URLBase)
-
-    json = self._getJSON( url, **params )
-    if json:
-      items = json['results']
-      for i in range( json['total_results'] ): 
-        item = items.pop(0)
-        if (item['media_type'] == 'movie'):
-          items.append( Movie( item ) ) 
-        elif (item['media_type'] == 'tv'):
-          items.append( Series( item ) ) 
-        elif (item['media_type'] == 'person'):
-          items.append( Person( item ) ) 
-      return items
-    return None 
-  
-  #################################
-  def byIMDb( self, IMDbID ):
-    if (IMDbID[:2] != 'tt'): IMDbID = 'tt{}'.format(IMDbID)
-    params = {'external_source' : 'imdb_id'}
-    url  = '{}/find/{}'.format(self.URLBase, IMDbID)
-    json = self._getJSON( url, **params )
-    if json:
-      for key, val in json.items():
-        for i in range( len(val) ): 
-          item = val.pop(0)
-          if (key == 'movie_results'):
-            val.append( Movie( item ) ) 
-          elif (key == 'person_resutls'):
-            val.append( Person( item ) ) 
-          elif (key == 'tv_results'):
-            val.append( Series( item ) ) 
-          elif (key == 'tv_episode_results'):
-            val.append( Episode( item ) ) 
-          elif (key == 'tv_season_results'):
-            val.append( Season( item ) )
-          else:
-            print(key) 
-      return json
-    return None 
-   
+ 
 ###
 def parseRating( rating ):
   '''Function to parse information from the rating data'''
@@ -450,38 +320,3 @@ def getTMDb_Info(IMDb_ID, attempts = None, logLevel = 30):
   else:                                                                         # Else, tags may have changed in the API
     log.warning('Something went wrong with the API...Tag changes in JSON?');    # Log a warning
   return tmdb;                                                                  # Return the TMDb class instance
-
-"""
-###################################################################
-class TMDb( object ):
-  def __init__(self, IMDb_ID):
-    self.IMDb_ID = IMDb_ID
-    self.data    = {'is_episode' : False};
-  
-  ####################
-  def keys(self):
-    '''Return a list of valid keys.'''
-    return list( self.data.keys() )
-  def has_key(self, key):
-    '''Return true if a given section is defined.'''
-    try:
-      self.__getitem__(key)
-    except KeyError:
-      return False
-    return True
-  def getID(self):
-    '''Return the IMDb ID in the same convesion as is used in IMDbPY'''
-    return self.IMDb_ID.replace('tt','');
-  def set_item(self, key, item):
-    '''Directly store the item with the given key.'''
-    self.data[key] = item
-  def update(self, new_data):
-    '''Update the data dictionary with the new_data'''
-    self.data.update( new_data );
-  def __getitem__(self, key):
-    '''Return the value for a given key.'''
-    return self.data[key]
-  def __contains__(self, input):
-    '''Return true if self.data contains input.'''
-    return input in self.data;
-"""
