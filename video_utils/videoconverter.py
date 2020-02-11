@@ -398,7 +398,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   def _cleanUp(self, *args):
     ''' Method to delete arbitrary number of files, catching exceptions'''
     for arg in args:
-      if os.path.isfile( arg ):
+      if arg and os.path.isfile( arg ):
         try:
           os.remove( arg )
         except Excpetion as err:
