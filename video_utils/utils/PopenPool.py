@@ -125,23 +125,45 @@ class PopenThread( Thread ):
     if self._proc:
       return self._proc.poll()
     return None
-  
+
+  def applyFunc(self, func, *args, **kwargs):
+    '''
+    Purpose:
+      Method to apply function to Popen process
+    Inputs:
+      func  : Function to apply to process; Must accept subprocess.Popen
+              instance as first argument
+      Any other arguments to pass the func
+    Keywords:
+      Any keywords to pass to func
+    Returns:
+    '''
+    if self._proc:
+      func( self._proc, *args, **kwargs )
+      return True
+    return False
+
   def run(self):
     '''Overload run method'''
-    self.__log.debug('Starting subprocess')
-    self._proc = Popen( *self._args, **self._kwargs )                                   # Start the process
-    limit      = self.__cpulimit( )                                                     # Maybe cpulimit
-    while isRunning():                                                                  # While not interupts
-      if self._proc.poll() is None:                                                     # If process not done
-        time.sleep( TIMEOUT )                                                           # Sleep
-      else:                                                                             # Else
-        break                                                                           # Break while loop
-    if self._proc.poll() is None:                                                       # If process still not done; then assume interupt encounterd
-      self.__log.debug('Terminating process')                                           # Log debug info
-      self._proc.terminate()                                                            # Terminate process
-      if limit: limit.terminate()                                                       # Maybe termiate cpulimit
-
-    PROCLOCK.release( threads = self._threads )                                          # Release lock
+    try:
+      self._proc = Popen( *self._args, **self._kwargs )                                 # Start the process
+    except Exception as err:
+      self.__log.error( 'Failed to start process: {}'.format(err) )
+    else:
+      self.__log.debug('Process started')
+      limit = self.__cpulimit( )                                                        # Maybe cpulimit
+      while isRunning():                                                                # While not interupts
+        if self._proc.poll() is None:                                                   # If process not done
+          time.sleep( TIMEOUT )                                                         # Sleep
+        else:                                                                           # Else
+          break                                                                         # Break while loop
+      if self._proc.poll() is None:                                                     # If process still not done; then assume interupt encounterd
+        self.__log.debug('Terminating process')                                         # Log debug info
+        self._proc.terminate()                                                          # Terminate process
+        if limit: limit.terminate()                                                     # Maybe termiate cpulimit
+      elif self._proc.returncode != 0:
+        self.__log.warning('Non-zero exit status from process!')
+    PROCLOCK.release( threads = self._threads )                                         # Release lock
 
   def __cpulimit(self):
     '''
@@ -169,11 +191,11 @@ class PopenThread( Thread ):
 class PopenPool(Thread):
   __threads  =    1
   __cpulimit = None
-  def __init__(self, threads = THREADS, cpulimit = 75, *args, **kwargs):
+  def __init__(self, threads = THREADS, cpulimit = 75, queueDepth = 50, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.__log        = logging.getLogger(__name__)
     self.__closed     = Event()
-    self.__threadQueue = Queue( maxsize = 50 )
+    self.__threadQueue = Queue( maxsize = queueDepth )
     self.threads      = threads
     self.cpulimit     = cpulimit
     self.start()
@@ -201,20 +223,44 @@ class PopenPool(Thread):
         self.__cpulimit = None
 
   def close(self):
+    '''
+    Sets the private 'closed' threading.Event()
+    Running this method will disable adding processes
+    to the queue
+    '''
     self.__closed.set()
- 
-  def async(self, *args, **kwargs):
-    if self.__closed.is_set():
-      raise Exception('Cannot add process to closed pool')
-    kwargs['cpulimit'] = self.cpulimit 
-    proc = PopenThread(*args, **kwargs) 
-    self.__threadQueue.put( proc )
-    return proc
+
+  def Popen_async(self, *args, **kwargs):
+    '''
+    Purpose:
+      A method to asynconously run subprocess.Popen calls
+    Inputs:
+      All inputs for subprocess.Popen
+    Keywords:
+      threads : Specify the number of threads the process will use.
+                Default is one (1)
+      All keywords for subprocess.Popen
+    Returns:
+      A PopenPool.PopenThread instance; very similar to subprocess.Popen instance
+
+    Note that if too many processes are already queued, this method will block
+    until some finish.
+    '''
+    if self.__closed.is_set():                                                          # If closed is set
+      raise Exception('Cannot add process to closed pool')                              # Raise exception
+    kwargs['cpulimit'] = self.cpulimit                                                  # Set cpulimit in kwargs dictionary
+    proc = PopenThread(*args, **kwargs)                                                 # Create PopenThread instance
+    self.__threadQueue.put( proc )                                                      # Add instance to queue
+    return proc                                                                         # Return instance
 
   def run(self):
+    '''
+    Method to run as thread that handles dequeuing and starting 
+    Popen processes.
+    '''
     self.__log.debug('PopenPool open')
-    thread = None
-    while isRunning():
+    thread = None                                                                       # Initialize thread as None
+    while isRunning():                                                                  # Loop forever
       if thread is None:                                                                # If PopenThread is None, we will try to get a thread object from the queue
         try:                                                                            # Try to get left most element from queue list
           thread = self.__threadQueue.get(timeout=TIMEOUT)                              # Get first element of threads list queue
@@ -226,6 +272,10 @@ class PopenPool(Thread):
         thread = self._Popen( thread )                                                  # Try to run the thread
       if self.__closed.is_set() and self.__threadQueue.empty() and not thread:          # If pool has been closed, no more proesses in list, and no process trying to start, break while loop
         break
+    while not self.__threadQueue.empty():
+      _ = self.__threadQueue.get()
+      self.__threadQueue.task_done()
+
     self.__log.debug('PopenPool closed')
 
   def _Popen(self, thread):
