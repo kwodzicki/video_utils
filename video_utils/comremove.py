@@ -11,13 +11,15 @@ except:
   logging.getLogger(__name__).error( "comskip is NOT installed or not in your PATH!" )
   COMSKIP = None
 
-from .utils.subprocManager import SubprocManager;
+from . import POPENPOOL
+
+#from .utils.subprocManager import SubprocManager;
 
 # Following code may be useful for fixing issues with audio in
 # video files that cut out
 # ffmpeg -copyts -i "concat:in1.ts|in2.ts" -muxpreload 0 -muxdelay 0 -c copy joint.ts
 
-class ComRemove( SubprocManager ):
+class ComRemove( object ):
   # _comskip = ['comskip', '--hwassist', '--cuvid', '--vdpau'];
   _comskip = ['comskip'];
   _comcut  = ['ffmpeg', '-nostdin', '-y', '-i'];
@@ -38,7 +40,7 @@ class ComRemove( SubprocManager ):
       self.ini = kwargs['ini']
     else:
       self.ini = os.environ.get('COMSKIP_INI', None)
-    self.threads  = kwargs.get('threads', None)
+    self.threads  = kwargs.get('threads',  POPENPOOL.threads)
     self.cpulimit = kwargs.get('cpulimit', None)
     self.verbose  = kwargs.get('verbose',  None)
     self.__outDir   = None;
@@ -105,10 +107,7 @@ class ComRemove( SubprocManager ):
     if (self.__fileExt is None): self.__fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
     
     cmd = self._comskip.copy();
-    if self.threads:
-      cmd.append( '--threads={}'.format(self.threads) );
-    if self.ini:
-      cmd.append( '--ini={}'.format(self.ini) );
+    cmd.append( '--threads={}'.format(self.threads) );
     
     tmp_file  = os.path.splitext( in_file )[0];                            # Get file path with no extension
     edl_file  = '{}.edl'.format(      tmp_file );                               # Path to .edl file
@@ -119,17 +118,16 @@ class ComRemove( SubprocManager ):
     cmd.extend( [in_file, self.__outDir] );
     
     self.__log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
-    self.addProc(cmd)
+    proc = POPENPOOL.Popen_async(cmd, threads = self.threads)
 #    if self.verbose:
 #      self.addProc(cmd, stdout = log, stderr = err);
 #    else:
 #      self.addProc(cmd);
-    self.run( block = False )                                                   # Start command but do NOT block until done; next line handles blocking
-    if not self.wait( timeout = 8 * 3600 ):                                     # Wait for 8 hours for comskip to finish; this should be more than enough time
+    if not proc.wait( timeout = 8 * 3600 ):                                     # Wait for 8 hours for comskip to finish; this should be more than enough time
       self.__log.error('comskip NOT finished after 8 hours; killing')
-      self.kill()
+      proc.kill()
       
-    if sum(self.returncodes) == 0:
+    if proc.returncode == 0:
       self.__log.info('comskip ran successfully');
       if not os.path.isfile( edl_file ):
         self.__log.warning('No EDL file was created; trying to convert TXT file')
@@ -230,6 +228,7 @@ class ComRemove( SubprocManager ):
     segStart = timedelta( seconds = 0.0 );                                      # Initial start time of the show segment; i.e., the beginning of the recording
     fid      = open(edl_file, 'r');                                             # Open edl_file for reading
     info     = fid.readline();                                                  # Read first line from the edl file
+    procs    = []
     while info:                                                                 # While the line is NOT empty
       comStart, comEnd = info.split()[:2];                                      # Get the start and ending times of the commercial
       comStart   = timedelta( seconds = float(comStart) );                      # Get start time of commercial as a time delta
@@ -241,13 +240,13 @@ class ComRemove( SubprocManager ):
         cmd      = cmdBase + ['-ss', str(segStart), '-t', str(segDura)];        # Append start time and duration to cmdBase to start cuting command;
         cmd     += ['-c', 'copy', outFile];                                     # Append more options to the command
         tmpFiles.append( outFile );                                             # Append temporary output file path to tmpFiles list
-        self.addProc( cmd, single = True );                                     # Add the command to the SubprocManager queue
+        procs.append( POPENPOOL.Popen_async( cmd, threads=1 ) )                 # Add the command to the SubprocManager queue
       segStart = comEnd;                                                        # The start of the next segment of the show is the end time of the current commerical break 
       info     = fid.readline();                                                # Read next line from edl file
       fnum    += 1;                                                             # Increment the file number
     fid.close();                                                                # Close the edl file
-    self.run();                                                                 # Run all the subprocess
-    if sum( self.returncodes ) != 0:                                            # If one or more of the process failed
+    POPENPOOL.wait()
+    if sum( [p.returncode for p in procs] ) != 0:                               # If one or more of the process failed
       self.__log.critical( 'There was an error cutting out commericals!' );
       for tmp in tmpFiles:                                                      # Iterate over list of temporary files
         if os.path.isfile( tmp ):                                               # If the file exists
@@ -281,12 +280,12 @@ class ComRemove( SubprocManager ):
     outFile = 'tmp_nocom.{}'.format(self.__fileExt);                              # Output file name for joined file
     outFile = os.path.join(self.__outDir, outFile);                               # Output file path for joined file
     cmd     = self._comjoin + [inFiles, '-c', 'copy', '-map', '0', outFile];    # Command for joining files
-    self.addProc( cmd );                                                        # Run the command
-    self.run();
+    proc    = POPENPOOL( cmd )                                                        # Run the command
+    proc.wait()
     for file in tmpFiles:                                                       # Iterate over the input files
       self.__log.debug('Deleting temporary file: {}'.format(file));               # Debugging information 
       os.remove( file );                                                        # Delete the temporary file
-    if sum(self.returncodes) == 0:
+    if proc.returncode == 0:
       return outFile;
     else:
       try:

@@ -7,7 +7,7 @@ except:
 else:
   TMDb_KEY = getattr( api_keys, 'tmdb', None )
   TVDb_KEY = getattr( api_keys, 'tvdb', None )
-print(os.environ.get('TMDB_API_KEY', TMDb_KEY) )
+#print(os.environ.get('TMDB_API_KEY', TMDb_KEY) )
 
 TVDbCACHE = os.path.join( os.path.expanduser('~'), '.tvdbToken' )
 TIMEOUT   = 23 * 60 * 60

@@ -23,7 +23,6 @@ APPDIR = os.path.join(
 LOGDIR = os.path.join( APPDIR, 'Logs' )
 
 from ._logging import screenFMT
-
 # Set up the logger for the module
 log = logging.getLogger( __name__ );                                          # Get root logger based on package name
 log.setLevel(logging.DEBUG);                                                  # Set root logger level to debug
@@ -50,5 +49,7 @@ def isRunning():
 signal.signal(signal.SIGINT,  _handle_sigint)
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
+from .utils.subprocPool import PopenPool
+POPENPOOL = PopenPool()
 
 del cli, screenFMT;

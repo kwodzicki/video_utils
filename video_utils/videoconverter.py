@@ -3,6 +3,7 @@ import logging
 import os, re, time
 from datetime import datetime
 from subprocess import PIPE, STDOUT
+from multiprocessing import cpu_count
 
 # Parent classes
 from . import _sigintEvent, _sigtermEvent, isRunning, LOGDIR
@@ -35,6 +36,8 @@ except:
 
 # Logging formatter
 from ._logging import fileFMT;
+
+from . import POPENPOOL
 
 _sePat = re.compile( r'[sS](\d{2,})[eE](\d{2,}) - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
@@ -69,7 +72,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
                in_place      = False, 
                no_ffmpeg_log = False,
                lang          = None, 
-               threads       = None, 
+               threads       = cpu_count(), 
                container     = 'mp4',
                cpulimit      = 75, 
                x265          = False,
@@ -339,27 +342,30 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     if isRunning():
       self.__log.info( 'Transcoding file...' )
- 
+
+      kwargs = {'threads' : self.threads} 
       if self.no_ffmpeg_log:                                                    # If creation of ffmpeg log files is disabled
-        self.addProc( self.ffmpeg_cmd, 
-                stdout             = PIPE, 
-                stderr             = STDOUT,
-                universal_newlines = True);                                     # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
+        kwargs.update(
+          {'stdout'             : PIPE, 
+           'stderr'             : STDOUT,
+           'universal_newlines' : True}
+        )                                                                       # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
       else:                                                                     # Else
-        self.addProc( self.ffmpeg_cmd, 
-          stdout = self.ffmpeg_log_file, stderr = self.ffmpeg_err_file
-        );                                                                      # Start the HandBrakeCLI command and direct all output to /dev/null
-      self.run(block = False);                                                  # Run process with block set to False so that method returns right away
+        kwargs.update(
+          {'stdout' : self.ffmpeg_log_file, 
+           'stderr' : self.ffmpeg_err_file}
+        )
+      proc = POPENPOOL.Popen_async( self.ffmpeg_cmd, **kwargs ) 
 
       if self.no_ffmpeg_log:                                                    # If ffmpeg log files are disabled, we want to know a little bit about what is going on
-          self.applyFunc( progress, kwargs= {'nintervals' : 10} )               # Apply the 'progess' function to the process to monitor ffmpeg progress
-      self.wait();                                                              # Call wait method to ensure that process has finished
+          proc.applyFunc( progress, kwargs= {'nintervals' : 10} )               # Apply the 'progess' function to the process to monitor ffmpeg progress
+      POPENPOOL.wait()
 
       if os.path.isfile( self.chapterFile ): os.remove( self.chapterFile )      # If the cahpter file exists, delete it
       self.chapterFile = None                                                   # Set chapter file to None for safe measure
 
     try: 
-      self.transcode_status = self.returncodes[0];                              # Set transcode_status      
+      self.transcode_status = proc.returncode                              # Set transcode_status      
     except:
       self.transcode_status = -1
 

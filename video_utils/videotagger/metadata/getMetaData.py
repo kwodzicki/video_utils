@@ -15,6 +15,9 @@ try:
 except:
   getTVDb_Info = None;
 
+getTMDb_Info = None
+getTVDb_Info = None
+
 if not getIMDb_Info and not getTMDb_Info and not getTVDb_Info:
   raise Exception('Could not import IMDb OR TMDb  OR TVDb!');
 

@@ -1,5 +1,6 @@
 import logging
 import time
+import atexit
 from subprocess import Popen, STDOUT, DEVNULL 
 from queue import Queue
 from threading import Thread, Lock, Event
@@ -7,7 +8,7 @@ from multiprocessing import cpu_count
 from .checkCLI import checkCLI
 from .. import isRunning
 
-THREADS = cpu_count() // 2
+THREADS = cpu_count()
 TIMEOUT = 1.0
 
 try:
@@ -126,6 +127,15 @@ class PopenThread( Thread ):
       return self._proc.poll()
     return None
 
+  def wait(self, timeout = None):
+    self._started.wait()                                                                # Make sure thread is started
+    self.join( timeout = timeout )
+    return not self.is_alive()
+
+  def kill(self):
+    if self._proc:
+      self._proc.terminate()
+
   def applyFunc(self, func, *args, **kwargs):
     '''
     Purpose:
@@ -192,6 +202,7 @@ class PopenPool(Thread):
   __threads  =    1
   __cpulimit = None
   def __init__(self, threads = THREADS, cpulimit = 75, queueDepth = 50, *args, **kwargs):
+    kwargs['daemon'] = kwargs.pop('daemon', True)                                       # Default to deamon
     super().__init__(*args, **kwargs)
     self.__log        = logging.getLogger(__name__)
     self.__closed     = Event()
@@ -199,6 +210,7 @@ class PopenPool(Thread):
     self.threads      = threads
     self.cpulimit     = cpulimit
     self.start()
+    atexit.register( self.close )
 
   @property
   def threads(self):
@@ -230,6 +242,13 @@ class PopenPool(Thread):
     '''
     self.__closed.set()
 
+  def wait(self, timeout = None):
+    t0 = time.time()
+    check = lambda: (time.time()-t0) < timeout if timeout else True
+    while check() and PROCLOCK.n > 0:
+      time.sleep( TIMEOUT )
+    return PROCLOCK.n == 0
+
   def Popen_async(self, *args, **kwargs):
     '''
     Purpose:
@@ -260,7 +279,7 @@ class PopenPool(Thread):
     '''
     self.__log.debug('PopenPool open')
     thread = None                                                                       # Initialize thread as None
-    while isRunning():                                                                  # Loop forever
+    while isRunning() and not self.__closed.is_set():                                   # Loop forever
       if thread is None:                                                                # If PopenThread is None, we will try to get a thread object from the queue
         try:                                                                            # Try to get left most element from queue list
           thread = self.__threadQueue.get(timeout=TIMEOUT)                              # Get first element of threads list queue

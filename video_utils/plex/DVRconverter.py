@@ -19,8 +19,6 @@ class DVRconverter(VideoConverter):
   '''
   def __init__(self,
      logdir      = None, 
-     threads     = None, 
-     cpulimit    = None,
      lang        = None,
      verbose     = False,
      destructive = False,
@@ -67,8 +65,6 @@ class DVRconverter(VideoConverter):
       no_srt      : If set, no SRT subtitle files created
     '''
     super().__init__(
-      threads       = threads,
-      cpulimit      = cpulimit,
       log_dir       = logdir,
       in_place      = True,
       no_ffmpeg_log = True,
