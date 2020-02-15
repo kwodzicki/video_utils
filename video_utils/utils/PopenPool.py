@@ -1,20 +1,14 @@
 import logging
 import time
 from subprocess import Popen, STDOUT, DEVNULL 
-from threading import Thread, Lock
+from queue import Queue
+from threading import Thread, Lock, Event
 from multiprocessing import cpu_count
 from .checkCLI import checkCLI
 from .. import isRunning
 
 THREADS = cpu_count() // 2
-
-THREADKWARGS = ( ('group',  None,), 
-                 ('target', None,),
-                 ('name',   None,),
-                 ('args',   (),  ),
-                 ('kwargs', {},  ),
-                 ('daemon', None,) )
-TIMEOUT      = 1.0
+TIMEOUT = 1.0
 
 try:
   CPULIMIT = checkCLI( 'cpulimit' )
@@ -109,19 +103,13 @@ PROCLOCK = NLock()                                                              
 ########################################################################################
 class PopenThread( Thread ):
   def __init__(self, *args, **kwargs):
-    lock     = kwargs.pop('lock',     None)
-    threads  = kwargs.pop('threads',     1)
-    cpulimit = kwargs.pop('cpulimit', None)
-    tkwargs  = {}
-    for key, default in THREADKWARGS:
-      tkwargs[key] = kwargs.pop(key, default)
-    super().__init__(**tkwargs)
-    self.__log    = logging.getLogger(__name__)
-    self._args    = args
-    self._kwargs  = kwargs
-    self._lock    = lock
-    self._proc    = None
-    self._threads = threads
+    super().__init__()
+    self.__log     = logging.getLogger(__name__)
+    self._threads  = kwargs.pop('threads',     1)
+    self._cpulimit = kwargs.pop('cpulimit', None)
+    self._args     = args
+    self._kwargs   = kwargs
+    self._proc     = None
 
   @property
   def threads(self):
@@ -142,7 +130,7 @@ class PopenThread( Thread ):
     '''Overload run method'''
     self.__log.debug('Starting subprocess')
     self._proc = Popen( *self._args, **self._kwargs )                                   # Start the process
-    limit      = self._cpulimit( )                                                      # Maybe cpulimit
+    limit      = self.__cpulimit( )                                                     # Maybe cpulimit
     while isRunning():                                                                  # While not interupts
       if self._proc.poll() is None:                                                     # If process not done
         time.sleep( TIMEOUT )                                                           # Sleep
@@ -152,10 +140,10 @@ class PopenThread( Thread ):
       self.__log.debug('Terminating process')                                           # Log debug info
       self._proc.terminate()                                                            # Terminate process
       if limit: limit.terminate()                                                       # Maybe termiate cpulimit
-    elif self._lock:                                                                    # Else, if lock defined
-      self._lock.release( threads = self._threads )                                     # Release lock
 
-  def _cpulimit(self):
+    PROCLOCK.release( threads = self._threads )                                          # Release lock
+
+  def __cpulimit(self):
     '''
     Purpose:
       Method to apply cpulimit CLI to process
@@ -184,10 +172,11 @@ class PopenPool(Thread):
   def __init__(self, threads = THREADS, cpulimit = 75, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.__log        = logging.getLogger(__name__)
-    self.__lock       = Lock()
-    self.__threadlist = []
+    self.__closed     = Event()
+    self.__threadQueue = Queue( maxsize = 50 )
     self.threads      = threads
     self.cpulimit     = cpulimit
+    self.start()
 
   @property
   def threads(self):
@@ -211,29 +200,33 @@ class PopenPool(Thread):
         self.__log.warning('Invalid value for cpu limit, disabling cpu limiting')
         self.__cpulimit = None
 
+  def close(self):
+    self.__closed.set()
+ 
   def async(self, *args, **kwargs):
-    with self.__lock:
-      kwargs['lock']     = PROCLOCK
-      kwargs['cpulimit'] = self.cpulimit 
-      proc = PopenThread(*args, **kwargs) 
-      self.__threadlist.append( proc )
+    if self.__closed.is_set():
+      raise Exception('Cannot add process to closed pool')
+    kwargs['cpulimit'] = self.cpulimit 
+    proc = PopenThread(*args, **kwargs) 
+    self.__threadQueue.put( proc )
     return proc
-  
+
   def run(self):
-    self.__log.debug('Thread started')
+    self.__log.debug('PopenPool open')
     thread = None
     while isRunning():
       if thread is None:                                                                # If PopenThread is None, we will try to get a thread object from the queue
         try:                                                                            # Try to get left most element from queue list
-          with self.__lock:                                                             # Grab the lock for safety
-            thread = self.__threadlist.pop(0)                                              # Get first element of threads list queue
-        except IndexError:
-          time.sleep( TIMEOUT )                                                         # Sleep for a little
+          thread = self.__threadQueue.get(timeout=TIMEOUT)                              # Get first element of threads list queue
+        except:
+          pass         
         else:
           thread = self._Popen( thread )                                                # Try to run the thread
       else:
         thread = self._Popen( thread )                                                  # Try to run the thread
-    self.__log.debug('Thread dead')
+      if self.__closed.is_set() and self.__threadQueue.empty() and not thread:          # If pool has been closed, no more proesses in list, and no process trying to start, break while loop
+        break
+    self.__log.debug('PopenPool closed')
 
   def _Popen(self, thread):
     '''
@@ -250,6 +243,7 @@ class PopenPool(Thread):
     '''
     if PROCLOCK.acquire(timeout = TIMEOUT, threads = thread.threads):                   # Grab lock specifying theads and with timeout
       thread.start()                                                                    # If got lock, start the thread
+      self.__threadQueue.task_done()                                                    # Signal that work on dequeued item finished
       return None                                                                       # Return None to signal thread started
     return thread                                                                       # Return thread to signal NOT started
 
