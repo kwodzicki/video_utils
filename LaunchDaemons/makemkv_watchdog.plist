@@ -1,0 +1,30 @@
+<!--More information here: https://www.launchd.info/-->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>Label</key>
+		<string>com.plex.makemkv_watchdog</string>
+		<key>UserName</key>
+		<string>plex</string>
+		<!--Set environment variables here-->
+		<key>EnvironmentVariables</key>
+		<dict>
+			<key>TVDB_API_KEY</key>
+			<string></string>
+			<key>TMDB_API_KEY</key>
+			<string></string>
+		</dict>
+		<!--Set program to run here-->
+		<key>ProgramArguments</key>
+		<array>
+			<string>/path/to/python3</string>
+			<string>/path/to/MakeMKV_Watchdog</string>
+			<string>/path/to/new/file</string>
+			[<string>/path/to/new/file</string>]
+			<string>/toplevel/path/to/plex/libs</string>
+		</array>
+		<key>RunAtLoad</key>
+		<true/>
+	</dict>
+</plist>

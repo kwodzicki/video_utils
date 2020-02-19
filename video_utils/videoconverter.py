@@ -28,6 +28,8 @@ except:
 
 # Metadata imports
 from .videotagger.metadata.getMetaData import getMetaData
+from .videotagger.metadata.Episode import TVDbEpisode
+from .videotagger.metadata.Movie import TMDbMovie
 from .videotagger.mp4Tags import mp4Tags
 try:
   from .videotagger.mkvTags import mkvTags
@@ -39,7 +41,7 @@ from ._logging import fileFMT;
 
 from . import POPENPOOL
 
-_sePat = re.compile( r'[sS](\d{2,})[eE](\d{2,}) - ' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
+_sePat = re.compile( r'[sS](\d{2,})[eE](\d{2,})' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
 class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   '''
@@ -60,15 +62,15 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   Author and History:
      Kyle R. Wodzicki     Created 24 Jul. 2017
   '''
-  illegal = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
-  legal   = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
-  tv_dir  = None
-  mov_dir = None
-  __isMP4 = False
-  __isMKV = False
+  illegal   = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
+  legal     = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
+  __outDir = os.path.expanduser('~')
+  __isMP4   = False
+  __isMKV   = False
+
   def __init__(self, 
-               out_dir       = None,
-               log_dir       = None,
+               outDir       = None,
+               logDir       = None,
                in_place      = False, 
                no_ffmpeg_log = False,
                lang          = None, 
@@ -136,9 +138,8 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
 
     # Set up all the easy parameters first
-    self.out_dir       = out_dir;
-    self.new_out_dir   = None                                                   # Attribute for storing output directory while transcoding, done so will not overwrite out_dir attribute
-    self.log_dir       = log_dir;
+    self.outDir        = outDir
+    self.logDir        = logDir;
     self.new_log_dir   = None
     self.in_place      = in_place;                                              # Set the in_place attribute based on input value
     self.no_ffmpeg_log = no_ffmpeg_log;                                         # Set the no_ffmpeg_log attribute based on the input value
@@ -146,6 +147,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.x265          = x265;      
     self.remove        = remove;       
     self.vobsub_delete = vobsub_delete;
+    self.inFile       = None
 
     if lang:                                                                    # If lang is set
       self.lang = lang if isinstance(lang, (tuple,list,)) else [lang]           # Set lang attribute to lang if it is a tuple or list instance, else make lang a list
@@ -179,6 +181,18 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.__fileHandler    = None;                                               # logging fileHandler 
   
   @property
+  def outDir(self):
+    return self.__outDir
+  @outDir.setter
+  def outDir(self, val):
+    if isinstance(val, str):
+      if not os.path.isdir( val ):
+        os.makedirs( val, True )
+      self.__outDir = val
+    else:
+      self.__outDir = os.path.expanduser('~')
+
+  @property
   def container(self):
     return self.__container
   @container.setter
@@ -187,19 +201,9 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.__isMP4 = (self.__container == 'mp4')
     self.__isMKV = (self.__container == 'mkv')
 
-  @property
-  def new_out_dir(self):
-    return self.__new_out_dir
-  @new_out_dir.setter
-  def new_out_dir(self, val):
-    self.__new_out_dir = val
-    if val:
-      self.tv_dir  = os.path.join(val, 'TV Shows')
-      self.mov_dir = os.path.join(val, 'Movies')
-
 
   ################################################################################
-  def transcode( self, in_file, 
+  def transcode( self, inFile, 
         log_file          = None, 
         metaData          = None,
         chapters          = False, 
@@ -231,7 +235,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
        movies and TV episodes must follow specific naming conventions 
        as specified under in the 'File Naming' section below.
     Inputs:
-       in_file  : Full path to MKV file to covert. Make sure that the file names
+       inFile  : Full path to MKV file to covert. Make sure that the file names
                follow the following formats for movies and TV shows:
     Outputs:
        Outputs a transcoded video file in the MP4 container and
@@ -290,7 +294,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     _sigintEvent.clear()                                                        # Clear the 'global' kill event that may have been set by SIGINT
     self._createdFiles = []                                                     # Reset created files list
-    if not self.file_info( in_file, metaData = metaData ): return False         # If there was an issue with the file_info function, just return
+    if not self.file_info( metaData = metaData ): return False                  # If there was an issue with the file_info function, just return
     self._init_logger( log_file );                                              # Run method to initialize logging to file
     if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
       self.__log.critical('No video or no audio, transcode cancelled!');        # Print log message
@@ -309,7 +313,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       if not os.path.exists( prog_file ):                                       # If the inprogress file does NOT exists, then conversion completed in previous attempt
         self.__log.info('Output file Exists...Skipping!');                      # Print a message
         self.transcode_status = 1
-        if self.remove: os.remove( self.in_file );                              # If remove is set, remove the source file
+        if self.remove: os.remove( self.inFile );                              # If remove is set, remove the source file
         if os.path.isfile( self.chapterFile ):                                  # If a .chap file exists
           try:
             os.remove( self.chapterFile )                                       # Delete the file
@@ -328,7 +332,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     open(prog_file, 'a').close()                                                # Touch inprogress file, acts as a kind of lock
 
     if removeCommercials:                                                       # If the removeCommercials keywords is set
-      if not self.removeCommercials( in_file, chapters = chapters ):            # Run the removeCommericals method
+      if not self.removeCommercials( inFile, chapters = chapters ):            # Run the removeCommericals method
         self.__log.error( 'Error cutting commercials, assuming bad file...' )
         self.transcode_status = 5
         self._cleanUp( prog_file )
@@ -374,7 +378,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       self._write_tags( out_file )
       self.get_subtitles( )                                                     # Extract subtitles
 
-      inSize  = os.stat(self.in_file).st_size;                                  # Size of in_file
+      inSize  = os.stat(self.inFile).st_size;                                  # Size of inFile
       outSize = os.stat(out_file).st_size;                                      # Size of out_file
       difSize = inSize - outSize;                                               # Difference in file size
       change  = 'larger' if outSize > inSize else 'smaller';                    # Is out_file smaller or larger than in file
@@ -383,7 +387,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
           
       if self.remove:                                                           # If remove is set
         self.__log.info( 'Removing the input file...' );                        # Log some information
-        os.remove( self.in_file );                                              # Delete the input file if remove is true
+        os.remove( self.inFile );                                              # Delete the input file if remove is true
 
       self.__log.info('Duration: {}'.format(datetime.now()-start_time))         # Print compute time
 
@@ -424,7 +428,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     '''
     cmd = self._ffmpeg_base( )                                                  # Call method to generate base command for ffmpeg
 
-    cropVals  = cropdetect( self.in_file );                                     # Attempt to detect cropping
+    cropVals  = cropdetect( self.inFile );                                     # Attempt to detect cropping
     videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info
     audioKeys = self._audioKeys();                                              # Generator for orderer keys in audio_info
     avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
@@ -467,7 +471,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     Keywords:
       None.
     '''
-    cmd  = ['ffmpeg', '-nostdin', '-i', self.in_file]
+    cmd  = ['ffmpeg', '-nostdin', '-i', self.inFile]
 
     if os.path.isfile(self.chapterFile):                                        # If the chapter file exits
       self.__log.info( 'Adding chapters from file : {}'.format(self.chapterFile) )
@@ -502,38 +506,53 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       self.__log.warning('Metadata tagging disabled!!!');                              # If mp4tags attribute is False, print message
 
   ##############################################################################
-  def file_info( self, in_file, metaData = None):
+  def file_info( self, inFile, metaData = None):
     '''
     Function to extract some information from the input file name and set up
     some output file variables.
     '''
     if not isRunning(): return False
+    try:
+      dbID, info = inFile.split('.')[:2]
+    except:
+      raise Exception('Incorrect file; follow convention') 
 
     self.__log.info('Setting up some file information...');
 
     self.tagging  = (self.container == 'mp4') or (self.container == 'mkv')      # Check if container is mp4
  
     # Set up file/directory information
-    self.in_file  = in_file if os.path.exists( in_file ) else None;             # Set the in_file attribute for the class to the file input IF it exists, else, set the in_file to None
-    if self.in_file is None:                                                    # IF the input file does NOT exist
+    self.inFile  = inFile if os.path.exists( inFile ) else None;             # Set the inFile attribute for the class to the file input IF it exists, else, set the inFile to None
+    if self.inFile is None:                                                    # IF the input file does NOT exist
       self.__log.info( 'File requested does NOT exist. Exitting...' );
-      self.__log.info( '   ' + in_file );
+      self.__log.info( '   {}'.format(inFile) );
       return False;                                                             # Return, which stops the program
 
-    self.__log.info( 'Input file: '   + self.in_file );                           # Print out the path to the input file
-    self.chapterFile = os.path.splitext( self.in_file )[0] + '.chap'            # Set chapter file name; same name as source file, but with .chap extension; should be generated by comremove.comchapters()
+    self.__log.info( 'Input file: {}'.format( self.inFile ) )                           # Print out the path to the input file
+    self.chapterFile = os.path.splitext( self.inFile )[0] + '.chap'            # Set chapter file name; same name as source file, but with .chap extension; should be generated by comremove.comchapters()
 
-    if (self.out_dir is None) or self.in_place:                                             # If out_dir attribute is None, or in_place is set
-      self.new_out_dir = os.path.dirname(in_file);                                          # Set new_out_dir to directory of input file
-    else:                                                                                   # Else
-      self.new_out_dir = self.out_dir                                                       # Use out_dir
-
-    if self.log_dir is None: 
-      self.new_log_dir = os.path.join(self.new_out_dir, 'Logs')          # Set log_dir to input directory if NOT set on init, else set to log_dir value
+    seasonEp = _sePat.findall( info ):
+    if seasonEp:
+      metadata = TVDbEpisode( dbID, *seasonEp )
     else:
-      self.new_log_dir = self.log_dir
+      metadata = TMDbMovie( dbID )
 
+    if metadata:
+      outFile = metadata.fileBasename()
+      if self.in_place:
+        outFile = os.path.join( os.path.dirname( self.inFile ), outFile )
+      else:
+        outFile = os.path.join( self.outDir, metadata.fileDirname(), outFile )
+    else:
+      
     self._metaData( metaData = metaData )
+    
+
+    if self.logDir is None: 
+      self.new_log_dir = os.path.join(self.curRootDir, 'Logs')          # Set log_dir to input directory if NOT set on init, else set to log_dir value
+    else:
+      self.new_log_dir = self.logDir
+
     self.__log.info('Getting video, audio, information...');                            # If verbose is set, print some output
 
     self.video_info = self.get_video_info( x265 = self.x265 );                          # Get and parse video information from the file
@@ -553,7 +572,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     # Generate file paths for the output file and the ffmpeg log files
     self.ffmpeg_log_file = os.path.join(self.new_log_dir, self.file_name);          # Set the ffmpeg log file path without extension
-    self.out_file    = [self.new_out_dir, '', self.file_name];                  # Set the output file path without extension
+    self.out_file    = [self.curRootDir, '', self.file_name];                  # Set the output file path without extension
     self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
     return True;
 
@@ -618,7 +637,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     elif self.vobsub or self.srt:                                               # Else, if vobsub or srt is set
       if self.format == "MPEG-TS":                                              # If the input file format is MPEG-TS, then must use CCExtractor
         if ccextract:                                                           # If the ccextract function import successfully
-          status = ccextract( self.in_file, self.out_file, self.text_info )     # Run ccextractor
+          status = ccextract( self.inFile, self.out_file, self.text_info )     # Run ccextractor
         else:
           self.__log.warning('ccextractor failed to import, falling back to opensubtitles.org');
           opensubs_all()                                                        # Run local function
@@ -630,7 +649,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
             opensubs_all()                                                      # Run local function
         else:
           self.vobsub_status, vobsub_files = vobsub_extract( 
-            self.in_file, self.out_file, self.text_info, 
+            self.inFile, self.out_file, self.text_info, 
             vobsub = self.vobsub,
             srt    = self.srt )                                                 # Extract VobSub(s) from the input file and convert to SRT file(s).
           self._createdFiles.extend( vobsub_files )                             # Add list of files created by vobsub_extract to list of created files
@@ -685,7 +704,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       if not self.is_episode:                                                   # If NOT episode
         self.out_file[1] = self.title                                           # Place title in second element
       self.out_file    = os.path.join( *self.out_file );
-      self.new_out_dir = os.path.dirname( self.out_file )                       # Update new_out_dir incase a title was added to path
+      self.curRootDir = os.path.dirname( self.out_file )                       # Update new_out_dir incase a title was added to path
     self._create_dirs();                                                        # Create all output directories
 
   ###################################################################
@@ -706,7 +725,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.metaData = None;                                                               # Default metaData to None;
     self.metaKeys = None;                                                               # Default metaKeys to None;
 
-    self.file_base  = os.path.basename(self.in_file)                                   # Get the base name of the file
+    self.file_base  = os.path.basename(self.inFile)                                   # Get the base name of the file
     file_split      = self.file_base.split('.')[:-1];                           # Split base name on period and ignore extension 
     self.title      = file_split[0];                                            # Get title of movie or TV show
     self.season_dir = None;
@@ -719,11 +738,13 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       seasonEp = _sePat.findall( self.file_base )
       if seasonEp: 
         self.is_episode = True
-        kwargs = {'TVDbID' : ID, 'seasonEp' : tuple( map(int, seasonEp[0]) ) }
+        #kwargs = {'TVDbID' : ID, *map(int, seasonEp[0]) )
+        self.metaData = TVDbEpisode(ID, *map(int, seasonEp[0]) )
       else:
         kwargs = {'TMDbID' : ID}
+        self.metaData = TVDbEpisode(ID )
 
-      self.metaData = getMetaData( **kwargs )
+      #self.metaData = getMetaData( **kwargs )
 
     self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
 
@@ -748,25 +769,10 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       se_test = ('season'       in self.metaKeys) and se_test;                          # Check that 'season'  key in metaKeys AND previous criteria
 
     if self.is_episode:
-      if not self.in_place:
-        self.new_out_dir = self.tv_dir                                                  # Reset output directory to original directory
-        try:                                                                            # Try to use the seriesName tag from the metaData
-          st = self.metaData['seriesName'];                                             # Set Series directory name
-        except:                                                                         # If this tag does NOT exist, use the series title tag
-          st = self.metaData['series title'];                                           # Set Series directory name
-        if self.encode: st = st.encode(self.fmt);                                       # Encode if python2
-        for n in range( len(self.illegal) ):                                            # Iterate over all illegal characters
-          if self.illegal[n] in st:                                                     # If an illegal character is found in the string
-            st = st.replace(self.illegal[n], self.legal[n]);                            # Replace the character with a legal character
-        if ('first_air_date' in self.metaData):
-          airYear = self.metaData['first_air_date'].split('-')[0] 
-          st = '{} ({})'.format(st, airYear)
-        self.new_out_dir = os.path.join(self.new_out_dir, st);                          # Set Series directory name
-        sn = 'Season {:02d}'.format(self.metaData['season']);                           # Set up name for Season Directory
-        self.new_out_dir = os.path.join(self.new_out_dir, sn);                          # Add the season directory to the output directory
+      outDir = self.tv_dir( self.metaData.getFilePath() )                                 # Reset output directory to original directory
     else:                                                                               # Else the file is a movie
       self.is_episode  = False;                                                         # Set is_episode to False
-      if not self.in_place: self.new_out_dir = self.mov_dir                             # Reset output directory to original directory
+      outDir = self.mov_dir( self.metaData.getFilePath() )                                 # Reset output directory to original directory
 
     return True
 
@@ -821,7 +827,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   ##############################################################################
   def _create_dirs( self ):
     self.__log.debug( 'Creating output directories' )
-    if not os.path.isdir( self.new_out_dir  ): os.makedirs( self.new_out_dir  );            # Check if the new output directory exists, if it does NOT, create the directory
+    if not os.path.isdir( self.curRootDir  ): os.makedirs( self.curRootDir  );            # Check if the new output directory exists, if it does NOT, create the directory
     if not self.no_ffmpeg_log:                                                              # If HandBrake log files are NOT disabled
       if not os.path.isdir( self.new_log_dir     ): os.makedirs( self.new_log_dir );        # Create log directory if it does NOT exist
 

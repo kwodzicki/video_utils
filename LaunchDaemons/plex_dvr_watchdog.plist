@@ -1,0 +1,30 @@
+<!--More information here: https://www.launchd.info/-->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>Label</key>
+		<string>com.plex.plex_dvr_watchdog</string>
+		<key>UserName</key>
+		<string>plex</string>
+		<!--Set environment variables here-->
+		<key>EnvironmentVariables</key>                                 
+		<dict>
+			<key>COMSKIP_INI</key>                                 
+			<string>/path/to/comskip.ini</string>                                       
+			<key>TVDB_API_KEY</key>                                 
+			<string></string>                                       
+			<key>TMDB_API_KEY</key>                                 
+			<string></string>                                       
+		</dict> 
+		<!--Set script to run here-->
+		<key>ProgramArguments</key>
+		<array>
+			<string>/path/to/python3</string>
+			<string>/path/to/Plex_DVR_Watchdog</string>
+			<string>/path/to/TV Shows</string>
+		</array>
+		<key>RunAtLoad</key>
+		<true/>
+	</dict>
+</plist>
