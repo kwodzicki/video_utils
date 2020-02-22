@@ -2,6 +2,44 @@ import logging
 
 from .API import BaseAPI
 
+freeform = lambda x: '----:com.apple.iTunes:{}'.format( x );                                # Functio
+
+MP4KEYS = {
+  'year'       : '\xa9day',
+  'title'      : '\xa9nam',
+  'seriesName' : 'tvsh',
+  'seasonNum'  : 'tvsn',
+  'episodeNum' : 'tves',
+  'genre'      : '\xa9gen',
+  'kind'       : 'stik',
+  'sPlot'      : 'desc',
+  'lPlot'      : freeform('LongDescription'),
+  'rating'     : freeform('ContentRating'),
+  'prod'       : freeform('Production Studio'),
+  'cast'       : freeform('Actor'),
+  'dir'        : freeform('Director'),
+  'wri'        : freeform('Writer'),
+  'cover'      : 'covr'
+}
+
+MKVKEYS = {
+  'year'       : (50, 'DATE_RELEASED'),
+  'title'      : (50, 'TITLE'),
+  'seriesName' : (70, 'TITLE'),
+  'seasonNum'  : (60, 'PART_NUMBER'),
+  'episodeNum' : (50, 'PART_NUMBER'),
+  'genre'      : (50, 'GENRE'),
+  'kind'       : (50, 'CONTENT_TYPE'),
+  'sPlot'      : (50, 'SUMMARY'),
+  'lPlot'      : (50, 'SYNOPSIS'),
+  'rating'     : (50, 'LAW_RATING'), 
+  'prod'       : (50, 'PRODUCION_STUDIO'),
+  'cast'       : (50, 'ACTOR'),
+  'dir'        : (50, 'DIRECTOR'),
+  'wri'        : (50, 'WRITTEN_BY'),
+  'cover'      : 'covr'
+}
+
 class BaseItem( BaseAPI ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
@@ -71,3 +109,109 @@ class BaseItem( BaseAPI ):
       pass
 
     return self._data.get('id', None)
+
+  def _getDirectors(self):
+    return [i['name'].encode() for i in self.crew if i.job == 'Director']
+
+  def _getWriters(self):
+    persons = []
+    for person in self.crew:
+      if person.job in ['Writer', 'Story', 'Screenplay']:
+        persons.append( '{} ({})'.format( person.name, person.job ) )
+    return [p.encode() for p in persons]
+
+  def _getRating( self, **kwargs ):
+    rating = ''
+    country = kwargs.get('country', 'US')
+    if 'release_dates' in self:
+      for release in self.release_dates[country]:
+        if release['type'] <= 3 and release['certification'] != '':
+          rating = release['certification']
+    elif self.isEpisode:
+      rating = self.Series.rating
+    return rating.encode()
+
+  def _getProdCompanies(self, **kwargs):
+    if 'production_companies' in self:
+      return [i['name'].encode() for i in self.production_companies]
+    return ''
+
+  def _getPlot(self, **kwargs):
+    sPlot = lPlot = ''
+    if 'overview' in self:
+      if len(self.overview) < 240:
+        sPlot = self.overview
+      else:
+        lPlot = self.overview
+    return sPlot, lPlot 
+
+  def _getCover( self, **kwargs ):
+    if 'filename' in self:
+      return self.filename
+    elif 'poster_path' in self:
+      return self.poster_path
+    return ''
+
+  def _episodeData(self, **kwargs):
+    plots = self._getPlot()
+    data  = {'year'       : str( self.air_date.year ),
+             'title'      : self.title,
+             'seriesName' : self.Series.title,
+             'seasonNum'  : [self.season_number], 
+             'episodeNum' : [self.episode_number],
+             'sPlot'      : plots[0],
+             'lPlot'      : plots[1],
+             'cast'       : [i.name.encode() for i in self.cast],
+             'prod'       : self._getProdCompanies(), 
+             'dir'        : self._getDirectors(), 
+             'wri'        : self._getWriters(),
+             'genre'      : [i for i in self.Series.genre],
+             'rating'     : self._getRating( **kwargs ),
+             'kind'       : 'episode' if kwargs.get('MKV', False) else [10],
+             'cover'      : self._getCover()
+    }
+    return data
+
+  def _movieData(self, qualifier=None, **kwargs):
+    title = '{} - {}'.format(self.title, qualifier) if qualifier else self.title
+    plots = self._getPlot()
+    data  = {'year'   : str( self.release_date.year ),
+             'title'  : title,
+             'sPlot'  : plots[0],
+             'lPlot'  : plots[1],
+             'cast'   : [i.name.encode() for i in self.cast],
+             'prod'   : self._getProdCompanies(), 
+             'dir'    : self._getDirectors(), 
+             'wri'    : self._getWriters(),
+             'genre'  : [i['name'].encode() for i in self.genres],
+             'rating' : self._getRating( **kwargs ),
+             'kind'   : 'movie' if kwargs.get('MKV', False) else [9],
+             'cover'  : self._getCover()
+    }
+    return data
+
+  def _metadata(self, **kwargs):
+    if self.isEpisode:
+      return self._episodeData(**kwargs)
+    elif self.isMovie:
+      return self._movieData(**kwargs)
+    return None
+
+  def toMKV(self, **kwargs):
+    kwargs['MKV'] = True
+    data = self._metadata(**kwargs)
+    if data:
+      keys = list( data.keys() )
+      for key in keys:
+        data[ MKVKEYS[key] ] = data.pop(key)
+      return data 
+    return None
+
+  def toMP4(self, **kwargs):
+    data = self._metadata(**kwargs)
+    if data:
+      keys = list( data.keys() )
+      for key in keys:
+        data[ MP4KEYS[key] ] = data.pop(key)
+      return data 
+    return None

@@ -1,5 +1,6 @@
 import logging
-import re
+import os, re
+from urllib.request import urlopen
 from .Person import Person
 
 
@@ -32,21 +33,18 @@ def tvdb2tmdb( info ):
 
   credits = info.pop( 'credits', {} ) 
   crew    = [] 
-  tmp     = {'name' : '',
-             'job'  : 'Director'}
+  job     = 'Director'
   if ('director' in info):
-    tmp['name'] = info.pop('director')
-    crew.append( tmp )
+    name = info.pop('director')
+    crew.append( {'name' : name, 'job' : job } )
   elif ('directors' in info):
     for name in info.pop('directors'):
-      tmp['name'] = name
-      crew.append( tmp )
+      crew.append( {'name' : name, 'job' : job } )
 
-  tmp['job'] = 'Writer'
+  job = 'Writer'
   if ('writers' in info):
     for name in info.pop('writers'):
-      tmp['name'] = name
-      crew.append( tmp )
+      crew.append( {'name' : name, 'job' : job } )
 
   if crew:
     credits['crew'] = crew
@@ -88,6 +86,16 @@ def parseCredits( info, **kwargs ):
           info[key] = val
   return info
 
+def parseReleases( info, **kwargs ):
+  releases = info.pop( 'release_dates', None )
+  if releases:
+    results = releases.pop('results', None )
+    if results:
+      for result in results:
+        releases[result['iso_3166_1']] = result['release_dates']
+      info['release_dates'] = releases
+  return info
+
 def imagePaths( info, **kwargs ):
   imageURL = kwargs.get('imageURL', None)
   if imageURL:
@@ -98,11 +106,42 @@ def imagePaths( info, **kwargs ):
   return info
 
 def parseInfo( info, **kwargs ):
-  info = standardize(  info, **kwargs )
-  info = parseCredits( info, **kwargs )
-  info = imagePaths(   info, **kwargs )
+  info = standardize(   info, **kwargs )
+  info = parseCredits(  info, **kwargs )
+  info = parseReleases( info, **kwargs ) 
+  info = imagePaths(    info, **kwargs )
   return info
 
+def download(URL, saveDir = None):
+  log  = logging.getLogger(__name__)
+  data = None
+  log.debug('Attempting to open URL: {}'.format(URL))
+  try:
+    resp = urlopen( URL )
+  except Exception as err:
+    log.warning( 'Failed to open URL: {}'.format(err) )
+    return data
+
+  log.debug('Attempting to download data')
+  try:
+    data = resp.read()
+  except Exception as err:
+    log.warning( 'Failed to download data' )
+
+  try:
+    resp.close()
+  except Exception as err:
+    log.debug('Failed to close URL: {}'.format( err ) )
+
+  if saveDir is not None:
+    if not os.path.isdir( saveDir ):
+      os.makedirs( saveDir )
+    saveFile = os.path.join( saveDir, URL.split('/')[-1] )
+    with open( saveFile, 'wb' ) as fid:
+      fid.write( data )
+    return saveFile
+
+  return data 
  
 ###
 def parseRating( rating ):

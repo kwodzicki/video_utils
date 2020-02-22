@@ -1,4 +1,5 @@
 import logging
+import os
 
 from .BaseItem import BaseItem
 from .utils import parseInfo
@@ -19,7 +20,7 @@ class BaseMovie( BaseItem ):
     except:
       return '{}'.format(self.title)
 
-  def getFileBase(self, modifier = ''):
+  def getBasename(self, modifier = ''):
     '''
     Purpose:
       Method to get base name for standardized file naming.
@@ -36,8 +37,11 @@ class BaseMovie( BaseItem ):
       fmt = 'tvdb{}'
     return '{}.{}.{}'.format(self, modifier, fmt.format(self.id))
 
+  def getDirname(self, root = ''):
+    return os.path.join( root, 'Movies', str( self ) )
+
 class TMDbMovie( BaseMovie ):
-  EXTRA = ['external_ids', 'credits', 'content_ratings']
+  EXTRA = ['external_ids', 'credits', 'content_ratings', 'release_dates']
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     

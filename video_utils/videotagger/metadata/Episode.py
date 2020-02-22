@@ -20,7 +20,7 @@ class BaseEpisode( BaseItem ):
       self.season_number, self.episode_number, self.title
     )
 
-  def getFileBase(self):
+  def getBasename(self):
     if isinstance(self, TMDbEpisode):
       fmt = 'tmdb{}'
     else:
@@ -29,12 +29,13 @@ class BaseEpisode( BaseItem ):
       self.season_number, self.episode_number, self.title, fmt.format(self.Series.id)
     )
 
-  def getFilePath(self, root = ''):
+  def getDirname(self, root = ''):
     '''
     Keywords:
       root    : Root directory
     '''
-    return os.path.join( root, str( self.Series ), 'Season {:02d}'.format(self.season_number) )
+    return os.path.join( root, 'TV Shows', 
+      str( self.Series ), 'Season {:02d}'.format(self.season_number) )
 
 class TMDbEpisode( BaseEpisode ):
   EXTRA = ['external_ids', 'credits']

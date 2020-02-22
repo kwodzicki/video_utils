@@ -2,9 +2,9 @@ import logging
 import requests, json
 from datetime import datetime
 
-from ._keys import keys
+from ._keys import Keys
 
-KEYS    = keys()
+KEYS    = Keys()
 DATEFMT = '%Y-%m-%d'
 
 def convertDate( info ):
