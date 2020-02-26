@@ -61,11 +61,7 @@ def mkvTags( file, IMDbid=None, metaData = None ):
           10 : IMDbPY not installed AND getTMDb_Info failed to import
           11 : File is too large
   Keywords:
-      IMDbid    : Set to the IMDb id to use for file.
-                               Default tries to get from file name.
-      metaData : Set to result of previous call to
-                               imdb.IMDb().get_movie(). Default is to 
-                               download the data.
+      metaData : Set to result of .toMKV() method from metaData object
   Dependencies:
       mkvpropedit
   Author and History: 
@@ -86,6 +82,8 @@ def mkvTags( file, IMDbid=None, metaData = None ):
   if metaData is None:
     log.warning('Failed to download metaData! Tag(s) NOT written!');            # Log a warning that the metaData failed to download
     return 3;                                                                   # Return code 3
+  else:
+    metaData = metaData.toMKV()
 
   fileDir, fileBase = os.path.dirname( file ), os.path.basename( file );          # Get the directory and baseanem of the file
 
@@ -94,7 +92,7 @@ def mkvTags( file, IMDbid=None, metaData = None ):
   tags = {}
 
   coverFile = None
-  for key, val in metaData.toMKV().items():
+  for key, val in metaData.items():
     if key == 'covr':
       coverFile = download( val, saveDir = fileDir )
     else:

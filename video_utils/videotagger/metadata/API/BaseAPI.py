@@ -27,6 +27,7 @@ def convertDate( info ):
 class BaseAPI( object ):
   TMDb_URLBase    = 'https://api.themoviedb.org/3'
   TMDb_URLSearch  = '{}/search/multi'.format( TMDb_URLBase )
+  TMDb_URLFind    = '{}/find/{}'.format(      TMDb_URLBase,   '{}' )
   TMDb_URLMovie   = '{}/movie/{}'.format(     TMDb_URLBase,   '{}' )
   TMDb_URLSeries  = '{}/tv/{}'.format(        TMDb_URLBase,   '{}' )
   TMDb_URLSeason  = '{}/season/{}'.format(    TMDb_URLSeries, '{}' )

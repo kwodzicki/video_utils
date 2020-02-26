@@ -2,7 +2,7 @@ import logging
 import os
 
 from .BaseItem import BaseItem
-from .utils import parseInfo
+from .parsers import parseInfo
 from .Series    import TMDbSeries, TVDbSeries
 
 class BaseEpisode( BaseItem ):

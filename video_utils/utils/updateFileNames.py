@@ -1,110 +1,141 @@
 #!/usr/bin/env python3
-
-import logging
 import os, re
 
-import argparse
+from imdb import IMDb
+from ..videotagger.metadata import TMDb
+from ..videotagger.metadata import TVDb
+from ..videotagger.metadata.Movie import TMDbMovie
+from ..videotagger.metadata.Episode import TVDbEpisode
+from ..plex.plexMediaScanner import plexMediaScanner as PMS
 
-from video_utils.plex.plexMediaScanner import plexMediaScanner as PMS
-from video_utils.plex.utils import plexFile_Info
-from video_utils.videotagger.metadata.getTVDb_Info import getTVDb_Info
+IMDBID   = re.compile( '\.(tt\d+)\.' )
+SEASONEP = re.compile( '[sS](\d{2,})[eE](\d{2,})' )
+imdb     = IMDb()
+tmdb     = TMDb()
+tvdb     = TVDb()
 
-episode = re.compile( r'([sS]\d{2,4}[eE]\d{2,4})' )
+def tvRename( topDir, path, metadata, imdbID ):
+  fileDir, fileBase = os.path.split(path)                                       # Get dirname and basename
+  info = fileBase.split('.')[1:]                                                # Split base name on period and lose first element (episode name)
+  info.remove( imdbID )                                                         # Remove IMDb id from list
+  info.insert( 0, metadata.getBasename() )
+  newPath = os.path.dirname( topDir )
+  newPath = metadata.getDirname(newPath) 
+  newName = '.'.join(info)
+  newPath = os.path.join( newPath, newName )
+  print( os.path.join(newPath, newName) )                                                       # Join remaining on period
+  return True
 
-renamedEpisodes = []
-renamedMovies   = []
-seriesIDs       = {}
-def isEpisode( fileName ):
-  '''
-  Function to check if is episode.
-  Uses regex pattern to check for SxxEyy in path
-  '''
-  res = episode.findall( fileName )
-  return len(res) == 1
+def movieRename( topDir, path, metadata, imdbID ):
+  fileDir, fileBase = os.path.split(path)                                       # Get dirname and basename
+  info = fileBase.split('.')[1:]                                                # Split on period and lose first element (movie name)
+  mod  = info.pop(0)                                                            # Pop qualifier off of list (i.e., Unrated, etc.)
+  info.pop(0)
+  info.remove( imdbID )                                                         # Remove the IMDb id from list
+  info.insert( 0, metadata.getBasename(mod) )
+  newPath = os.path.dirname( topDir )
+  newPath = metadata.getDirname(newPath) 
+  newName = '.'.join(info)
+  newPath = os.path.join( newPath, newName ) 
+  print( os.path.join(newPath, newName) )                                                       # Join on period
+  return True
 
-def replaceIMDbID( path, newID=None ):
+def genHardLinks( topDir ):
   '''
-  Function to replace the IMDb ID in the file
-  name with a new ID
+  Function to generate hard links to existing files using
+  new file nameing convention. Will walk through given directory,
+  finding all files with IMDBid in name. Will then get TVDb or
+  TMDb information for renaming.
   '''
-  if not newID: return path
-
-  dirName, baseName = os.path.split( path )
-  baseName     = baseName.split('.')
-  baseName[-2] = str(newID)
-  baseName     = '.'.join( baseName )
-  return os.path.join( dirName, baseName )
-
-def renameEpisode( path ):
-  '''
-  Function to create hard link to original file
-  with new file name
-  '''
-  log = logging.getLogger(__name__)
-  log.debug( 'Found episode: {}'.format(path) )
-  dirName = os.path.basename( os.path.dirname( path ) )
-  if ('season' not in dirName.lower()):
-    log.info('File in subdirectory, creating hardlink')
-    seasonDir = os.path.dirname( os.path.dirname( path ) )
-    series    = os.path.basename( os.path.dirname( seasonDir ) )
-    target    = os.path.join( seasonDir, os.path.basename( path ) )
-    if (series not in seriesIDs):
-      baseName = os.path.basename( target ).split('.')[0]
-      plexFile = '{} - {}'.format(series, baseName) 
-      title, year, seasonEp, episode, ext = plexFile_Info( plexFile )
-      seriesIDs[series] = None
-      info = getTVDb_Info(episode, title = title, seasonEp = seasonEp, year = year)
-      if info and ('seriesId' in info):
-        seriesIDs[series] = info['seriesId']
+  imdbIDs  = {}
+  for root, dirs, items in os.walk(topDir):                                     # Iterate over all files recursively
+    for item in items:                                                          # Iterate over items
+      imdbID = IMDBID.findall( item )                                           # Get IMDb ID from file name
+      if len(imdbID) == 1:                                                      # If IMDB id
+        imdbID = imdbID[0]                                                      # Get only instance
+        if imdbID not in imdbIDs: imdbIDs[imdbID] = []                          # If IMDB id not in imdbIDs dictionary, add key with list as value
+        imdbIDs[imdbID].append( os.path.join(root, item) )                      # Append path to list under IMDb id
+  
+  toRemove = []                                                                 # List of all files that can be deleted
+  for imdbID, paths in imdbIDs.items():                                         # Iterate over all IMDb IDs in imdbIDs dictioanry
+    res = imdb.get_movie( imdbID[2:] )                                          # Get information from imdbpy
+    if 'episode of' in res:                                                     # If episode
+      fileBase = os.path.basename( paths[0] )
+      seasonEp = SEASONEP.findall( fileBase )                                   # GEt season/episode number
+      if len(seasonEp) == 1:                                                    # If season episode number found
+        season, episode = map(int, seasonEp[0])                                 # Parse into integers
       else:
-        log.warning('Failed to get series ID from TVDb: {}'format(path) )      
-    if (series in seriesIDs):
-      target = replaceIMDbID( target, seriesIDs[series] )      
+        print('Failed to find season/ep: {}'.format(paths[0]))
+        exit()
+      seriesID = res['episode of'].getID()                                      # Get series ID
 
-    log.info( 'Creating hard link: {} --> {}'.format(path, target) )
-    return True 
-  return False
+      res = tvdb.byIMDb(seriesID, season, episode)
+      if len(res) != 1:
+        print('Incorrect number of results: {}'.format(paths[0]) )
+      episode = res[0]
+      if not episode.isEpisode:
+        print('Not an episode: {}'.format(paths[0]))
 
-def renameMovie( path ):
-  print( 'Found movie: {}'.format(path) )
+      for path in paths:                                                        # Iterate over all files that contain this ID
+        if tvRename( topDir, path, episode, imdbID ):                                # If hardlink created
+          toRemove.append( path )                                               # Append path to the toRemove list
+      exit()
+    else:
+      # Get TMDbMovie object using IMDb id
+      # Use that information to create new file path using getDirname and getBasename
+      # Create hard link to old file using new path
+      res = tmdb.byIMDb( imdbID )
+      if res is None:
+        print('Failed for: {}'.format(paths[0]) )
+        continue
+      movies = res.get('movie_results', None)
+      if movies is None:
+        print('Failed for: {}'.format(paths[0]) )
+        continue
+      elif len(movies) != 1:
+        print('Too many (or no) movies found: {}'.format(paths[0]))
+        continue
+      movie = movies[0]
+      for path in paths:                                                        # Iterate over all paths with ID
+        if movieRename( topDir, path, movie, imdbID ):                             # If hardlink created
+          toRemove.append( path )                                               # Append path to the toRemove list
+      exit()
+  return toRemove                                                               # Return the toRemove list
 
-res = input('Are you sure you want to do this? (type: YeS sIr) ')
-if (res != 'YeS sIr'):
-  print('Cancelled')
-  exit()
+def updateFileNames(*args):
+  for indir in args:
+    indir = os.path.split( indir )
+    if indir[1] == '':
+      indir = indir[0]
+    else:
+      indir = os.path.join( *indir )
+    print( 'Working on: {}'.format( indir ) )
+    toRemove = genHardLinks( indir )
 
-def updateFileNames( rootDir ):
-  log = logging.getLogger(__name__)
-  for root, dirs, items in os.walk( rootDir ):
-    for item in items:
-      path = os.path.join( root, item )
-      if os.path.isfile( path ):
-        if isEpisode( item ):
-          if renameEpisode( path ):
-            renamedEpisodes.append( path )
-        else:
-          if renameMovie( path ):
-            renamedMovies.append( path )
-  
-  if (len(renamedEpisodes) < 0):
-    log.info( 'Scanning TV Shows to update with new paths' )
-    PMS('scan', section='TV Shows', directory=args.tv)
-  
-    log.info( 'Deleting old files' )
-    for path in renamedEpisodes:
-      log.debug( 'Deleting: {}'.format( path ) )
-  
-    log.info( 'Rescanning TV Shows to remove old paths' )
-    PMS('scan', section='TV Shows', directory=args.tv)
-  
-  if (len(renamedMovies) < 0):
-    log.info( 'Scanning Movis to update with new paths' )
-    PMS('scan', section='Movies', directory=args.movie)
-  
-    log.info( 'Deleting old files' )
-    for path in renamedMovies:
-      log.debug( 'Deleting: {}'.format( path ) )
-  
-    log.info( 'Rescanning Movies to remove old paths' )
-    PMS('scan', section='Movies', directory=args.movie)
-  
+    res      = input('Want to run Plex Media Scanner (YES/n): ')
+    if res != 'YES':
+      print( 'Cancelled' )
+      exit()
+    # Run plex media scanner
+
+    res  = input('Want to delete old files (YES/n): ')
+    if res != 'YES':
+      print( 'Cancelled' )
+      exit()
+    for path in toRemove:
+      try:
+        print('Removed file')
+        #os.remove( path )
+      except:
+        print('Failed to remove file: {}'.format(path))
+
+    for root, dirs, items in os.walk(indir, topdown=False):
+      for dir in dirs:
+        if dir[0] == '.': continue
+        path = os.path.join( root, dir )
+        try:
+          os.rmdir( path )
+        except:
+          print('Failed to remove directory, is full? {}'.format(path) )
+
+

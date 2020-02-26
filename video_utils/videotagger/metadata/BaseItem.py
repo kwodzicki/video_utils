@@ -1,7 +1,15 @@
 import logging
 
 from .API import BaseAPI
+from .writers import mp4Tags, mkvTags
 
+'''
+A note from the mutagen package:
+The freeform ‘----‘ frames use a key in the format ‘----:mean:name’ where ‘mean’
+is usually ‘com.apple.iTunes’ and ‘name’ is a unique identifier for this frame.
+The value is a str, but is probably text that can be decoded as UTF-8. Multiple
+values per key are supported.
+'''
 freeform = lambda x: '----:com.apple.iTunes:{}'.format( x );                                # Functio
 
 MP4KEYS = {
@@ -196,6 +204,28 @@ class BaseItem( BaseAPI ):
     elif self.isMovie:
       return self._movieData(**kwargs)
     return None
+
+  def writeTags( self, file, **kwargs ):
+    if file.endswith('.mp4'):
+      data = self._metadata(**kwargs)
+      if data:
+        keys = list( data.keys() )
+        for key in keys:
+          data[ MP4KEYS[key] ] = data.pop(key)
+        return mp4Tags( file, metaData = data )
+      return None
+    elif file.endswith('.mkv'):
+      kwargs['MKV'] = True
+      data = self._metadata(**kwargs)
+      if data:
+        keys = list( data.keys() )
+        for key in keys:
+          data[ MKVKEYS[key] ] = data.pop(key)
+        return mkvTags( file, metaData = data )
+      return None
+    else:
+      self.log.error('Unsupported file type!')
+      return False
 
   def toMKV(self, **kwargs):
     kwargs['MKV'] = True

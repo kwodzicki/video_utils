@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
 import sys
-from video_utils.utils.updateFileNames import updateFileNames 
+from video_utils import log
+#log.handlers[0].setLevel(0)
 
-updateFileNames( sys.argv[1] )
+from video_utils.utils.updateFileNames import updateFileNames 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('indir', nargs='+', help='Directories to rename files in')
+args = parser.parse_args()
+updateFileNames( *args.indir )

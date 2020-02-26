@@ -1,7 +1,7 @@
 import logging
 
 from .BaseItem import BaseItem
-from .utils import parseInfo
+from .parsers import parseInfo
 
 class BaseSeries( BaseItem ):
   def __init__(self, *args, **kwargs):

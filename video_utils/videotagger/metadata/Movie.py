@@ -2,7 +2,7 @@ import logging
 import os
 
 from .BaseItem import BaseItem
-from .utils import parseInfo
+from .parsers import parseInfo
 
 class BaseMovie( BaseItem ):
   def __init__(self, *args, **kwargs):
