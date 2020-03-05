@@ -20,7 +20,7 @@ else:                                                                           
 
 
 class MediaInfo( object ):
-  def __init__( self, in_file = None, **kwargs ):
+  def __init__( self, inFile = None, **kwargs ):
     '''
     Name:
        mediainfo
@@ -52,17 +52,17 @@ class MediaInfo( object ):
     '''
     super().__init__(**kwargs);
     self.log     = logging.getLogger(__name__);
-    self.cmd     = ['mediainfo', '--Full', '--Output={}'.format(output_fmt) ];  # The base command for mediainfo; just add [self.in_file]
-    self.in_file = in_file;
+    self.cmd     = ['mediainfo', '--Full', '--Output={}'.format(output_fmt) ];  # The base command for mediainfo; just add [self.inFile]
+    self.inFile = inFile;
 
   ################################################################################
   @property
-  def in_file(self):
-    return self.__in_file
-  @in_file.setter
-  def in_file(self, value):
-    self.__in_file = value;
-    if self.__in_file is None:
+  def inFile(self):
+    return self.__inFile
+  @inFile.setter
+  def inFile(self, value):
+    self.__inFile = value;
+    if self.__inFile is None:
       self.__mediainfo = None;
     else:
       self.__parse_output();
@@ -111,7 +111,7 @@ class MediaInfo( object ):
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
     self.log.info('Running mediainfo command...');                              # If verbose is set, print some output
-    xmlstr = subproc.check_output( self.cmd  + [self.in_file] );                # Run the command
+    xmlstr = subproc.check_output( self.cmd  + [self.inFile] );                # Run the command
     root   = ET.fromstring( xmlstr );                                           # Parse xml tree
     data   = {}
     for track in root[0].findall('track'):                                      # Iterate over all tracks in the XML tree
@@ -247,7 +247,6 @@ class MediaInfo( object ):
       self.log.warning(  'NO audio stream(s) selected...');                     # If verbose is set, print some output
       return None;
 
-    info['file_info'] = '.'.join( info['file_info'] )
     return info;                                                              # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
 
   ################################################################################
@@ -355,7 +354,7 @@ class MediaInfo( object ):
 #        if video_data['Frame_rate_mode']  == 'CFR': 
 #          info['-filter'].append( 'yadif' )
 
-    info['file_info'] = '{}p.{}'.format( resolution, encoder );
+    info['file_info'] = ['{}p'.format( resolution ), encoder]
   
     if 'Display_aspect_ratio' in video_tags and \
        'Original_display_aspect_ratio' in video_tags:

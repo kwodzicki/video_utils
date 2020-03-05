@@ -9,6 +9,16 @@ class BaseMovie( BaseItem ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self._isMovie = True
+    self.version  = kwargs.get('version', '')
+
+  @property
+  def _basenameFMT(self):
+    fmt = ['{:.50}', '{:.20}', '{}']
+    if isinstance(self, TMDbMovie):
+      fmt[-1] = fmt[-1].format( 'tmdb{}' )
+    else:
+      fmt[-1] = fmt[-1].format( 'tvdb{}' )
+    return '.'.join(fmt)
 
   def __str__(self):
     try:
@@ -19,19 +29,18 @@ class BaseMovie( BaseItem ):
   def __repr__(self):
     return '<{} ID: {}; Title: {}>'.format( self.__class__.__name__, self.id, self )
 
-  def getBasename(self, modifier = '', **kwargs):
+  def getBasename(self, **kwargs):
     '''
     Purpose:
       Method to get base name for standardized file naming.
     Inputs:
       None.
     Keywords:
-      modifier : Set to modifier string such as 'Director's Cut'
+      Passed to replaceChars function
     Returns:
       Returns string of 'Title (year).Modifier.ID'
     '''
-    fmt      = '{}.{}.tmdb{}' if isinstance(self, TMDbMovie) else '{}.{}.tvdb{}'
-    basename = fmt.format(self, modifier, self.id)
+    basename = self._basenameFMT.format(str(self), self.version, self.id)
     return replaceChars( basename, **kwargs )
 
   def getDirname(self, root = ''):
@@ -72,4 +81,4 @@ class TVDbMovie( BaseMovie ):
       self.URL = self.TVDb_URLMovie.format( self.id )
       json = self.getExtra( *self.EXTRA )
       if json:
-        self._data.update( parseCredits( json ) )      
+        self._data.update( parseCredits( json ) ) 

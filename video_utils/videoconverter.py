@@ -27,14 +27,7 @@ except:
    ccextract = None
 
 # Metadata imports
-from .videotagger.metadata.getMetaData import getMetaData
-from .videotagger.metadata.Episode import TVDbEpisode
-from .videotagger.metadata.Movie import TMDbMovie
-from .videotagger.mp4Tags import mp4Tags
-try:
-  from .videotagger.mkvTags import mkvTags
-except:
-  mkvTags = None
+from .videotagger.getMetaData import getMetaData
 
 # Logging formatter
 from ._logging import fileFMT;
@@ -62,17 +55,9 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   Author and History:
      Kyle R. Wodzicki     Created 24 Jul. 2017
   '''
-  illegal   = ['#','%','&','{','}','\\','<','>','*','?','/','$','!',':','@']
-  legal     = ['', '', '', '', '', ' ', '', '', '', '', ' ','', '', '', '']
-  __outDir = os.path.expanduser('~')
-  __isMP4   = False
-  __isMKV   = False
-
   def __init__(self, 
-               outDir       = None,
-               logDir       = None,
                in_place      = False, 
-               no_ffmpeg_log = False,
+               no_ffmpeg_log = True,
                lang          = None, 
                threads       = cpu_count(), 
                container     = 'mp4',
@@ -85,9 +70,9 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
                **kwargs):
     '''
     Keywords:
-       out_dir       : Path to output directory. Optional input. 
+       outDir       : Path to output directory. Optional input. 
                         DEFAULT: Place output file(s) in source directory.
-       log_dir       : Path to log file directory. Optional input.
+       logDir       : Path to log file directory. Optional input.
                         DEFAULT: Place log file(s) in source directory.
        in_place      : Set to transcode file in place; i.e., do NOT create a 
                          new path to file such as with TV, where
@@ -138,15 +123,14 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
 
     # Set up all the easy parameters first
-    self.outDir        = outDir
-    self.logDir        = logDir;
-    self.new_log_dir   = None
-    self.in_place      = in_place;                                              # Set the in_place attribute based on input value
-    self.no_ffmpeg_log = no_ffmpeg_log;                                         # Set the no_ffmpeg_log attribute based on the input value
-    self.miss_lang     = [];
-    self.x265          = x265;      
-    self.remove        = remove;       
-    self.vobsub_delete = vobsub_delete;
+    self.outDir        = kwargs.get('outDir', None)
+    self.logDir        = kwargs.get('logDir', LOGDIR)
+    self.in_place      = in_place                                                       # Set the in_place attribute based on input value
+    self.no_ffmpeg_log = no_ffmpeg_log                                                  # Set the no_ffmpeg_log attribute based on the input value
+    self.miss_lang     = []
+    self.x265          = x265
+    self.remove        = remove
+    self.vobsub_delete = vobsub_delete
     self.inFile       = None
 
     if lang:                                                                    # If lang is set
@@ -168,17 +152,14 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.IMDb             = None
     self.metaData         = None
     self.metaKeys         = None
-    self.ffmpeg_logTime   = None
 
     self.is_episode       = False
     self.tagging          = False
 
-    self.v_preset         = 'slow';                                             # Set x264/5 preset to slow
-    self.fmt              = 'utf-8';                                            # Set encoding format
-    self.encode           = type( 'hello'.encode(self.fmt) ) is str;            # Determine if text should be encoded; python2 vs python3
+    self.v_preset         = 'slow'                                              # Set x264/5 preset to slow
 
-    self._createdFiles    = [];                                                 # List to store paths to all files created by transcode method
-    self.__fileHandler    = None;                                               # logging fileHandler 
+    self._createdFiles    = None                                                        # List to store paths to all files created by transcode method
+    self.__fileHandler    = None                                                        # logging fileHandler 
   
   @property
   def outDir(self):
@@ -198,8 +179,6 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   @container.setter
   def container(self, val):
     self.__container = val.lower();
-    self.__isMP4 = (self.__container == 'mp4')
-    self.__isMKV = (self.__container == 'mkv')
 
 
   ################################################################################
@@ -290,220 +269,112 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     Author and History:
        Kyle R. Wodzicki     Created 29 Dec. 2016
     '''
-    if _sigtermEvent.is_set(): return False                                     # If _sigterm has been called, just quit
+    if _sigtermEvent.is_set(): return False                                             # If _sigterm has been called, just quit
 
-    _sigintEvent.clear()                                                        # Clear the 'global' kill event that may have been set by SIGINT
-    self._createdFiles = []                                                     # Reset created files list
-    if not self.file_info( metaData = metaData ): return False                  # If there was an issue with the file_info function, just return
-    self._init_logger( log_file );                                              # Run method to initialize logging to file
-    if self.video_info is None or self.audio_info is None:                      # If there is not video stream found OR no audio stream(s) found
-      self.__log.critical('No video or no audio, transcode cancelled!');        # Print log message
-      self.transcode_status = 10;                                               # Set transcode status
-      return False;                                                             # Return
+    _sigintEvent.clear()                                                                # Clear the 'global' kill event that may have been set by SIGINT
 
-    start_time = datetime.now();                                                # Set start date
-    self.transcode_status = None;                                               # Reset transcode status to None
-    self.ffmpeg_logTime   = None;
+    if not self.file_info( inFile, metaData = metaData ): return False                  # If there was an issue with the file_info function, just return
+    self._init_logger( log_file )                                                       # Run method to initialize logging to file
+    if self.video_info is None or self.audio_info is None:                              # If there is not video stream found OR no audio stream(s) found
+      self.__log.critical('No video or no audio, transcode cancelled!')                 # Print log message
+      self.transcode_status = 10                                                        # Set transcode status
+      return False                                                                      # Return
 
-    out_file  = '{}.{}'.format( self.out_file, self.container );                # Set the output file path
-    prog_file = self._inprogress_file( out_file )                               # Get file name for inprogress conversion; maybe a previous conversion was cancelled
+    start_time            = datetime.now()                                              # Set start date
+    self.transcode_status = None                                                        # Reset transcode status to None
+    self._createdFiles    = []                                                          # Reset created files list
 
-    self.__log.info( 'Output file: {}'.format( out_file ) );                    # Print the output file location
-    if os.path.exists( out_file ):                                              # IF the output file already exists
-      if not os.path.exists( prog_file ):                                       # If the inprogress file does NOT exists, then conversion completed in previous attempt
-        self.__log.info('Output file Exists...Skipping!');                      # Print a message
+    outFile   = '{}.{}'.format( self.outFile, self.container )                          # Set the output file path
+    prog_file = self._inprogress_file( outFile )                                        # Get file name for inprogress conversion; maybe a previous conversion was cancelled
+
+    self.__log.info( 'Output file: {}'.format( outFile ) )                              # Print the output file location
+    if os.path.exists( outFile ):                                                       # IF the output file already exists
+      if not os.path.exists( prog_file ):                                               # If the inprogress file does NOT exists, then conversion completed in previous attempt
+        self.__log.info('Output file Exists...Skipping!')                               # Print a message
         self.transcode_status = 1
-        if self.remove: os.remove( self.inFile );                              # If remove is set, remove the source file
-        if os.path.isfile( self.chapterFile ):                                  # If a .chap file exists
-          try:
-            os.remove( self.chapterFile )                                       # Delete the file
-          except Exception as err:
-            self.__log.error( 'Failed to delete chapter file: {}'.format(err) ) # Log error                                                        
-        return False;                                                           # Return to halt the function
-      elif self._being_converted( out_file ):                                   # Inprogress file exists, check if output file size is changing
-        self.__log.info('It seems another process is creating the output file') # The output file size is changing, so assume another process is interacting with it
+        if self.remove:
+          self._cleanUp( self.inFile )                                                  # If remove is set, remove the source file
+        self.chapterFile = self._cleanUp( self.chapterFile )
+        return False;                                                                   # Return to halt the function
+      elif self._being_converted( outFile ):                                            # Inprogress file exists, check if output file size is changing
+        self.__log.info('It seems another process is creating the output file')         # The output file size is changing, so assume another process is interacting with it
         return False;
       else:
         msg  = 'It looks like there was a previous attempt to transcode ' + \
                'the file. Re-attempting transcode...' 
-        self.__log.info( msg )                                                  # The output file size is changing, so assume another process is interacting with it
-        os.remove( out_file )                                                   # Delete the output file for another tyr
+        self.__log.info( msg )                                                          # The output file size is changing, so assume another process is interacting with it
+        self._cleanUp( outFile )
 
-    open(prog_file, 'a').close()                                                # Touch inprogress file, acts as a kind of lock
+    open(prog_file, 'a').close()                                                        # Touch inprogress file, acts as a kind of lock
 
-    if removeCommercials:                                                       # If the removeCommercials keywords is set
-      if not self.removeCommercials( inFile, chapters = chapters ):            # Run the removeCommericals method
+    if removeCommercials:                                                               # If the removeCommercials keywords is set
+      if not self.removeCommercials( inFile, chapters = chapters ):                     # Run the removeCommericals method
         self.__log.error( 'Error cutting commercials, assuming bad file...' )
         self.transcode_status = 5
         self._cleanUp( prog_file )
         return None
 
-    self.ffmpeg_err_file  = self.ffmpeg_log_file + '.err';                      # Set up path for ffmpeg error file
-    self.ffmpeg_log_file += '.log';                                             # Set up path for ffmpeg log file
 
-    self.ffmpeg_cmd = self._ffmpeg_command( out_file );                         # Generate ffmpeg command list
-    self._createdFiles.append( out_file )
+    self.ffmpeg_cmd = self._ffmpeg_command( outFile )                                   # Generate ffmpeg command list
+    self._createdFiles.append( outFile )                                                # Append outFile to list of created files
 
-    if isRunning():
-      self.__log.info( 'Transcoding file...' )
+    self.__log.info( 'Transcoding file...' )
 
-      kwargs = {'threads' : self.threads} 
-      if self.no_ffmpeg_log:                                                    # If creation of ffmpeg log files is disabled
-        kwargs.update(
-          {'stdout'             : PIPE, 
-           'stderr'             : STDOUT,
-           'universal_newlines' : True}
-        )                                                                       # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
-      else:                                                                     # Else
-        kwargs.update(
-          {'stdout' : self.ffmpeg_log_file, 
-           'stderr' : self.ffmpeg_err_file}
-        )
-      proc = POPENPOOL.Popen_async( self.ffmpeg_cmd, **kwargs ) 
+    kwargs = {'threads' : self.threads}                                                 # Initialzie keyword arguments from Popen_async method
+    if self.no_ffmpeg_log:                                                              # If creation of ffmpeg log files is disabled
+      kwargs.update(
+        {'stdout'             : PIPE, 
+         'stderr'             : STDOUT,
+         'universal_newlines' : True}
+      )                                                                                 # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
+    else:                                                                               # Else
+      logFile = os.path.basename(self.outFile) + '.log'                                 # Set log file path
+      kwargs.update( {'stderr' : os.path.join(self.logDir, logFile)} )                  # Update keyword arguments
 
-      if self.no_ffmpeg_log:                                                    # If ffmpeg log files are disabled, we want to know a little bit about what is going on
-          proc.applyFunc( progress, kwargs= {'nintervals' : 10} )               # Apply the 'progess' function to the process to monitor ffmpeg progress
-      POPENPOOL.wait()
+    try:
+      proc = POPENPOOL.Popen_async( self.ffmpeg_cmd, **kwargs )                         # Submit command to subprocess pool
+    except:
+      proc = None
 
-      if os.path.isfile( self.chapterFile ): os.remove( self.chapterFile )      # If the cahpter file exists, delete it
-      self.chapterFile = None                                                   # Set chapter file to None for safe measure
+    if proc and self.no_ffmpeg_log:                                                     # If ffmpeg log files are disabled, we want to know a little bit about what is going on
+      proc.applyFunc( progress, kwargs= {'nintervals' : 10} )                           # Apply the 'progess' function to the process to monitor ffmpeg progress
+
+    POPENPOOL.wait()                                                                    # Wait for all processes in pool to finish
+
+    self.chapterFile = self._cleanUp( self.chapterFile )                                # Clean up chapter file
 
     try: 
-      self.transcode_status = proc.returncode                              # Set transcode_status      
+      self.transcode_status = proc.returncode                                           # Set transcode_status      
     except:
       self.transcode_status = -1
 
-    if self.transcode_status == 0:                                              # If the transcode_status IS zero (0)
-      self.__log.info( 'Transcode SUCCESSFUL!' )                                # Print information
-      self._write_tags( out_file )
-      self.get_subtitles( )                                                     # Extract subtitles
+    if self.transcode_status == 0:                                                      # If the transcode_status IS zero (0)
+      self.__log.info( 'Transcode SUCCESSFUL!' )                                        # Print information
+      if self.metaData:
+        self.metaData.writeTags( outFile )
+      self.get_subtitles( )                                                             # Extract subtitles
 
-      inSize  = os.stat(self.inFile).st_size;                                  # Size of inFile
-      outSize = os.stat(out_file).st_size;                                      # Size of out_file
-      difSize = inSize - outSize;                                               # Difference in file size
-      change  = 'larger' if outSize > inSize else 'smaller';                    # Is out_file smaller or larger than in file
-      msg     = 'The new file is {:4.1f}% {} than the original!';               # Set up message to be printed
-      self.__log.info( msg.format(abs(difSize)/inSize*100, change) );           # Print the message about the size
+      inSize  = os.stat(self.inFile).st_size;                                           # Size of inFile
+      outSize = os.stat(outFile).st_size;                                               # Size of out_file
+      difSize = inSize - outSize;                                                       # Difference in file size
+      change  = 'larger' if outSize > inSize else 'smaller';                            # Is out_file smaller or larger than in file
+      msg     = 'The new file is {:4.1f}% {} than the original!';                       # Set up message to be printed
+      self.__log.info( msg.format(abs(difSize)/inSize*100, change) );                   # Print the message about the size
           
-      if self.remove:                                                           # If remove is set
-        self.__log.info( 'Removing the input file...' );                        # Log some information
-        os.remove( self.inFile );                                              # Delete the input file if remove is true
+      if self.remove:                                                                   # If remove is set
+        self.__log.info( 'Removing the input file...' );                                # Log some information
+        self._cleanUp( self.inFile )
 
-      self.__log.info('Duration: {}'.format(datetime.now()-start_time))         # Print compute time
+      self.__log.info('Duration: {}'.format(datetime.now()-start_time))                 # Print compute time
 
-    else:                                                                       # Else, there was an issue with the transcode
+    else:                                                                               # Else, there was an issue with the transcode
       self.__log.critical( 'All transcode attempts failed!!! Removing all created files' ) # Log critical information
-      out_file = None                                                           # Set out_file to None, this is returned at end of method
-      while len(self._createdFiles) > 0:                                        # Iterate over all files created by program
-        try:
-          os.remove( self._createdFiles.pop() )
-        except:
-          pass
+      outFile = None                                                                    # Set out_file to None, this is returned at end of method
+      self._createdFiles = self._cleanUp( *self._createdFiles ) 
     
     self._cleanUp( prog_file )
 
-    return out_file                                                             # Return output file from function, i.e., transcode was success
-
-  ##############################################################################
-  def _cleanUp(self, *args):
-    ''' Method to delete arbitrary number of files, catching exceptions'''
-    for arg in args:
-      if arg and os.path.isfile( arg ):
-        try:
-          os.remove( arg )
-        except Excpetion as err:
-          self.__log.warning('Failed to delete file: {} --- {}'.format(arg, err))
-
-  ##############################################################################
-  def _ffmpeg_command(self, out_file): 
-    '''
-    Purpose
-      A method to generate full ffmpeg command list
-    Inputs:
-      out_file  : Full output file path that ffmpeg will create
-    Outputs:
-      Returns list containing full ffmpeg command to run
-    Keywords:
-      None.
-    '''
-    cmd = self._ffmpeg_base( )                                                  # Call method to generate base command for ffmpeg
-
-    cropVals  = cropdetect( self.inFile );                                     # Attempt to detect cropping
-    videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info
-    audioKeys = self._audioKeys();                                              # Generator for orderer keys in audio_info
-    avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
-
-    while any( avOpts ):                                                        # While any options left
-      try:                                                                      # Try to
-        key = next( videoKeys );                                                # Get the next video_info key
-      except:                                                                   # On exception, no more keys to get
-        avOpts[0] = False;                                                      # Set avOpts[0] to False because done with video options
-      else:                                                                     # Else, we got a key
-        cmd.extend( self.video_info[ key ] );                                   # Add data to the ffmpeg command
-        if key == '-filter':                                                    # If the key is '-filter', we also want the next tag, which is codec
-          if cropVals is not None:                                              # If cropVals is NOT None
-            if len(self.video_info[key]) != 0:                                  # If not an empty list
-              cmd[-1] = '{},{}'.format(cmd[-1], cropVals);                      # Add cropping to video filter
-            else:                                                               # Else, must add the '-vf' flag
-              cmd.extend( ['-vf', cropVals] );                                  # Add cropping values
-          cmd.extend( self.video_info[ next(videoKeys) ] );                     # Add next options to ffmpeg
-      try:                                                                      # Try to
-        key = next( audioKeys );                                                # Get the next audio_info key
-      except:                                                                   # On exception, no more keys to get
-        avOpts[1] = False;                                                      # Set avOpts[1] to False because done with audio options
-      else:                                                                     # Else, we got a key
-        cmd.extend( self.audio_info[ key ] );                                   # Add data to the ffmpeg command
-        if key == '-filter':                                                    # If the key is -'filter', we also want the next tag, which is codec
-          cmd.extend( self.audio_info[ next(audioKeys) ] );                     # Add next options to ffmpeg
-
-    cmd.append( out_file );                                                     # Append input and output file paths to the ffmpeg command
-    return cmd
-
-  ##############################################################################
-  def _ffmpeg_base(self):
-    '''
-    Purpose
-      A method to generate basic ffmpeg command
-    Inputs:
-      None.
-    Outputs:
-      Returns list containing command
-    Keywords:
-      None.
-    '''
-    cmd  = ['ffmpeg', '-nostdin', '-i', self.inFile]
-
-    if os.path.isfile(self.chapterFile):                                        # If the chapter file exits
-      self.__log.info( 'Adding chapters from file : {}'.format(self.chapterFile) )
-      cmd += ['-i', self.chapterFile, '-map_metadata', '1']                     # Append to command and set meta data mapping from file
-    else:
-      cmd += ['-map_chapters', '0']                                             # Else, enable mapping of chapters from source file
-
-    cmd += ['-tune', 'zerolatency']                                             # Enable faster streaming
-    cmd += ['-f', self.container, '-threads', str(self.threads)]                # Set container and number of threads to use
-
-    return cmd                                                                  # Return command
-
-  ##############################################################################
-  def _write_tags(self, out_file):
-    if not isRunning(): return                                                  # If the kill event is set, skip tag writing for faster exit
-    if self.metaKeys is None:                                                   # If the metaKeys attribute is None
-      self.__log.warning('No metadata to write!!!');                              # Print message that not data to write
-    elif self.tagging:                                                          # If mp4tags attribute is True
-      if self.__isMP4:
-        self.tagging_status = mp4Tags( out_file, metaData = self.metaData );      # Write information to ONLY movie files
-      elif self.__isMKV:
-        if mkvTags:
-          self.tagging_status = mkvTags( out_file, metaData = self.metaData )
-        else:
-          self.__log.warning( "MKV tagging disabled; check 'mkvpropedit' is installed" ) 
-          self.tagging_status = 1
-      if self.tagging_status == 0:
-        self.__log.info('Metadata tags written.');                                     # Print message if status IS 0
-      else:
-        self.__log.warning('Metadata tags NOT written!!!');                            # Print message if status is NOT zero
-    else:
-      self.__log.warning('Metadata tagging disabled!!!');                              # If mp4tags attribute is False, print message
+    return outFile                                                              # Return output file from function, i.e., transcode was success
 
   ##############################################################################
   def file_info( self, inFile, metaData = None):
@@ -512,69 +383,48 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     some output file variables.
     '''
     if not isRunning(): return False
-    try:
-      dbID, info = inFile.split('.')[:2]
-    except:
-      raise Exception('Incorrect file; follow convention') 
-
     self.__log.info('Setting up some file information...');
 
-    self.tagging  = (self.container == 'mp4') or (self.container == 'mkv')      # Check if container is mp4
- 
     # Set up file/directory information
-    self.inFile  = inFile if os.path.exists( inFile ) else None;             # Set the inFile attribute for the class to the file input IF it exists, else, set the inFile to None
-    if self.inFile is None:                                                    # IF the input file does NOT exist
+    self.inFile  = inFile if os.path.exists( inFile ) else None;                        # Set the inFile attribute for the class to the file input IF it exists, else, set the inFile to None
+    if self.inFile is None:                                                             # IF the input file does NOT exist
       self.__log.info( 'File requested does NOT exist. Exitting...' );
-      self.__log.info( '   {}'.format(inFile) );
-      return False;                                                             # Return, which stops the program
+      self.__log.info( '   {}'.format(inFile) )
+      return False                                                                      # Return, which stops the program
 
     self.__log.info( 'Input file: {}'.format( self.inFile ) )                           # Print out the path to the input file
-    self.chapterFile = os.path.splitext( self.inFile )[0] + '.chap'            # Set chapter file name; same name as source file, but with .chap extension; should be generated by comremove.comchapters()
-
-    seasonEp = _sePat.findall( info ):
-    if seasonEp:
-      metadata = TVDbEpisode( dbID, *seasonEp )
-    else:
-      metadata = TMDbMovie( dbID )
-
-    if metadata:
-      outFile = metadata.fileBasename()
-      if self.in_place:
-        outFile = os.path.join( os.path.dirname( self.inFile ), outFile )
-      else:
-        outFile = os.path.join( self.outDir, metadata.fileDirname(), outFile )
-    else:
-      
-    self._metaData( metaData = metaData )
-    
-
-    if self.logDir is None: 
-      self.new_log_dir = os.path.join(self.curRootDir, 'Logs')          # Set log_dir to input directory if NOT set on init, else set to log_dir value
-    else:
-      self.new_log_dir = self.logDir
+    self.chapterFile = os.path.splitext( self.inFile )[0] + '.chap'                     # Set chapter file name; same name as source file, but with .chap extension; should be generated by comremove.comchapters()
 
     self.__log.info('Getting video, audio, information...');                            # If verbose is set, print some output
 
-    self.video_info = self.get_video_info( x265 = self.x265 );                          # Get and parse video information from the file
-    if self.video_info is None: return;                    
-    self.audio_info = self.get_audio_info( self.lang );                                 # Get and parse audio information from the file
-    if self.audio_info is None: return;               
+    self.video_info = self.get_video_info( x265 = self.x265 )                           # Get and parse video information from the file
+    if self.video_info is None:
+      return 
+    self.audio_info = self.get_audio_info( self.lang )                                  # Get and parse audio information from the file
+    if self.audio_info is None:
+      return
 
-    ### Set up output file path and log file path. NO FILE EXTENSIONS USED HERE!!!
-    print( self.video_info['file_info'], self.audio_info['file_info'] )
+    if self.in_place:                                                                   # If file is to be converted in place then
+      outDir = os.path.dirname( self.inFile )                                           # Set outDir to dirname of inFile
+    else:                                                                               # Else, set outDir to self.outDir
+      outDir = self.outDir                                                              # Set outDir to self.outDir
 
-    self.file_name += [ self.video_info['file_info'], self.audio_info['file_info'] ]
+    if metaData is None:                                                                # If metaData is None
+      self.metaData = getMetaData( self.inFile )                                        # Try to get metaData
+    else:
+      self.metaData = metaData
 
-    #if self.IMDb is not None: self.file_name += [self.IMDb];               # Append the IMDB ID to the file name if it is NOT None.
+    if self.metaData:                                                                   # If metaData is valid
+      outFile = self.metaData.getBasename()                                             # Get basename
+      if not self.in_place:                                                             # If NOT converting file in place
+        outDir  = self.metaData.getDirname( root = self.outDir )                             # Set outDir based on self.outDir and getDirname() method
+    else:                                                                               # Else, metaData NOT valid
+      outFile = os.path.splitext( os.path.basename( self.inFile ) )[0]                  # Set outFile to inFile basename without extension
 
-    self.file_name = '.'.join(self.file_name)
-    self.__log.debug( 'File name: {}'.format( self.file_name) )
-
-    # Generate file paths for the output file and the ffmpeg log files
-    self.ffmpeg_log_file = os.path.join(self.new_log_dir, self.file_name);          # Set the ffmpeg log file path without extension
-    self.out_file    = [self.curRootDir, '', self.file_name];                  # Set the output file path without extension
-    self._join_out_file( );                                                   # Combine out_file path list into single path with NO movie/episode directory and create directories
-    return True;
+    outFile      = os.path.join( outDir, outFile )                                      # Create full path to output file; no extension
+    extraInfo    = self.video_info['file_info'] + self.audio_info['file_info']
+    self.outFile = '.'.join( [outFile] + extraInfo ) 
+    return True 
 
   ##############################################################################    
   def get_subtitles( self ):
@@ -623,7 +473,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
         for lang in self.subs:                                                  # Iterate over all languages in the sub titles dictionary
           if self.subs[lang] is not None: found+=1                              # If one of the keys under that language is NOT None, then increment found
         if (found > 0):                                                         # If found is greater than zero (0), then subtitles were found
-          self.saveSRT( self.out_file )                                         # Download the subtitles
+          self.saveSRT( self.outFile )                                          # Download the subtitles
       self.logout()                                                             # Log out of the opensubtitles.org API
 
     ######
@@ -637,7 +487,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     elif self.vobsub or self.srt:                                               # Else, if vobsub or srt is set
       if self.format == "MPEG-TS":                                              # If the input file format is MPEG-TS, then must use CCExtractor
         if ccextract:                                                           # If the ccextract function import successfully
-          status = ccextract( self.inFile, self.out_file, self.text_info )     # Run ccextractor
+          status = ccextract( self.inFile, self.outFile, self.text_info )       # Run ccextractor
         else:
           self.__log.warning('ccextractor failed to import, falling back to opensubtitles.org');
           opensubs_all()                                                        # Run local function
@@ -649,7 +499,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
             opensubs_all()                                                      # Run local function
         else:
           self.vobsub_status, vobsub_files = vobsub_extract( 
-            self.inFile, self.out_file, self.text_info, 
+            self.inFile, self.outFile, self.text_info, 
             vobsub = self.vobsub,
             srt    = self.srt )                                                 # Extract VobSub(s) from the input file and convert to SRT file(s).
           self._createdFiles.extend( vobsub_files )                             # Add list of files created by vobsub_extract to list of created files
@@ -658,7 +508,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
               self.__log.warning('vobsub2srt conversion not possible. Leaving vobsub files.')
             else:
               self.srt_status, srt_files = vobsub_to_srt(   
-                self.out_file, self.text_info,   
+                self.outFile, self.text_info,   
                 vobsub_delete = self.vobsub_delete,   
                 cpulimit      = self.cpulimit,   
                 threads       = self.threads )                                  # Convert vobsub to SRT files
@@ -672,7 +522,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
                 self.track_num  = self.text_info[i]['track']
                 self.get_forced = self.text_info[i]['forced']
                 self.searchSubs( lang = self.text_info[i]['lang3'] )		# Search for subtitles, use lang keyword to override class attribute; do so won't erase self.lang
-                tmpOut = self.saveSRT( file = self.out_file )			# Save subtitles, note that this may not actually work if noting was found
+                tmpOut = self.saveSRT( file = self.outFile )			# Save subtitles, note that this may not actually work if noting was found
                 if tmpOut and (len(tmpOut) == 1):
                   if os.path.isfile(tmpOut[0]):					# If the subtitle file exists
                     self.text_info[i]['srt'] = True				# update the srt presence flag
@@ -681,100 +531,87 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     else:                                                                       # Else, not subtitle candidates were returned
       self.__log.debug('No subtitle options set')                               # Log some information
 
+
   ##############################################################################
-  def _join_out_file(self):
-    '''
-    Name:
-       _join_out_file
-    Purpose:
-       A python function to join a three element list containing
-       file path elements for the output file. First element is 
-       the root directory, second is empty py default, but can
-       contain a directory name that is used when subtitles are
-       enabled/found, and third element of the file name.
-    Inputs:
-       out_file list.
-    Outputs:
-       None; Resest class attributes.
-    Keywords:
-       None
-    '''
-    if isinstance(self.out_file, list):                                         # If the out_file is a list instance
-      self.__log.debug( 'Joining output file path' )
-      if not self.is_episode:                                                   # If NOT episode
-        self.out_file[1] = self.title                                           # Place title in second element
-      self.out_file    = os.path.join( *self.out_file );
-      self.curRootDir = os.path.dirname( self.out_file )                       # Update new_out_dir incase a title was added to path
-    self._create_dirs();                                                        # Create all output directories
+  def _cleanUp(self, *args):
+    ''' Method to delete arbitrary number of files, catching exceptions'''
+    for arg in args:
+      if arg and os.path.isfile( arg ):
+        try:
+          os.remove( arg )
+        except Excpetion as err:
+          self.__log.warning('Failed to delete file: {} --- {}'.format(arg, err))
+    return None
 
-  ###################################################################
-  def _metaData(self, metaData = None):
-    ''''
-    Name:
-      _metaData
-    Purpose:
-      Method responsible for checking for IMDb ID and setting
-      up information in regard to that
+  ##############################################################################
+  def _ffmpeg_command(self, outFile): 
+    '''
+    Purpose
+      A method to generate full ffmpeg command list
     Inputs:
-      None.
+      outFile  : Full output file path that ffmpeg will create
+    Outputs:
+      Returns list containing full ffmpeg command to run
     Keywords:
       None.
+    '''
+    cmd = self._ffmpeg_base( )                                                  # Call method to generate base command for ffmpeg
+
+    cropVals  = cropdetect( self.inFile );                                     # Attempt to detect cropping
+    videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info
+    audioKeys = self._audioKeys();                                              # Generator for orderer keys in audio_info
+    avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
+
+    while any( avOpts ):                                                        # While any options left
+      try:                                                                      # Try to
+        key = next( videoKeys );                                                # Get the next video_info key
+      except:                                                                   # On exception, no more keys to get
+        avOpts[0] = False;                                                      # Set avOpts[0] to False because done with video options
+      else:                                                                     # Else, we got a key
+        cmd.extend( self.video_info[ key ] );                                   # Add data to the ffmpeg command
+        if key == '-filter':                                                    # If the key is '-filter', we also want the next tag, which is codec
+          if cropVals is not None:                                              # If cropVals is NOT None
+            if len(self.video_info[key]) != 0:                                  # If not an empty list
+              cmd[-1] = '{},{}'.format(cmd[-1], cropVals);                      # Add cropping to video filter
+            else:                                                               # Else, must add the '-vf' flag
+              cmd.extend( ['-vf', cropVals] );                                  # Add cropping values
+          cmd.extend( self.video_info[ next(videoKeys) ] );                     # Add next options to ffmpeg
+      try:                                                                      # Try to
+        key = next( audioKeys );                                                # Get the next audio_info key
+      except:                                                                   # On exception, no more keys to get
+        avOpts[1] = False;                                                      # Set avOpts[1] to False because done with audio options
+      else:                                                                     # Else, we got a key
+        cmd.extend( self.audio_info[ key ] );                                   # Add data to the ffmpeg command
+        if key == '-filter':                                                    # If the key is -'filter', we also want the next tag, which is codec
+          cmd.extend( self.audio_info[ next(audioKeys) ] );                     # Add next options to ffmpeg
+
+    cmd.append( outFile );                                                     # Append input and output file paths to the ffmpeg command
+    return cmd
+
+  ##############################################################################
+  def _ffmpeg_base(self):
+    '''
+    Purpose
+      A method to generate basic ffmpeg command
+    Inputs:
+      None.
     Outputs:
-      Updates class attributes
-    ''' 
-    self.metaData = None;                                                               # Default metaData to None;
-    self.metaKeys = None;                                                               # Default metaKeys to None;
+      Returns list containing command
+    Keywords:
+      None.
+    '''
+    cmd  = ['ffmpeg', '-nostdin', '-i', self.inFile]
 
-    self.file_base  = os.path.basename(self.inFile)                                   # Get the base name of the file
-    file_split      = self.file_base.split('.')[:-1];                           # Split base name on period and ignore extension 
-    self.title      = file_split[0];                                            # Get title of movie or TV show
-    self.season_dir = None;
-    self.out_file   = None;
-
-    if metaData:
-      self.metaData = metaData
+    if os.path.isfile(self.chapterFile):                                        # If the chapter file exits
+      self.__log.info( 'Adding chapters from file : {}'.format(self.chapterFile) )
+      cmd += ['-i', self.chapterFile, '-map_metadata', '1']                     # Append to command and set meta data mapping from file
     else:
-      ID = file_split[-1]
-      seasonEp = _sePat.findall( self.file_base )
-      if seasonEp: 
-        self.is_episode = True
-        #kwargs = {'TVDbID' : ID, *map(int, seasonEp[0]) )
-        self.metaData = TVDbEpisode(ID, *map(int, seasonEp[0]) )
-      else:
-        kwargs = {'TMDbID' : ID}
-        self.metaData = TVDbEpisode(ID )
+      cmd += ['-map_chapters', '0']                                             # Else, enable mapping of chapters from source file
 
-      #self.metaData = getMetaData( **kwargs )
+    cmd += ['-tune', 'zerolatency']                                             # Enable faster streaming
+    cmd += ['-f', self.container, '-threads', str(self.threads)]                # Set container and number of threads to use
 
-    self.metaKeys = self.metaData.keys();                                     # Get keys from the metaData information
-
-    if len(self.metaKeys) == 0:                                               # If no keys returned
-      self.__log.warning('Failed to download metadata for file!!!');
-      self.__log.warning( 'Metadata tagging is disabled!!!' );                  # Print message that the mp4 tagging is disabled                
-      self.tagging = False;                                                   # Disable mp4 tagging
-      return False
-
-
-    ### Determine if the file is an episode of a TV show, or a movie. TV episodes
-    ### files begin with the patter 'sXXeXX - ', where XX is a number for the
-    ### seasons and episode
-    self.file_name = file_split                                                 # Join file base name using periods
-    
-    if self.metaKeys is None:                                                           # If the metaKeys attribute is None
-      se_test = False;                                                                  # Then the se_test is False
-    else:                                                                               # Else, the metaKeys attribute is not None
-      se_test = ('series title' in self.metaKeys);                                      # Check that 'series title' key in metaKeys
-      se_test = ('seriesName'   in self.metaKeys) or  se_test;                          # Check that 'seriesName' key in metaKeys OR previous criteria
-      se_test = ('episode'      in self.metaKeys) and se_test;                          # Check that 'episode' key in metaKeys AND previous criteria
-      se_test = ('season'       in self.metaKeys) and se_test;                          # Check that 'season'  key in metaKeys AND previous criteria
-
-    if self.is_episode:
-      outDir = self.tv_dir( self.metaData.getFilePath() )                                 # Reset output directory to original directory
-    else:                                                                               # Else the file is a movie
-      self.is_episode  = False;                                                         # Set is_episode to False
-      outDir = self.mov_dir( self.metaData.getFilePath() )                                 # Reset output directory to original directory
-
-    return True
+    return cmd                                                                  # Return command
 
   ##############################################################################
   def _videoKeys(self):
@@ -823,13 +660,6 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     s0 = os.path.getsize( file )                                                # Get size of output file
     time.sleep(0.5)                                                             # Wait half a second
     return (s0 != os.path.getsize(file))                                        # Check that size of file has changed
-
-  ##############################################################################
-  def _create_dirs( self ):
-    self.__log.debug( 'Creating output directories' )
-    if not os.path.isdir( self.curRootDir  ): os.makedirs( self.curRootDir  );            # Check if the new output directory exists, if it does NOT, create the directory
-    if not self.no_ffmpeg_log:                                                              # If HandBrake log files are NOT disabled
-      if not os.path.isdir( self.new_log_dir     ): os.makedirs( self.new_log_dir );        # Create log directory if it does NOT exist
 
   ##############################################################################
   def _init_logger(self, log_file = None):

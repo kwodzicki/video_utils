@@ -143,14 +143,14 @@ class BaseItem( BaseAPI ):
     }
     return data
 
-  def _movieData(self, qualifier=None, **kwargs):
-    title = '{} - {}'.format(self.title, qualifier) if qualifier else self.title
+  def _movieData(self, **kwargs):
+    title = '{} - {}'.format(self.title, self.version) if self.version else self.title
     plots = self._getPlot()
     data  = {'year'   : str( self.release_date.year ),
              'title'  : title,
              'sPlot'  : plots[0],
              'lPlot'  : plots[1],
-             'cast'   : [i.name.encode() for i in self.cast],
+             'cast'   : [i.name for i in self.cast],
              'prod'   : self._getProdCompanies(), 
              'dir'    : self._getDirectors(), 
              'wri'    : self._getWriters(),

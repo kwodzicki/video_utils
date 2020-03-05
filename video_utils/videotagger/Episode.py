@@ -11,6 +11,15 @@ class BaseEpisode( BaseItem ):
     super().__init__(*args, **kwargs)
     self._isEpisode = True
 
+  @property
+  def _basenameFMT(self):
+    fmt = ['{:.50}', '{}']
+    if isinstance(self, TMDbEpisode):
+      fmt[-1] = fmt[-1].format('tmdb{}')
+    else:
+      fmt[-1] = fmt[-1].format('tvdb{}')
+    return '.'.join(fmt)
+
   def __str__(self):
     return 'S{:02d}E{:02d} - {}'.format(
       self.season_number, self.episode_number, self.title
@@ -20,8 +29,7 @@ class BaseEpisode( BaseItem ):
     return '<{} ID: {}; Title: {}>'.format( self.__class__.__name__, self.id, self )
 
   def getBasename(self, **kwargs):
-    fmt      = '{}.tmdb{}' if isinstance(self, TMDbEpisode) else '{}.tvdb{}'
-    basename = fmt.format( self, self.Series.id )
+    basename = self._basenameFMT.format( str(self), self.Series.id )
     return replaceChars( basename, **kwargs )
 
   def getDirname(self, root = ''):

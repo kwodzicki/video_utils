@@ -27,21 +27,28 @@ from .Episode import TMDbEpisode, TVDbEpisode
 #  raise Exception('Could not import IMDb OR TMDb  OR TVDb!');
 
 SEASONEP = re.compile('[sS](\d{2,})[eE](\d{2,})')
-def getMetaData( file ):
+
+def getMetaData( file, dbID = None ):
   fileDir, fileBase = os.path.split( file )
-  fileInfo = fileBase.split('.')
   seasonEp = SEASONEP.findall(fileBase)
-  for info in fileInfo:
-    if (info[:4] == 'tvdb'):
-      if len(seasonEp) == 1:
-        return TVDbEpisode( info[4:], *seasonEp[0] )
-      else:
-        return TVDbMovie( info[4:] )
-    elif (info[:4] == 'tmdb'):
-      if len(seasonEp) == 1:
-        return TMDbEpisode( info[4:], *seasonEp[0] )
-      else:
-        return TMDbMovie( info[4:] )
+  if isinstance(dbID, str):
+    version = ''
+  else:
+    try:
+      dbID, version = fileBase.split('.')[:2]
+    except:
+      return None
+
+  if (dbID[:4] == 'tvdb'):
+    if len(seasonEp) == 1:
+      return TVDbEpisode( dbID[4:], *seasonEp[0] )
+    else:
+      return TVDbMovie( dbID[4:], version=version )
+  elif (dbID[:4] == 'tmdb'):
+    if len(seasonEp) == 1:
+      return TMDbEpisode( dbID[4:], *seasonEp[0] )
+    else:
+      return TMDbMovie( dbID[4:], version=version )
   return None
 #def getMetaData( **kwargs ):
 #  '''
