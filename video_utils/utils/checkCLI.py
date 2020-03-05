@@ -1,10 +1,16 @@
 import logging
+import sys
 from subprocess import check_output, STDOUT
 
 def checkCLI( cli ):
   log = logging.getLogger(__name__)
+  if sys.platform == 'win32':
+    cmd = ['where', cli]
+  else:
+    cmd = ['which', cli]
+
   try:
-    path = check_output( ['which', cli], stderr = STDOUT )
+    path = check_output( cmd, stderr = STDOUT )
   except:
     path = None
 

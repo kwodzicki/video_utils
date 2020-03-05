@@ -2,14 +2,10 @@ import logging
 import os, re
 from urllib.request import urlopen
 
-CHARS = ( ('#',''), ('%',''), ('&',''), ('{',''), ('}',''), ('\\',''), 
-          ('<',''), ('>',''), ('*',''), ('?',''), ('/',''), ('$',''), 
-          ('!',''), (':',''), ('@',''))
- 
-def replaceChars( string ):
-  for bad, good in CHARS:
-    string = string.replace(bad, good)
-  return string
+BADCHARS = re.compile( '[#%&{}\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
+
+def replaceChars( string, repl = ' ', **kwargs ):
+  return BADCHARS.sub( repl, string )
  
 def download(URL, saveDir = None):
   log  = logging.getLogger(__name__)

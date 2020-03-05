@@ -3,16 +3,12 @@ import os
 
 from .BaseItem import BaseItem
 from .parsers import parseInfo
+from .utils import replaceChars
 
 class BaseMovie( BaseItem ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self._isMovie = True
-
-  def __repr__(self):
-    return '<{} ID: {}; Title: {}>'.format(
-      self.__class__.__name__, self.id, self.title
-    )
 
   def __str__(self):
     try:
@@ -20,7 +16,10 @@ class BaseMovie( BaseItem ):
     except:
       return '{}'.format(self.title)
 
-  def getBasename(self, modifier = ''):
+  def __repr__(self):
+    return '<{} ID: {}; Title: {}>'.format( self.__class__.__name__, self.id, self )
+
+  def getBasename(self, modifier = '', **kwargs):
     '''
     Purpose:
       Method to get base name for standardized file naming.
@@ -31,14 +30,13 @@ class BaseMovie( BaseItem ):
     Returns:
       Returns string of 'Title (year).Modifier.ID'
     '''
-    if isinstance(self, TMDbMovie):
-      fmt = 'tmdb{}'
-    else:
-      fmt = 'tvdb{}'
-    return '{}.{}.{}'.format(self, modifier, fmt.format(self.id))
+    fmt      = '{}.{}.tmdb{}' if isinstance(self, TMDbMovie) else '{}.{}.tvdb{}'
+    basename = fmt.format(self, modifier, self.id)
+    return replaceChars( basename, **kwargs )
 
   def getDirname(self, root = ''):
-    return os.path.join( root, 'Movies', str( self ) )
+    mdir = replaceChars( str(self) )
+    return os.path.join( root, 'Movies', mdir )
 
 class TMDbMovie( BaseMovie ):
   EXTRA = ['external_ids', 'credits', 'content_ratings', 'release_dates']

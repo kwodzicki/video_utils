@@ -1,7 +1,7 @@
 import os, time
 
 try:
-  from .... import api_keys
+  from ... import api_keys
 except:
   TMDb_KEY = TVDb_KEY = None
 else:

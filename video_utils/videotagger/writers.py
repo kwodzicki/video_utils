@@ -4,7 +4,7 @@ from mutagen import mp4
 from xml.etree import ElementTree as ET
 from subprocess import Popen, STDOUT, DEVNULL
 
-from ...utils.checkCLI import checkCLI
+from ..utils.checkCLI import checkCLI
 from .utils import download
 
 try:                                                                        # Try to...

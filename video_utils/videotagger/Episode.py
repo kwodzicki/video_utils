@@ -2,40 +2,36 @@ import logging
 import os
 
 from .BaseItem import BaseItem
-from .parsers import parseInfo
 from .Series    import TMDbSeries, TVDbSeries
+from .parsers import parseInfo
+from .utils import replaceChars
 
 class BaseEpisode( BaseItem ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self._isEpisode = True
 
-  def __repr__(self):
-    return '<{} ID: {}; Title: S{:02d}E{:02d} - {}>'.format(
-      self.__class__.__name__, self.id, self.season_number, self.episode_number, self.title
-    )
-
   def __str__(self):
     return 'S{:02d}E{:02d} - {}'.format(
       self.season_number, self.episode_number, self.title
     )
 
-  def getBasename(self):
-    if isinstance(self, TMDbEpisode):
-      fmt = 'tmdb{}'
-    else:
-      fmt = 'tvdb{}'
-    return 'S{:02d}E{:02d} - {}.{}'.format(
-      self.season_number, self.episode_number, self.title, fmt.format(self.Series.id)
-    )
+  def __repr__(self):
+    return '<{} ID: {}; Title: {}>'.format( self.__class__.__name__, self.id, self )
+
+  def getBasename(self, **kwargs):
+    fmt      = '{}.tmdb{}' if isinstance(self, TMDbEpisode) else '{}.tvdb{}'
+    basename = fmt.format( self, self.Series.id )
+    return replaceChars( basename, **kwargs )
 
   def getDirname(self, root = ''):
     '''
     Keywords:
       root    : Root directory
     '''
-    return os.path.join( root, 'TV Shows', 
-      str( self.Series ), 'Season {:02d}'.format(self.season_number) )
+    series = replaceChars( str(self.Series) )
+    season = 'Season {:02d}'.format( self.season_number ) 
+    return os.path.join( root, 'TV Shows',series, season )
 
 class TMDbEpisode( BaseEpisode ):
   EXTRA = ['external_ids', 'credits']
