@@ -18,9 +18,101 @@ except:
   logging.getLogger(__name__).error('mkvpropedit NOT installed')
   raise
 
+freeform = lambda x: '----:com.apple.iTunes:{}'.format( x );                                # Functio
+
+def encoder( val ):
+  if isinstance(val, (tuple, list,)):
+    return [i.encode() for i in val]
+  elif isinstance( val, str ):
+    return val.encode()
+  else:
+    return val
+
+MP4KEYS = {
+  'year'       :  '\xa9day',
+  'title'      :  '\xa9nam',
+  'seriesName' :  'tvsh',
+  'seasonNum'  : ('tvsn', lambda x: [x]),
+  'episodeNum' : ('tves', lambda x: [x]),
+  'genre'      :  '\xa9gen',
+  'kind'       : ('stik', lambda x: [9] if x == 'movie' else [10]),
+  'sPlot'      :  'desc',
+  'lPlot'      : freeform('LongDescription'),
+  'rating'     : (freeform('ContentRating'),     encoder,),
+  'prod'       : (freeform('Production Studio'), encoder,),
+  'cast'       : (freeform('Actor'),             encoder,),
+  'dir'        : (freeform('Director'),          encoder,),
+  'wri'        : (freeform('Writer'),            encoder,),
+  'cover'      :  'covr'
+}
+
+
+MKVKEYS = {
+  'year'       : (50, 'DATE_RELEASED'),
+  'title'      : (50, 'TITLE'),
+  'seriesName' : (70, 'TITLE'),
+  'seasonNum'  : (60, 'PART_NUMBER'),
+  'episodeNum' : (50, 'PART_NUMBER'),
+  'genre'      : (50, 'GENRE'),
+  'kind'       : (50, 'CONTENT_TYPE'),
+  'sPlot'      : (50, 'SUMMARY'),
+  'lPlot'      : (50, 'SYNOPSIS'),
+  'rating'     : (50, 'LAW_RATING'),
+  'prod'       : (50, 'PRODUCION_STUDIO'),
+  'cast'       : (50, 'ACTOR'),
+  'dir'        : (50, 'DIRECTOR'),
+  'wri'        : (50, 'WRITTEN_BY'),
+  'cover'      : 'covr'
+}
+
+########################################################################
+def toMP4( metaData ):
+  '''
+  Purpose:
+    Function to convert internal tags to MP4 tags
+  Inputs:
+    metadata : Dictionary containing metadata returned by a TVDb or TMDb
+                 movie or episde object
+  Keywords:
+    None.
+  Returns:
+    Returns dictionary with valid MP4 tags as keys and correctly
+    encoded values
+  '''
+  keys = list( metaData.keys() )                                                        # Get list of all keys currently in dictioanry
+  for key in keys:                                                                      # Iterate over all keys
+    val     = metaData.pop( key )                                                       # Get value in key; poped off so no longer exists in dict
+    keyFunc = MP4KEYS.get( key, None )                                                  # Get keyFunc value from MP4KEYS; default to None
+    if keyFunc:                                                                         # If not None
+      if isinstance( keyFunc, tuple ):                                                  # If keyFunc is a tuple
+        key = keyFunc[0]                                                                # Get new key
+        val = keyFunc[1]( val )                                                         # Encode values
+      else:                                                                             # Else
+        key = keyFunc                                                                   # Get new key
+      metaData[key] = val                                                               # Write encoded data under new key back into metadata
+  return metaData                                                                       # Return metadata
+
+def toMKV( metaData ):
+  '''
+  Purpose:
+    Function to convert internal tags to MKV tags
+  Inputs:
+    metadata : Dictionary containing metadata returned by a TVDb or TMDb
+                 movie or episde object
+  Keywords:
+    None.
+  Returns:
+    Returns dictionary with valid MKV tag level and tags as keys
+  '''
+  keys = list( metaData.keys() )                                                        # Get list of keys currently in dictionary
+  for key in keys:                                                                      # Iterate over keys
+    val = metaData.pop(key)                                                             # Get value in key; popped off so no longer exists in dict
+    if key in MKVKEYS:                                                                  # If key exists in MKVKEYS
+      metaData[ MKVKEYS[key] ] = val                                                    # Write data udner new key back into metadata
+  return metaData                                                                       # Return metadata
 
 ################################################################################
-def mp4Tags( file, metaData = None ):
+def mp4Tagger( file, metaData ):
   '''
   Name:
     mp4Tags
@@ -59,11 +151,15 @@ def mp4Tags( file, metaData = None ):
   if metaData is None:                                                                # IF the metaData key is NOT set
     log.debug( 'No metadata input, attempting to download' );                   # Debugging information
     metaData = getMetaData( file )                           # Get the metaData from imdb.com and themoviedb.org
-  if metaData is None:
+  if not isinstance(metaData, dict):
     log.warning('Failed to download metaData! Tag(s) NOT written!');            # Log a warning that the metaData failed to download
     return 3;                                                                   # Return code 3
-  else:
-    metaData = metaData.toMP4()
+    
+  metaData = toMP4(metaData)
+
+  if len(metaData) == 0:
+    log.warning('No metadata, cannot write tags')
+    return 3
 
   filedir, filebase = os.path.dirname( file ), os.path.basename( file );              # Get the directory and baseanem of the file
 
@@ -102,7 +198,7 @@ def mp4Tags( file, metaData = None ):
   except:                                                                       # On exception
     log.error('Failed to save tags to file!');                                  # Log an error
     return 6
-  return 0;
+  return 0
 
 ################################################################################
 def addTarget( ele, level ):
@@ -114,21 +210,19 @@ def addTarget( ele, level ):
 ################################################################################
 def addTag( ele, key, val ):
   if isinstance(val, (list,tuple,)):
-    if isinstance(val[0], bytes):
-      val = [v.decode() for v in val]
     val = ','.join(map(str, val))
-  elif isinstance(val, bytes):
-    val = val.decode()
+  elif not isinstance(val, str):
+    val = str(val)
 
   simple = ET.SubElement(ele, 'Simple')
   ET.SubElement(simple, 'Name').text   = key
-  ET.SubElement(simple, 'String').text = val
+  ET.SubElement(simple, 'String').text = val 
 
 ################################################################################
-def mkvTags( file, metaData = None ):
+def mkvTagger( file, metaData ):
   '''
   Name:
-      mkvTags
+      mkvTagger
   Purpose:
       A function to parse information from the IMDbPY API and
       write Tag data to MP4 files.
@@ -164,11 +258,14 @@ def mkvTags( file, metaData = None ):
   if metaData is None:                                                            # IF the metaData key is NOT set
     log.debug( 'No metadata input, attempting to download' );                   # Debugging information
     metaData = getMetaData( file )
-  if metaData is None:
+  if not isinstance(metaData, dict):
     log.warning('Failed to download metaData! Tag(s) NOT written!');            # Log a warning that the metaData failed to download
     return 3;                                                                   # Return code 3
-  else:
-    metaData = metaData.toMKV()
+
+  metaData = toMKV( metaData )
+  if len(metaData) == 0:
+    log.warning('No metadata, cannot write tags')
+    return 3
 
   fileDir, fileBase = os.path.dirname( file ), os.path.basename( file );          # Get the directory and baseanem of the file
 
@@ -216,4 +313,4 @@ def mkvTags( file, metaData = None ):
     log.error('Failed to save tags to file!');                                  # Log an error
     return 6
  
-  return 0;
+  return 0

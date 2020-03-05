@@ -1,7 +1,7 @@
 import logging
 
 from .API import BaseAPI
-from .writers import mp4Tags, mkvTags
+from .writers import mp4Tagger, mkvTagger
 
 '''
 A note from the mutagen package:
@@ -10,43 +10,6 @@ is usually ‘com.apple.iTunes’ and ‘name’ is a unique identifier for this
 The value is a str, but is probably text that can be decoded as UTF-8. Multiple
 values per key are supported.
 '''
-freeform = lambda x: '----:com.apple.iTunes:{}'.format( x );                                # Functio
-
-MP4KEYS = {
-  'year'       : '\xa9day',
-  'title'      : '\xa9nam',
-  'seriesName' : 'tvsh',
-  'seasonNum'  : 'tvsn',
-  'episodeNum' : 'tves',
-  'genre'      : '\xa9gen',
-  'kind'       : 'stik',
-  'sPlot'      : 'desc',
-  'lPlot'      : freeform('LongDescription'),
-  'rating'     : freeform('ContentRating'),
-  'prod'       : freeform('Production Studio'),
-  'cast'       : freeform('Actor'),
-  'dir'        : freeform('Director'),
-  'wri'        : freeform('Writer'),
-  'cover'      : 'covr'
-}
-
-MKVKEYS = {
-  'year'       : (50, 'DATE_RELEASED'),
-  'title'      : (50, 'TITLE'),
-  'seriesName' : (70, 'TITLE'),
-  'seasonNum'  : (60, 'PART_NUMBER'),
-  'episodeNum' : (50, 'PART_NUMBER'),
-  'genre'      : (50, 'GENRE'),
-  'kind'       : (50, 'CONTENT_TYPE'),
-  'sPlot'      : (50, 'SUMMARY'),
-  'lPlot'      : (50, 'SYNOPSIS'),
-  'rating'     : (50, 'LAW_RATING'), 
-  'prod'       : (50, 'PRODUCION_STUDIO'),
-  'cast'       : (50, 'ACTOR'),
-  'dir'        : (50, 'DIRECTOR'),
-  'wri'        : (50, 'WRITTEN_BY'),
-  'cover'      : 'covr'
-}
 
 class BaseItem( BaseAPI ):
   def __init__(self, *args, **kwargs):
@@ -119,14 +82,14 @@ class BaseItem( BaseAPI ):
     return self._data.get('id', None)
 
   def _getDirectors(self):
-    return [i['name'].encode() for i in self.crew if i.job == 'Director']
+    return [i['name'] for i in self.crew if i.job == 'Director']
 
   def _getWriters(self):
     persons = []
     for person in self.crew:
       if person.job in ['Writer', 'Story', 'Screenplay']:
         persons.append( '{} ({})'.format( person.name, person.job ) )
-    return [p.encode() for p in persons]
+    return persons
 
   def _getRating( self, **kwargs ):
     rating = ''
@@ -137,11 +100,11 @@ class BaseItem( BaseAPI ):
           rating = release['certification']
     elif self.isEpisode:
       rating = self.Series.rating
-    return rating.encode()
+    return rating
 
   def _getProdCompanies(self, **kwargs):
     if 'production_companies' in self:
-      return [i['name'].encode() for i in self.production_companies]
+      return [i['name'] for i in self.production_companies]
     return ''
 
   def _getPlot(self, **kwargs):
@@ -165,17 +128,17 @@ class BaseItem( BaseAPI ):
     data  = {'year'       : str( self.air_date.year ),
              'title'      : self.title,
              'seriesName' : self.Series.title,
-             'seasonNum'  : [self.season_number], 
-             'episodeNum' : [self.episode_number],
+             'seasonNum'  : self.season_number, 
+             'episodeNum' : self.episode_number,
              'sPlot'      : plots[0],
              'lPlot'      : plots[1],
-             'cast'       : [i.name.encode() for i in self.cast],
+             'cast'       : [i.name for i in self.cast],
              'prod'       : self._getProdCompanies(), 
              'dir'        : self._getDirectors(), 
              'wri'        : self._getWriters(),
              'genre'      : [i for i in self.Series.genre],
              'rating'     : self._getRating( **kwargs ),
-             'kind'       : 'episode' if kwargs.get('MKV', False) else [10],
+             'kind'       : 'episode',
              'cover'      : self._getCover()
     }
     return data
@@ -191,14 +154,14 @@ class BaseItem( BaseAPI ):
              'prod'   : self._getProdCompanies(), 
              'dir'    : self._getDirectors(), 
              'wri'    : self._getWriters(),
-             'genre'  : [i['name'].encode() for i in self.genres],
+             'genre'  : [i['name'] for i in self.genres],
              'rating' : self._getRating( **kwargs ),
-             'kind'   : 'movie' if kwargs.get('MKV', False) else [9],
+             'kind'   : 'movie',
              'cover'  : self._getCover()
     }
     return data
 
-  def _metadata(self, **kwargs):
+  def metadata(self, **kwargs):
     if self.isEpisode:
       return self._episodeData(**kwargs)
     elif self.isMovie:
@@ -206,42 +169,14 @@ class BaseItem( BaseAPI ):
     return None
 
   def writeTags( self, file, **kwargs ):
-    if file.endswith('.mp4'):
-      data = self._metadata(**kwargs)
-      if data:
-        keys = list( data.keys() )
-        for key in keys:
-          data[ MP4KEYS[key] ] = data.pop(key)
-        return mp4Tags( file, metaData = data )
-      return None
-    elif file.endswith('.mkv'):
-      kwargs['MKV'] = True
-      data = self._metadata(**kwargs)
-      if data:
-        keys = list( data.keys() )
-        for key in keys:
-          data[ MKVKEYS[key] ] = data.pop(key)
-        return mkvTags( file, metaData = data )
-      return None
-    else:
-      self.log.error('Unsupported file type!')
-      return False
-
-  def toMKV(self, **kwargs):
-    kwargs['MKV'] = True
-    data = self._metadata(**kwargs)
+    data = self.metadata( **kwargs )
     if data:
-      keys = list( data.keys() )
-      for key in keys:
-        data[ MKVKEYS[key] ] = data.pop(key)
-      return data 
-    return None
-
-  def toMP4(self, **kwargs):
-    data = self._metadata(**kwargs)
-    if data:
-      keys = list( data.keys() )
-      for key in keys:
-        data[ MP4KEYS[key] ] = data.pop(key)
-      return data 
-    return None
+      if file.endswith('.mp4'):
+        return mp4Tagger( file, metaData = data )
+      elif file.endswith('.mkv'):
+        return mkvTagger( file, metaData = data )
+      else:
+        self.log.error('Unsupported file type!')
+        return False
+    self.log.error('Failed to get metadata')
+    return False
