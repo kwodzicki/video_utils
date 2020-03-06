@@ -110,14 +110,14 @@ class DVRconverter(VideoConverter):
       no_remove = True                                                              # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
       self._cleanUp( in_file )                                                      # If infile exists, delete it
     else:                                                                           # Is, is a valid file
-      file, info = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
+      file, metaData = plexDVR_Rename( in_file );                                       # Try to rename the input file using standard convention and get parsed file info; creates hard link to source file
       if not file:                                                                  # if the rename fails
         self.log.critical('Error renaming file: {}'.foramt(in_file))                # Log error
         return success, out_file                                                    # Return from function
  
       if not isRunning(): return success, out_file
       out_file = self.transcode( file,
-                metaData          = info, 
+                metaData          = metaData, 
                 chapters          = not self.destructive,
                 removeCommercials = True )                                          # Run the transcode
 

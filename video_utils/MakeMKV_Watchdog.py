@@ -14,6 +14,8 @@ from .videotagger.metadata.getTVDb_Info import getTVDb_Info
 from .plex.plexMediaScanner import plexMediaScanner
 from .utils.rename2Plex import rename2Plex
 
+TIMEOUT = 1.0
+
 class MakeMKV_Watchdog( FileSystemEventHandler ):
   seasonEp = re.compile( r'[sS](\d{2,4})[eE](\d{2,4})' )
   def __init__(self, *args, **kwargs):
@@ -113,7 +115,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     '''
     while isRunning():                                                          # While the kill event is NOT set
       try:                                                                      # Try
-        file = self.Queue.get( timeout = 0.5 )                                  # Get a file from the queue; block for 0.5 seconds then raise exception
+        file = self.Queue.get( timeout = TIMEOUT )                              # Get a file from the queue; block for 0.5 seconds then raise exception
       except:                                                                   # Catch exception
         continue                                                                # Do nothing
 

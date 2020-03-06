@@ -6,31 +6,27 @@ from .Series    import TMDbSeries, TVDbSeries
 from .parsers import parseInfo
 from .utils import replaceChars
 
+SEFMT = 'S{:02d}E{:02d} - {}' 
+
+def getBasename(seasonNum, episodeNum, title, ID = '', **kwargs):
+  basename = SEFMT.format(seasonNum, episodeNum, title)
+  basename = '{:.50}.{}'.format( basename, ID )
+  return replaceChars( basename, **kwargs )
+
 class BaseEpisode( BaseItem ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self._isEpisode = True
 
-  @property
-  def _basenameFMT(self):
-    fmt = ['{:.50}', '{}']
-    if isinstance(self, TMDbEpisode):
-      fmt[-1] = fmt[-1].format('tmdb{}')
-    else:
-      fmt[-1] = fmt[-1].format('tvdb{}')
-    return '.'.join(fmt)
-
   def __str__(self):
-    return 'S{:02d}E{:02d} - {}'.format(
-      self.season_number, self.episode_number, self.title
-    )
+    return SEFMT.format( self.season_number, self.episode_number, self.title )
 
   def __repr__(self):
     return '<{} ID: {}; Title: {}>'.format( self.__class__.__name__, self.id, self )
 
   def getBasename(self, **kwargs):
-    basename = self._basenameFMT.format( str(self), self.Series.id )
-    return replaceChars( basename, **kwargs )
+    ID = self.Series.getID()
+    return getBasename( self.season_number, self.episode_number, self.title, ID, **kwargs )  
 
   def getDirname(self, root = ''):
     '''
@@ -40,6 +36,15 @@ class BaseEpisode( BaseItem ):
     series = replaceChars( str(self.Series) )
     season = 'Season {:02d}'.format( self.season_number ) 
     return os.path.join( root, 'TV Shows',series, season )
+
+  def getID(self, **kwargs):
+    ID = super().getID( **kwargs )
+    if kwargs.get('external', None) is None:
+      if isinstance(self, TMDbEpisode):
+        return 'tmdb{}'.format( ID )
+      else:
+        return 'tvdb{}'.format( ID )
+    return ID
 
 class TMDbEpisode( BaseEpisode ):
   EXTRA = ['external_ids', 'credits']

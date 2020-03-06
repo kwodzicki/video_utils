@@ -17,6 +17,15 @@ class BaseSeries( BaseItem ):
     except:
       return '{}'.format(self.title)
 
+  def getID(self, **kwargs):
+    ID = super().getID( **kwargs )
+    if kwargs.get('external', None) is None:
+      if isinstance(self, TMDbSeries):
+        return 'tmdb{}'.format( ID )
+      else:
+        return 'tvdb{}'.format( ID )
+    return ID
+
 class TMDbSeries( BaseSeries ):
   EXTRA = ['external_ids', 'content_ratings']
   def __init__(self, *args, **kwargs):

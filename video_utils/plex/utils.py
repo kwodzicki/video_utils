@@ -3,7 +3,10 @@ import os, re, time, pickle
 from threading import Lock
 from subprocess import check_output, Popen, PIPE, STDOUT, DEVNULL
 
-from ..videotagger.metadata.getMetaData import getMetaData
+from ..videotagger import TMDb, TVDb, Movie, Episode
+
+_tmdb = TMDb()
+_tvdb = TVDb()
 
 _plex_server  = 'Plex Media Server';                                            # Name of the Plex server command
 _plex_scanner = 'Plex Media Scanner';                                           # Name of the Plex scanner command
@@ -151,30 +154,31 @@ def plexFile_Info( in_file ):
   title    = None
   year     = None
   seasonEp = None
-  episode  = fname
+  episode  = None
 
   try:
     title, seasonEp, episode = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
   except:
+    title = fname
     log.warning('Error splitting file name, does it match Plex convention?')
-  else:
-    year = _year_pattern.findall( title )                                               # Try to find year in series name
-    if (len(year) == 1):                                                                # If year found
-      year  = int( year[0] )                                                            # Set year
-      title = _year_pattern.sub('', title)                                              # Remove year for series name
-    else:
-      year = None
-    title = title.strip()                                                               # Strip any leading/trailing spaces from series title
 
-    try:
-      seasonEp = _se_pattern.findall( seasonEp )[0]
-    except:
-      seasonEp = None
+  year = _year_pattern.findall( title )                                               # Try to find year in series name
+  if (len(year) == 1):                                                                # If year found
+    year  = int( year[0] )                                                            # Set year
+    title = _year_pattern.sub('', title)                                              # Remove year for series name
+  else:
+    year = None
+  title = title.strip()                                                               # Strip any leading/trailing spaces from series title
+
+  try:
+    seasonEp = _se_pattern.findall( seasonEp )[0]
+  except:
+    seasonEp = None
+  else:
+    if (len(seasonEp) == 2):
+      seasonEp = [int(i) for i in seasonEp] 
     else:
-      if (len(seasonEp) == 2):
-        seasonEp = [int(i) for i in seasonEp] 
-      else:
-        seasonEp = None
+      seasonEp = None
 
   return title, year, seasonEp, episode, ext
 
@@ -199,36 +203,42 @@ def plexDVR_Rename( in_file, hardlink = True ):
   title, year, seasonEp, episode, ext = plexFile_Info( in_file )
 
   if not seasonEp:
-    log.warning( 'Season/episode info NOT found; may be date? Things may break' )
+    log.warning( 'Season/episode info NOT found; assuming movie...things may break' )
+    metaData = _tmdb.search( title=title, year=year, episode=episode, seasonEp=seasonEp )    # Try to get IMDb id
+  else:
+    metaData = _tvdb.search( title=title, year=year, episode=episode, seasonEp=seasonEp )    # Try to get IMDb id
 
-  log.debug('Attempting to get IMDb ID')
-  info = getMetaData( title=title, year=year, episode=episode, seasonEp=seasonEp )    # Try to get IMDb id
+  if len(metaData) != 1:                                                                # If NOT one (1) result from search
+    if len(metaData) > 1:                                                               # More than one
+      log.error('More than one movie/Tv show found, skipping')
+    elif len(metaData) == 0:                                                            # None
+      log.error('No ID found!')
+    metaData = None
+    if seasonEp:
+      new = Episode.getBasename( *seasonEp, episode )
+    else:
+      new = Movie.getBasename( title, year )
+  else:
+    metaData = metaData[0]
+    new = metaData.getBasename() 
 
-  try:
-    IMDbID = info.getID( external = 'imdb_id' )
-  except:
-    log.warning( 'No IMDb ID! Renaming file without it')
-    IMDbID = ''
-  if IMDbID and (IMDbID[:2] != 'tt'):
-    IMDbID = 'tt{}'.format(IMDbID)
+  new = os.path.join( fileDir, new+ext )                                                # Build new file path
 
-  new = 's{:02}e{:02} - {}.{}{}'.format(*seasonEp, episode, IMDbID, ext)            # Build new file name
-  new = os.path.join( fileDir, new )                                                # Build new file path
-  if hardlink:
+  if hardlink:                                                                          # If hardlink set
     log.debug( 'Creating hard link to input file' )
-    if os.path.exists( new ):                                                       # If new file exists
-      try:                                                                          # Try to
-        os.remove( new )                                                            # Delete it
-      except:                                                                       # Fail silently
-        pass                                                                        #
-    try:                                                                            # Try to
-      os.link( in_file, new )                                                       # Create hard link to file with new file name
-    except Exception as err:                                                        # Catch exception
-      log.warning( 'Error creating hard link : {}'.format(err) )                    # Log exception
+    if os.path.exists( new ):                                                           # If new file exists
+      try:                                                                              # Try to
+        os.remove( new )                                                                # Delete it
+      except:                                                                           # Fail silently
+        pass                                                                            #
+    try:                                                                                # Try to
+      os.link( in_file, new )                                                           # Create hard link to file with new file name
+    except Exception as err:                                                            # Catch exception
+      log.warning( 'Error creating hard link : {}'.format(err) )                        # Log exception
   else:
     log.debug( 'Renaming input file' )
-    os.replace( in_file, new )                                                      # Rename the file, overwiting destination if it exists
-  return new, info
+    os.replace( in_file, new )                                                          # Rename the file, overwiting destination if it exists
+  return new, metaData
 
 ################################################################################
 class DVRqueue( list ):
