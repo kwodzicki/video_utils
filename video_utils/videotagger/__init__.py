@@ -1,5 +1,5 @@
 import logging
-import json
+import os, re, json
 from urllib.request import urlopen
 import requests
 
@@ -16,6 +16,10 @@ sh.setFormatter( logging.Formatter( '%(asctime)s [%(levelname)-4.4s] %(message)s
 sh.setLevel(logging.DEBUG)
 log.addHandler( sh )
 
+SEASONEP = re.compile('[sS](\d{2,})[eE](\d{2,})')
+isID     = lambda dbID: dbID[:4] == 'tvdb' or dbID[:4] == 'tmdb'        # If tvdb or tmdb in the first four (4) characters
+
+###################################################################
 class TMDb( BaseAPI ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
@@ -70,6 +74,7 @@ class TMDb( BaseAPI ):
       return json
     return None 
 
+###################################################################
 class TVDb( BaseAPI ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
@@ -109,3 +114,58 @@ class TVDb( BaseAPI ):
           data.append( tmp  )
       return data
     return None 
+
+###################################################################
+def getMetaData( file=None, dbID=None, seasonEp=(), version='' ):
+  '''
+  Purpose:
+    Function to get Movie or Episode object based on
+    information from file name or dbID
+  Inputs:
+    None
+  Keywords:
+    file    : Full path, or base name of file to get
+               information for. MUST match naming conventions
+    dbID    : TVDb or TMDb to use for file; overrides any
+                information parsed from file name
+    seasonEP : Tuple or list containing season and episode number
+    version : Version for movie; e.g., Extended Edition
+  Returns:
+    A TMDbMovie, TMDbEpisode, TVDbMovie, or TVDbEpisode object
+  '''
+  if file:
+    fileDir, fileBase = os.path.split( file )
+    seasonEp = SEASONEP.findall(fileBase)
+  
+    if not isinstance(dbID, str):                             # If dbID is NOT a string
+      tmp = fileBase.split('.')
+      if isID(tmp[0]):                                        # If tvdb or tmdb in the first four (4) characters
+        dbID    = tmp[0]                                      # Use first value as DB id
+      elif len(seasonEp) == 1:                                # Else, if seasonEp was parsed from file name
+        dbID = tmp[1]                                         # Assume second value is dbID
+      else:                                                   # Else, assume is movie
+        dbID    = tmp[2]                                      # Assume third value is dbID
+      if not version:
+        version = tmp[1]                                      # Assume second value is version (Extended Edition, Director's Cut, etc.)
+  elif dbID:
+    if len(seasonEp) == 2:
+      seasonEp = (seasonEp,)
+    else:
+      seasonEp = ()
+  else:
+    raise Exception('Must input file or dbID')
+
+  if not isID( dbID ):
+    return None
+
+  if (dbID[:4] == 'tvdb'):
+    if len(seasonEp) == 1:
+      return Episode.TVDbEpisode( dbID[4:], *seasonEp[0] )
+    else:
+      return Movie.TVDbMovie( dbID[4:], version=version )
+  elif (dbID[:4] == 'tmdb'):
+    if len(seasonEp) == 1:
+      return Episode.TMDbEpisode( dbID[4:], *seasonEp[0] )
+    else:
+      return Movie.TMDbMovie( dbID[4:], version=version )
+  return None

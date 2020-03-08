@@ -27,7 +27,7 @@ except:
    ccextract = None
 
 # Metadata imports
-from .videotagger.getMetaData import getMetaData
+from .videotagger import getMetaData
 
 # Logging formatter
 from ._logging import fileFMT;

@@ -7,11 +7,6 @@ from subprocess import Popen, STDOUT, DEVNULL
 from ..utils.checkCLI import checkCLI
 from .utils import download
 
-try:                                                                        # Try to...
-  from .metadata.getMetaData import getMetaData                           # Import getMetaData function from makemkv_to_mp4
-except:                                                                     # On exception...
-  getMetaData = None
- 
 try:
   checkCLI( 'mkvpropedit' )
 except:
@@ -148,13 +143,6 @@ def mp4Tagger( file, metaData ):
   if os.stat(file).st_size > sys.maxsize:                                             # If the file size is larger than the supported maximum size
     log.error('Input file is too large!'); return 11;                           # Print message and return code eleven (11)
     
-  if metaData is None:                                                                # IF the metaData key is NOT set
-    log.debug( 'No metadata input, attempting to download' );                   # Debugging information
-    metaData = getMetaData( file )                           # Get the metaData from imdb.com and themoviedb.org
-  if not isinstance(metaData, dict):
-    log.warning('Failed to download metaData! Tag(s) NOT written!');            # Log a warning that the metaData failed to download
-    return 3;                                                                   # Return code 3
-    
   metaData = toMP4(metaData)
 
   if len(metaData) == 0:
@@ -255,13 +243,6 @@ def mkvTagger( file, metaData ):
   if os.stat(file).st_size > sys.maxsize:                                         # If the file size is larger than the supported maximum size
     log.error('Input file is too large!'); return 11;                           # Print message and return code eleven (11)
       
-  if metaData is None:                                                            # IF the metaData key is NOT set
-    log.debug( 'No metadata input, attempting to download' );                   # Debugging information
-    metaData = getMetaData( file )
-  if not isinstance(metaData, dict):
-    log.warning('Failed to download metaData! Tag(s) NOT written!');            # Log a warning that the metaData failed to download
-    return 3;                                                                   # Return code 3
-
   metaData = toMKV( metaData )
   if len(metaData) == 0:
     log.warning('No metadata, cannot write tags')

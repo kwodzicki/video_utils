@@ -86,9 +86,9 @@ class TVDbMovie( BaseMovie ):
       self.URL = self.TVDb_URLMovie.format( args[0] )
       json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
       if json:
-        self._data.update( parseCredits( json ) )      
+        self._data.update( parseInfo( json ) )      
     else:
       self.URL = self.TVDb_URLMovie.format( self.id )
       json = self.getExtra( *self.EXTRA )
       if json:
-        self._data.update( parseCredits( json ) ) 
+        self._data.update( parseInfo( json ) ) 
