@@ -19,7 +19,7 @@ setuptools.setup(
                        "soundfile", "numpy", "scipy",
                        "requests", "psutil", "watchdog"],
   scripts          = ['bin/comremove',
-                      'bin/mp4tagger',
+                      'bin/videotagger',
                       'bin/MakeMKV_Watchdog',
                       'bin/Plex_DVR_Watchdog'],
   zip_safe         = False

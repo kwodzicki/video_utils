@@ -138,15 +138,24 @@ def getMetaData( file=None, dbID=None, seasonEp=(), version='' ):
     seasonEp = SEASONEP.findall(fileBase)
   
     if not isinstance(dbID, str):                             # If dbID is NOT a string
-      tmp = fileBase.split('.')
+      tmp = os.path.splitext(fileBase)[0].split('.')
       if isID(tmp[0]):                                        # If tvdb or tmdb in the first four (4) characters
         dbID    = tmp[0]                                      # Use first value as DB id
       elif len(seasonEp) == 1:                                # Else, if seasonEp was parsed from file name
-        dbID = tmp[1]                                         # Assume second value is dbID
+        try:
+          dbID = tmp[1]                                         # Assume second value is dbID
+        except:
+          dbID = ''
       else:                                                   # Else, assume is movie
-        dbID    = tmp[2]                                      # Assume third value is dbID
+        try:
+          dbID = tmp[2]                                      # Assume third value is dbID
+        except:
+          dbID = ''
       if not version:
-        version = tmp[1]                                      # Assume second value is version (Extended Edition, Director's Cut, etc.)
+        try:
+          version = tmp[1]                                      # Assume second value is version (Extended Edition, Director's Cut, etc.)
+        except:
+          version = ''
   elif dbID:
     if len(seasonEp) == 2:
       seasonEp = (seasonEp,)

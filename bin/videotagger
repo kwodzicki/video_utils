@@ -2,14 +2,15 @@
 import logging
 import argparse;                                                                # Import library for parsing
 from video_utils.version import __version__
-from video_utils.videotagger.mp4Tags import mp4Tags;
+from video_utils.videotagger import getMetaData
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Write MP4 Tags");               # Set the description of the script to be printed in the help doc, i.e., ./script -h
+  parser = argparse.ArgumentParser(description="Write metadata to MP4 and MKV files");               # Set the description of the script to be printed in the help doc, i.e., ./script -h
   parser.add_argument("file",   type=str, help="Path to file to write tags to."); 
-  parser.add_argument("--imdb", type=str, help="IMDb id starting with tt."); 
+  parser.add_argument("--dbID", type=str, help="IMDb id starting with tt."); 
+  parser.add_argument('--season-episode', type=int, nargs=2, help='Season and episode number for tv show')
   parser.add_argument('-v', '--verbose',  nargs='?', default='info', help='Increase verbosity. Levels are info (default) and debug.')
-  parser.add_argument('--version',          action = 'version', version = '%(prog)s '+__version__ )
+  parser.add_argument('--version',        action = 'version', version = '%(prog)s '+__version__ )
   
   args = parser.parse_args();                                                   # Parse the arguments
 
@@ -27,5 +28,13 @@ if __name__ == "__main__":
   screen_log.setLevel( screen_lvl );                                            # Set the screen logger level
   logger.addHandler(screen_log);                                                # Add the stream handler to the logger
 
-  x = mp4Tags( args.file, IMDbid = args.imdb );
-  exit( x );
+  if not args.file.endswith('.mp4') and not args.file.endswith('.mkv'):
+    logger.critical('File must be MP4 or MKV!')
+    exit( 1 )
+  metadata = getMetaData( args.file, dbID = args.dbID, seasonEp = args.season_episode )
+  try:
+    metadata.writeTags( args.file )
+  except:
+    logg.ercritical('Failed to write tags')
+    exit(1)
+  exit( 0 );
