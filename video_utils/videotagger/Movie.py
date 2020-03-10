@@ -84,7 +84,7 @@ class TVDbMovie( BaseMovie ):
       if (len(args) == 0):
         raise Exception( "Must input movie ID or used 'data' keyword" )
       self.URL = self.TVDb_URLMovie.format( args[0] )
-      json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
+      json     = self._getJSON( self.URL )#, append_to_response = self.EXTRA )
       if json:
         self._data.update( parseInfo( json ) )      
     else:

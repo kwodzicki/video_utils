@@ -96,14 +96,14 @@ class TVDbEpisode( BaseEpisode ):
 
       self.URL = self.TVDb_URLEpisode.format( self.Series.URL, 'query' )
       json     = self._getJSON( self.URL, airedSeason=args[1], airedEpisode=args[2] )
-      if json and ('data' in json):
+      if json is not None and ('data' in json):
         if isinstance( json['data'], dict ):
           json = json['data']
         else:
           json = json['data'][0]
 
         actors = self._getJSON( self.Series.URL + '/actors' )
-        if ('errors' not in actors):
+        if actors is not None and 'errors' not in actors:
           json['credits'] = {'cast' : actors['data']}
         self._data.update( parseInfo(json, **self.KWARGS) )
 
