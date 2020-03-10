@@ -8,7 +8,7 @@ TIMEOUT   = 23 * 60 * 60
 class Keys( object ):
   __TMDb_API_KEY    = os.environ.get('TMDB_API_KEY',   CONFIG.get('TMDB_API_KEY', None) )
   __TMDb_API_TOKEN  = os.environ.get('TMDB_API_TOKEN', None)
-  __TVDb_API_KEY    = os.environ.get('TVDB_API_KEY',   CONFIG.get('TVDD_API_KEY', None) )
+  __TVDb_API_KEY    = os.environ.get('TVDB_API_KEY',   CONFIG.get('TVDB_API_KEY', None) )
   __TVDb_API_TOKEN  = os.environ.get('TVDB_API_TOKEN', None)
   __TVDb_USERNAME   = None
   __TVDb_USERKEY    = None

@@ -35,6 +35,6 @@ if __name__ == "__main__":
   try:
     metadata.writeTags( args.file )
   except:
-    logg.ercritical('Failed to write tags')
+    logger.critical('Failed to write tags')
     exit(1)
   exit( 0 );

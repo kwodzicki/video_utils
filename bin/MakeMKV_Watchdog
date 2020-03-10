@@ -84,7 +84,7 @@ if __name__ == "__main__":
   try:
     wd = MakeMKV_Watchdog(*args.indir, 
         fileExt       = args.fileExt,
-        out_dir       = args.outdir, 
+        outDir        = args.outdir, 
         threads       = args.threads, 
         cpulimit      = args.cpulimit,
         lang          = args.lang,

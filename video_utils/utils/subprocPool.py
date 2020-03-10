@@ -112,12 +112,13 @@ PROCLOCK = NLock()                                                              
 class PopenThread( Thread ):
   def __init__(self, *args, **kwargs):
     super().__init__()
-    self.__log     = logging.getLogger(__name__)
-    self._threads  = kwargs.pop('threads',     1)
-    self._cpulimit = kwargs.pop('cpulimit', None)
-    self._args     = args
-    self._kwargs   = kwargs
-    self._proc     = None
+    self.__log         = logging.getLogger(__name__)
+    self._threads      = kwargs.pop('threads',     1)
+    self._cpulimit     = kwargs.pop('cpulimit', None)
+    self._args         = args
+    self._kwargs       = kwargs
+    self._proc         = None
+    self._proc_started = Event()
 
   @property
   def threads(self):
@@ -133,6 +134,9 @@ class PopenThread( Thread ):
     if self._proc:
       return self._proc.poll()
     return None
+
+  def startWait(self, timeout = None):
+    return self._proc_started.wait( timeout = timeout )
 
   def wait(self, timeout = None):
     self._started.wait()                                                                # Make sure thread is started
@@ -160,7 +164,6 @@ class PopenThread( Thread ):
       return True
     return False
 
-
   def run(self):
     '''Overload run method'''
     kwargs = self._kwargs.copy()
@@ -181,18 +184,20 @@ class PopenThread( Thread ):
       self.__log.error( 'Failed to start process: {}'.format(err) )
     else:
       self.__log.debug('Process started')
+      self._proc_started.set()
       limit = self.__cpulimit( )                                                        # Maybe cpulimit
       while isRunning():                                                                # While not interupts
-        if self._proc.poll() is None:                                                   # If process not done
+        if self.poll() is None:                                                         # If process not done
           time.sleep( TIMEOUT )                                                         # Sleep
         else:                                                                           # Else
           break                                                                         # Break while loop
-      if self._proc.poll() is None:                                                     # If process still not done; then assume interupt encounterd
+      if self.poll() is None:                                                           # If process still not done; then assume interupt encounterd
         self.__log.debug('Terminating process')                                         # Log debug info
-        self._proc.terminate()                                                          # Terminate process
+        self.kill()                                                                     # Terminate process
         if limit: limit.terminate()                                                     # Maybe termiate cpulimit
-      elif self._proc.returncode != 0:
+      elif self.returncode != 0:
         self.__log.warning('Non-zero exit status from process!')
+      self._proc.communicate()
 
     try:
       kwargs['stdout'].close()
@@ -273,9 +278,25 @@ class PopenPool(Thread):
     self.__closed.set()
 
   def wait(self, timeout = None):
-    t0 = time.time()
-    check = lambda: (time.time()-t0) < timeout if timeout else True
-    while check() and PROCLOCK.n > 0:
+    '''
+    Purpose:
+      Method to wait for all processes in queue to finish
+    Inputs:
+      None.
+    Keywords:
+      timeout  : Floating point value for timeout in seconds
+    Returns:
+      True if queue is empty, False otherwise; will be False on timeout
+    '''
+    endtime = None
+    while PROCLOCK.n > 0 and not self.__threadQueue.empty():
+      if timeout is not None:
+        if endtime is None:
+          endtime = time.monotonic() + timeout
+        else:
+          timeout = endtime - time.monotonic()
+          if timout <= 0.0:
+            break
       time.sleep( TIMEOUT )
     return PROCLOCK.n == 0
 

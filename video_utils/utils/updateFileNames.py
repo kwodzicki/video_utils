@@ -2,10 +2,10 @@
 import os, re
 
 from imdb import IMDb
-from ..videotagger.metadata import TMDb
-from ..videotagger.metadata import TVDb
-from ..videotagger.metadata.Movie import TMDbMovie
-from ..videotagger.metadata.Episode import TVDbEpisode
+from ..videotagger import TMDb
+from ..videotagger import TVDb
+from ..videotagger.Movie import TMDbMovie
+from ..videotagger.Episode import TVDbEpisode
 from ..plex.plexMediaScanner import plexMediaScanner as PMS
 
 IMDBID   = re.compile( '\.(tt\d+)\.' )
@@ -23,7 +23,7 @@ def tvRename( topDir, path, metadata, imdbID ):
   newPath = metadata.getDirname(newPath) 
   newName = '.'.join(info)
   newPath = os.path.join( newPath, newName )
-  print( os.path.join(newPath, newName) )                                                       # Join remaining on period
+  print( newPath )                                                       # Join remaining on period
   return True
 
 def movieRename( topDir, path, metadata, imdbID ):
@@ -32,12 +32,13 @@ def movieRename( topDir, path, metadata, imdbID ):
   mod  = info.pop(0)                                                            # Pop qualifier off of list (i.e., Unrated, etc.)
   info.pop(0)
   info.remove( imdbID )                                                         # Remove the IMDb id from list
-  info.insert( 0, metadata.getBasename(mod) )
+  metadata.version = mod
+  info.insert( 0, metadata.getBasename() )
   newPath = os.path.dirname( topDir )
   newPath = metadata.getDirname(newPath) 
   newName = '.'.join(info)
   newPath = os.path.join( newPath, newName ) 
-  print( os.path.join(newPath, newName) )                                                       # Join on period
+  print( newPath )                                                       # Join on period
   return True
 
 def genHardLinks( topDir ):

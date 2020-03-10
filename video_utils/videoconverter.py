@@ -337,15 +337,18 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       logFile = os.path.basename(self.outFile) + '.log'                                 # Set log file path
       kwargs.update( {'stderr' : os.path.join(self.logDir, logFile)} )                  # Update keyword arguments
 
+    self.__log.debug('ffmpeg cmd: {}'.format(' '.join(self.ffmpeg_cmd)))
     try:
       proc = POPENPOOL.Popen_async( self.ffmpeg_cmd, **kwargs )                         # Submit command to subprocess pool
     except:
       proc = None
 
     if proc and self.no_ffmpeg_log:                                                     # If ffmpeg log files are disabled, we want to know a little bit about what is going on
-      proc.applyFunc( progress, kwargs= {'nintervals' : 10} )                           # Apply the 'progess' function to the process to monitor ffmpeg progress
-
-    POPENPOOL.wait()                                                                    # Wait for all processes in pool to finish
+      self.__log.debug('Applying progress function...')
+      proc.startWait( timeout = 2.0 )
+      if not proc.applyFunc( progress, nintervals = 10 ):                   # Apply the 'progess' function to the process to monitor ffmpeg progress
+        self.__log.warning('Failed to apply progress function')
+    proc.wait()
 
     self.chapterFile = self._cleanUp( self.chapterFile )                                # Clean up chapter file
 
@@ -426,6 +429,9 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
         outDir  = self.metaData.getDirname( root = self.outDir )                             # Set outDir based on self.outDir and getDirname() method
     else:                                                                               # Else, metaData NOT valid
       outFile = os.path.splitext( os.path.basename( self.inFile ) )[0]                  # Set outFile to inFile basename without extension
+
+    if not os.path.isdir( outDir ):
+      os.makedirs( outDir )
 
     outFile      = os.path.join( outDir, outFile )                                      # Create full path to output file; no extension
     extraInfo    = self.video_info['file_info'] + self.audio_info['file_info']

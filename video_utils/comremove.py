@@ -1,11 +1,10 @@
 import logging
 import os, re
 from datetime import timedelta
-from subprocess import Popen, PIPE, STDOUT, DEVNULL
 
 from . import config
 from .utils.checkCLI import checkCLI
-
+from .utils.ffmpeg_utils import getVideoLength
 try:
   COMSKIP = checkCLI( 'comskip' )
 except:
@@ -78,7 +77,10 @@ class ComRemove( object ):
     status       = False
     edl_file     = self.comskip( in_file, name = name )                             # Attempt to run comskip and get edl file path
     if edl_file:                                                                    # If eld file path returned
-      if chapters:                                                                  # If chapters keyword set
+      if os.path.getsize( edl_file ) == 0:                                          # If edl_file size is zero (0)
+        status = True                                                               # Set status True
+        os.remove(edl_file)                                                         # Delete to edl file
+      elif chapters:                                                                # If chapters keyword set
         status = self.comchapter( in_file, edl_file )                               # Generate .chap file
         os.remove(edl_file)                                                         # Delete to edl file
       else:                                                                         # Else, actually cut up file to remove commercials
@@ -126,29 +128,25 @@ class ComRemove( object ):
     
     cmd.append( '--output={}'.format(self.__outDir) );
     cmd.extend( [in_file, self.__outDir] );
-    print( cmd )
-    return    
     self.__log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
     proc = POPENPOOL.Popen_async(cmd, threads = self.threads)
-#    if self.verbose:
-#      self.addProc(cmd, stdout = log, stderr = err);
-#    else:
-#      self.addProc(cmd);
+
     if not proc.wait( timeout = 8 * 3600 ):                                     # Wait for 8 hours for comskip to finish; this should be more than enough time
       self.__log.error('comskip NOT finished after 8 hours; killing')
       proc.kill()
-      
-    if proc.returncode == 0:
-      self.__log.info('comskip ran successfully');
-      if not os.path.isfile( edl_file ):
+    if proc.returncode == 0 or proc.returncode == 1:
+      self.__log.info('comskip ran successfully')
+      if proc.returncode == 1:
+        self.__log.info('No commericals detected!')
+      elif not os.path.isfile( edl_file ):
         self.__log.warning('No EDL file was created; trying to convert TXT file')
         edl_file = self.convertTXT( txt_file, edl_file )
       for file in [txt_file, logo_file]:
         try:
-          os.remove( file );
+          os.remove( file )
         except:
           pass
-      return edl_file;
+      return edl_file
       
     self.__log.warning('There was an error with comskip')
     for file in [txt_file, edl_file, logo_file]:
@@ -157,7 +155,7 @@ class ComRemove( object ):
       except:
         pass
 
-    return None;
+    return None
 
   ########################################################
   def comchapter(self, in_file, edl_file):
@@ -179,7 +177,7 @@ class ComRemove( object ):
     fName, fExt = os.path.splitext( fBase )                                             # Split file name and extension
     metaFile    = os.path.join( fDir, '{}.chap'.format(fName) )                 # Generate file name for chapter metadata
 
-    fileLength  = self.getVideoLength(in_file)
+    fileLength  = getVideoLength(in_file)
     segment     = 1
     commercial  = 1
 
@@ -288,10 +286,10 @@ class ComRemove( object ):
     self.__log.info( 'Joining video segments into one file')
     inFiles = '|'.join( tmpFiles );
     inFiles = 'concat:{}'.format( inFiles );
-    outFile = 'tmp_nocom.{}'.format(self.__fileExt);                              # Output file name for joined file
-    outFile = os.path.join(self.__outDir, outFile);                               # Output file path for joined file
-    cmd     = self._comjoin + [inFiles, '-c', 'copy', '-map', '0', outFile];    # Command for joining files
-    proc    = POPENPOOL( cmd )                                                        # Run the command
+    outFile = 'tmp_nocom.{}'.format(self.__fileExt);                                    # Output file name for joined file
+    outFile = os.path.join(self.__outDir, outFile);                                     # Output file path for joined file
+    cmd     = self._comjoin + [inFiles, '-c', 'copy', '-map', '0', outFile];            # Command for joining files
+    proc    = POPENPOOL.Popen_async( cmd )                                              # Run the command
     proc.wait()
     for file in tmpFiles:                                                       # Iterate over the input files
       self.__log.debug('Deleting temporary file: {}'.format(file));               # Debugging information 
@@ -363,18 +361,6 @@ class ComRemove( object ):
           edl.write( '{:0.2f} {:0.2f} 0\n'.format( start, end ) );              # Write out information to edl file
           line = txt.readline();                                                # Read next line
     return edl_file;                                                            # Return edl_file path
-
-  ########################################################
-  def getVideoLength(self, in_file):
-    proc = Popen( ['ffmpeg', '-i', in_file], stdout=PIPE, stderr=STDOUT)
-    info = proc.stdout.read().decode()
-    dur  = re.findall( r'Duration: ([^,]*)', info )
-    if (len(dur) == 1):
-      hh, mm, ss = [float(i) for i in dur[0].split(':')]
-      dur = hh*3600.0 + mm*60.0 + ss
-    else:
-      dur = 86400.0
-    return timedelta( seconds = dur )
 
   ########################################################
   def _getIni( self, name = '' ):

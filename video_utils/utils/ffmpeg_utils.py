@@ -6,12 +6,12 @@ from subprocess import Popen, PIPE, STDOUT
 
 from .. import _sigintEvent, _sigtermEvent
 
-_progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' );                     # Regex pattern for locating file duration in ffmpeg ouput 
-_durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' );                # Regex pattern for locating file processing location
-_cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' );                         # Regex pattern for extracting crop information
-_resPat  = re.compile( r'(\d{3,5}x\d{3,5})' );                                  # Regex pattern for video resolution
-
-_info    = 'Estimated Completion Time: {}';                                     # String formatter for conversion progress
+_progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' )                      # Regex pattern for locating file duration in ffmpeg ouput 
+_durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' )                 # Regex pattern for locating file processing location
+_cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' )                          # Regex pattern for extracting crop information
+_resPat  = re.compile( r'(\d{3,5}x\d{3,5})' )                                   # Regex pattern for video resolution
+_durPat  = re.compile( r'Duration: ([^,]*)' )
+_info    = 'Estimated Completion Time: {}'                                     # String formatter for conversion progress
 
 _toSec   = np.array( [3600, 60, 1], dtype = np.float32 );                       # Array for conversion of hour/minutes/seconds to total seconds
 _chunk   = np.full( (128, 4), np.nan );                                         # Base numpy chunk
@@ -176,6 +176,18 @@ def progress( proc, interval = 60.0, nintervals = None ):
                     interval    = remain / float(nintervals);                   # Set interval to remaining time divided by nn
         line = proc.stdout.readline();                                          # Read the next line
     return
+
+########################################################
+def getVideoLength(in_file):
+  proc = Popen( ['ffmpeg', '-i', in_file], stdout=PIPE, stderr=STDOUT)
+  info = proc.stdout.read().decode()
+  dur  = _durPat.findall( info )
+  if (len(dur) == 1):
+    hh, mm, ss = [float(i) for i in dur[0].split(':')]
+    dur = hh*3600.0 + mm*60.0 + ss
+  else:
+    dur = 86400.0
+  return timedelta( seconds = dur )
 
 ###############################################################################
 def checkIntegrity(filePath):

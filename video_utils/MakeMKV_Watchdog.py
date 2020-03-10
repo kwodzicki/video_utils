@@ -9,10 +9,7 @@ from watchdog.events import FileSystemEventHandler
 
 from . import isRunning
 from .videoconverter import VideoConverter
-from .videotagger.metadata.getTMDb_Info import getTMDb_Info
-from .videotagger.metadata.getTVDb_Info import getTVDb_Info
 from .plex.plexMediaScanner import plexMediaScanner
-from .utils.rename2Plex import rename2Plex
 
 TIMEOUT = 1.0
 
@@ -121,10 +118,8 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
       self._checkSize( file )                                                   # Wait to make sure file finishes copying/moving
 
-      file, metaData = rename2Plex( file )
-    
       try:        
-        out_file = self.converter.transcode( file, metaData = metaData )        # Convert file 
+        out_file = self.converter.transcode( file )                             # Convert file 
       except:
         self.log.exception('Failed to convert file')
       else:

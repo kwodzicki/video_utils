@@ -13,7 +13,7 @@ except:
   logging.getLogger(__name__).error('mkvpropedit NOT installed')
   raise
 
-freeform = lambda x: '----:com.apple.iTunes:{}'.format( x );                                # Functio
+freeform = lambda x: '----:com.apple.iTunes:{}'.format( x )                             # Functio
 
 def encoder( val ):
   if isinstance(val, (tuple, list,)):
@@ -31,7 +31,7 @@ MP4KEYS = {
   'episodeNum' : ('tves', lambda x: [x]),
   'genre'      :  '\xa9gen',
   'kind'       : ('stik', lambda x: [9] if x == 'movie' else [10]),
-  'sPlot'      : ('desc',                        encoder,),
+  'sPlot'      :  'desc',
   'lPlot'      : (freeform('LongDescription'),   encoder,),
   'rating'     : (freeform('ContentRating'),     encoder,),
   'prod'       : (freeform('Production Studio'), encoder,),
@@ -134,14 +134,16 @@ def mp4Tagger( file, metaData ):
   Author and History: 
     Kyle R. Wodzicki     Created 18 Feb. 2018
   '''
-  log = logging.getLogger(__name__);                                                  # Set up a logger
-  log.debug( 'Testing file is MP4' );                                                 # Debugging information
-  if not file.endswith('.mp4'):                                                       # If the input file does NOT end in '.mp4'
-    log.error('Input file is NOT an MP4!!!'); return 1;                         # Print message and return code one (1)
+  log = logging.getLogger(__name__)                                                     # Set up a logger
+  log.debug( 'Testing file is MP4' )                                                    # Debugging information
+  if not file.endswith('.mp4'):                                                         # If the input file does NOT end in '.mp4'
+    log.error('Input file is NOT an MP4!!!')
+    return 1                                                                            # Print message and return code one (1)
 
-  log.debug( 'Testing file too large' );                                              # Debugging information
-  if os.stat(file).st_size > sys.maxsize:                                             # If the file size is larger than the supported maximum size
-    log.error('Input file is too large!'); return 11;                           # Print message and return code eleven (11)
+  log.debug( 'Testing file too large' )                                                 # Debugging information
+  if os.stat(file).st_size > sys.maxsize:                                               # If the file size is larger than the supported maximum size
+    log.error('Input file is too large!')
+    return 11                                                                           # Print message and return code eleven (11)
     
   metaData = toMP4(metaData)
 
@@ -149,42 +151,45 @@ def mp4Tagger( file, metaData ):
     log.warning('No metadata, cannot write tags')
     return 3
 
-  filedir, filebase = os.path.dirname( file ), os.path.basename( file );              # Get the directory and baseanem of the file
+  filedir, filebase = os.path.dirname( file ), os.path.basename( file )                 # Get the directory and baseanem of the file
 
-  log.debug('Loading file using mutagen.mp4.MP4');                              # Debugging information
-  handle = mp4.MP4(file);                                                       # Initialize mutagen MP4 handler
-  log.debug('Attempting to add tag block to file');                             # Debugging information
-  try:                                                                          # Try to...
-    handle.add_tags();                                                          # Add new tags to the file
-  except mp4.error as e:                                                        # On exception, catch the error
-    if 'already exists' in e.__str__():                                         # If the error is that the tag block already exists
-      log.debug('MP4 tags already exist in file.');                             # Debugging information
-      pass;                                                                     # Pass
-    else:                                                                       # Else, adding is not possible
-      log.error('Could NOT add tags to file!');                                 # Log an error
-      return 4;                                                                 # Return code 4
-  try:                                                                          # Try to...
-    handle.delete();                                                            # Remove all old tags.
-  except mp4.error as e:                                                        # On exception, catch the error
-    log.error( e.__str__() );                                                   # Log the error
-    return 5;                                                                   # Return code 5
-  log.debug('Setting basic inforamtion');                                       # Debugging information
+  log.debug('Loading file using mutagen.mp4.MP4')                                       # Debugging information
+  handle = mp4.MP4(file)                                                                # Initialize mutagen MP4 handler
+  log.debug('Attempting to add tag block to file')                                      # Debugging information
+  try:                                                                                  # Try to...
+    handle.add_tags()                                                                   # Add new tags to the file
+  except mp4.error as e:                                                                # On exception, catch the error
+    if 'already exists' in e.__str__():                                                 # If the error is that the tag block already exists
+      log.debug('MP4 tags already exist in file.')                                      # Debugging information
+      pass                                                                              # Pass
+    else:                                                                               # Else, adding is not possible
+      log.error('Could NOT add tags to file!')                                          # Log an error
+      return 4                                                                          # Return code 4
+  try:                                                                                  # Try to...
+    handle.delete();                                                                    # Remove all old tags.
+  except mp4.error as e:                                                                # On exception, catch the error
+    log.error( e.__str__() );                                                           # Log the error
+    return 5;                                                                           # Return code 5
+  log.debug('Setting basic inforamtion')                                                # Debugging information
   for key, val in metaData.items():
     if key == 'covr' and val != '':
-      log.debug('Attempting to get coverart');                                    # Debugging information
-      fmt  = mp4.AtomDataType.PNG if val.endswith('png') else mp4.AtomDataType.JPEG;# Set format for the image
+      log.debug('Attempting to get coverart')                                           # Debugging information
+      fmt  = mp4.AtomDataType.PNG if val.endswith('png') else mp4.AtomDataType.JPEG     # Set format for the image
       data = download( val )
       if data is not None:
-        val = [ mp4.MP4Cover( data, fmt ) ];                                        # Add image to file
+        val = [ mp4.MP4Cover( data, fmt ) ]                                             # Add image to file
       else:
         continue
-    handle[key] = val
+    try:
+      handle[key] = val
+    except:
+      log.warning( 'Failed to write metadata for: {}'.format(key) )
 
-  log.debug('Saving tags to file');                                             # Debugging information
-  try:                                                                          # Try to...
-    handle.save();                                                              # Save the tags
-  except:                                                                       # On exception
-    log.error('Failed to save tags to file!');                                  # Log an error
+  log.debug('Saving tags to file')                                                      # Debugging information
+  try:                                                                                  # Try to...
+    handle.save();                                                                      # Save the tags
+  except:                                                                               # On exception
+    log.error('Failed to save tags to file!');                                          # Log an error
     return 6
   return 0
 

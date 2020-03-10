@@ -1,7 +1,5 @@
 import logging
-import os, re, json
-from urllib.request import urlopen
-import requests
+import os, re
 
 from .API import BaseAPI, KEYS
 from .Person import Person
@@ -9,12 +7,12 @@ from . import Movie
 from . import Series
 from . import Episode
 
-log = logging.getLogger(__name__)
-log.setLevel( logging.DEBUG )
-sh  = logging.StreamHandler()
-sh.setFormatter( logging.Formatter( '%(asctime)s [%(levelname)-4.4s] %(message)s' ) )
-sh.setLevel(logging.DEBUG)
-log.addHandler( sh )
+#log = logging.getLogger(__name__)
+#log.setLevel( logging.DEBUG )
+#sh  = logging.StreamHandler()
+#sh.setFormatter( logging.Formatter( '%(asctime)s [%(levelname)-4.4s] %(message)s' ) )
+#sh.setLevel(logging.DEBUG)
+#log.addHandler( sh )
 
 SEASONEP = re.compile('[sS](\d{2,})[eE](\d{2,})')
 isID     = lambda dbID: dbID[:4] == 'tvdb' or dbID[:4] == 'tmdb'        # If tvdb or tmdb in the first four (4) characters
