@@ -1,10 +1,11 @@
 import logging
-import os
+import os, json
 from threading import Event
 import signal
 
 from .version import __version__
 from .utils.checkCLI import checkCLI
+from .config import screenFMT
 
 # Check for required CLIs
 for cli in ['ffmpeg', 'mediainfo']:
@@ -14,15 +15,6 @@ __doc__     = "Collection of utilities to manipulate video files; " + \
   "namely transcoding, subtitle extraction, audio aligning/downmixing, "+\
   "and metadata editing."
 
-APPDIR = os.path.join(
-    os.path.expanduser( '~' ),
-    'Library',
-    'Application Support',
-    __name__
-)
-LOGDIR = os.path.join( APPDIR, 'Logs' )
-
-from ._logging import screenFMT
 # Set up the logger for the module
 log = logging.getLogger( __name__ );                                          # Get root logger based on package name
 log.setLevel(logging.DEBUG);                                                  # Set root logger level to debug

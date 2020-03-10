@@ -6,7 +6,7 @@ from subprocess import PIPE, STDOUT
 from multiprocessing import cpu_count
 
 # Parent classes
-from . import _sigintEvent, _sigtermEvent, isRunning, LOGDIR
+from . import _sigintEvent, _sigtermEvent, isRunning
 from .mediainfo import MediaInfo
 from .comremove import ComRemove
 from .utils.ffmpeg_utils   import cropdetect, progress
@@ -30,7 +30,7 @@ except:
 from .videotagger import getMetaData
 
 # Logging formatter
-from ._logging import fileFMT;
+from .config import LOGDIR, fileFMT
 
 from . import POPENPOOL
 

@@ -1,20 +1,14 @@
 import os, time
 
-try:
-  from ... import api_keys
-except:
-  TMDb_KEY = TVDb_KEY = None
-else:
-  TMDb_KEY = getattr( api_keys, 'tmdb', None )
-  TVDb_KEY = getattr( api_keys, 'tvdb', None )
+from ...config import CONFIG
 
 TVDbCACHE = os.path.join( os.path.expanduser('~'), '.tvdbToken' )
 TIMEOUT   = 23 * 60 * 60
 
 class Keys( object ):
-  __TMDb_API_KEY    = os.environ.get('TMDB_API_KEY',   TMDb_KEY)
+  __TMDb_API_KEY    = os.environ.get('TMDB_API_KEY',   CONFIG.get('TMDB_API_KEY', None) )
   __TMDb_API_TOKEN  = os.environ.get('TMDB_API_TOKEN', None)
-  __TVDb_API_KEY    = os.environ.get('TVDB_API_KEY',   TVDb_KEY)
+  __TVDb_API_KEY    = os.environ.get('TVDB_API_KEY',   CONFIG.get('TVDD_API_KEY', None) )
   __TVDb_API_TOKEN  = os.environ.get('TVDB_API_TOKEN', None)
   __TVDb_USERNAME   = None
   __TVDb_USERKEY    = None

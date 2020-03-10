@@ -3,6 +3,7 @@ import os, re
 from datetime import timedelta
 from subprocess import Popen, PIPE, STDOUT, DEVNULL
 
+from . import config
 from .utils.checkCLI import checkCLI
 
 try:
@@ -35,11 +36,17 @@ class ComRemove( object ):
       verbose  : Depricated
     ''' 
     super().__init__( **kwargs );
-    self.__log      = logging.getLogger(__name__);
-    if ('ini' in kwargs):
-      self.ini = kwargs['ini']
-    else:
-      self.ini = os.environ.get('COMSKIP_INI', None)
+    self.__log = logging.getLogger(__name__);
+    iniDir     = kwargs.get('iniDir', None)
+    if iniDir is None:
+      iniDir = os.environ.get('COMSKIP_INI_DIR', None)
+    if iniDir is None:
+      iniDir = config.CONFIG.get('COMSKIP_INI_DIR', None)
+    if iniDir is not None:
+      if not os.path.isdir( iniDir ):
+        iniDir = None
+
+    self.iniDir   = iniDir    
     self.threads  = kwargs.get('threads',  POPENPOOL.threads)
     self.cpulimit = kwargs.get('cpulimit', None)
     self.verbose  = kwargs.get('verbose',  None)
@@ -47,7 +54,7 @@ class ComRemove( object ):
     self.__fileExt  = None;
 
   ########################################################
-  def removeCommercials(self, in_file, chapters = False ):
+  def removeCommercials(self, in_file, chapters = False, name = '' ):
     '''
     Purpose:
       Main method for commercial identification and removal.
@@ -60,6 +67,8 @@ class ComRemove( object ):
                   If set, will generate .chap file containing
                   Show segment and commercial break chapter info
                   for FFmpeg.
+      name     : Name of series or movie (Plex convention). Required
+                  if trying to use specific comskip.ini file
     '''
     self.__outDir  = os.path.dirname( in_file )                                     # Store input file directory in attribute
     self.__fileExt = in_file.split('.')[-1]                                         # Store Input file extension in attrubute
@@ -67,7 +76,7 @@ class ComRemove( object ):
     tmp_Files    = None                                                             # Set the status to True by default
     cut_File     = None
     status       = False
-    edl_file     = self.comskip( in_file )                                          # Attempt to run comskip and get edl file path
+    edl_file     = self.comskip( in_file, name = name )                             # Attempt to run comskip and get edl file path
     if edl_file:                                                                    # If eld file path returned
       if chapters:                                                                  # If chapters keyword set
         status = self.comchapter( in_file, edl_file )                               # Generate .chap file
@@ -86,7 +95,7 @@ class ComRemove( object ):
     return status                                                                   # Return the status 
 
   ########################################################
-  def comskip(self, in_file):
+  def comskip(self, in_file, name = ''):
     '''
     Purpose:
       Method to run the comskip CLI to locate commerical breaks
@@ -107,8 +116,9 @@ class ComRemove( object ):
     if (self.__fileExt is None): self.__fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
     
     cmd = self._comskip.copy();
-    cmd.append( '--threads={}'.format(self.threads) );
-    
+    cmd.append( '--threads={}'.format(self.threads) )
+    cmd.append( '--ini={}'.format( self._getIni(name=name) ) )
+
     tmp_file  = os.path.splitext( in_file )[0];                            # Get file path with no extension
     edl_file  = '{}.edl'.format(      tmp_file );                               # Path to .edl file
     txt_file  = '{}.txt'.format(      tmp_file );                               # Path to .txt file
@@ -116,7 +126,8 @@ class ComRemove( object ):
     
     cmd.append( '--output={}'.format(self.__outDir) );
     cmd.extend( [in_file, self.__outDir] );
-    
+    print( cmd )
+    return    
     self.__log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
     proc = POPENPOOL.Popen_async(cmd, threads = self.threads)
 #    if self.verbose:
@@ -364,6 +375,28 @@ class ComRemove( object ):
     else:
       dur = 86400.0
     return timedelta( seconds = dur )
+
+  ########################################################
+  def _getIni( self, name = '' ):
+    '''
+    Purpose:
+      Method to get name of .ini file to use for commercial removal
+    Inputs:
+      None.
+    Keywords:
+      name   : Plex formatted TV series or Movie name.
+    Returns:
+      Path to Comskip INI file to use for commercial removal
+    '''
+    if self.iniDir:                                                                     # If the iniDir is defined
+      if name != '':                                                                    # If name not empty
+        ini = os.path.join( self.iniDir, '{}.ini'.format(name) )                        # Define path
+        if os.path.isfile( ini ):                                                       # If file exists
+          return ini                                                                    # Return path
+      ini  = os.path.join( self.iniDir, 'comskip.ini' )                                 # Set path default for user defined directory
+      if os.path.isfile( ini ):                                                         # If the file exists
+        return ini                                                                      # Return path
+    return config.COMSKIPINI                                                            # Return default file
 
   ########################################################
   def __size_fmt(self, num, suffix='B'):

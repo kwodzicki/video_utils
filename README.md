@@ -1,4 +1,4 @@
-# video_utils
+# video\_utils
 
 **video_utils** is a Python package containing many tools useful for converting video files to h264/h265 encoded MP4 or MKV files.
 
@@ -61,19 +61,23 @@ After you have created an account, go to API Access and generate a new key.
 
 After you have generated your own API keys, there are two ways to install them.
 
-##### Method 1 - api\_keys.py file
+##### Method 1 - `.video_utilsrc` file
 
-This method requires you to create a file named `api_keys.py` in the directory where the `video_utils` package installed.
+This method requires you to create a file in your home directory named `video_utilsrc`.
 If this does not make sense, [Method 2](#method-2---environment-variables) may be the way to go.
 
 After this file is created, you can add your API keys to it.
 Note that if you only registered for one API key, you should only place that one in the file.
+The file is JSON formatted:
 
-    tvdb = 'YOUR_TVDb_KEY_HERE'
-    tmdb = 'YOUR_TMDb_KEY_HERE'
+    {
+        "TVDB_API_KEY" : "YOUR_TVDb_KEY_HERE",
+        "TMDB_API_KEY" : "YOUR_TMDb_KEY_HERE"
+    }
 
 After your API keys are added, you can save and close the file.
 You won't have to worry about this again!
+Settings in the `.video_utilsrc` are overriden by environment variables.
 
 ##### Method 2 - Environment variables
 
@@ -85,6 +89,14 @@ To do this, simply add the following lines to your ~/.bashrc or ~/.bash\_profile
     export TMDB_API_KEY="YOUR_TMDb_KEY_HERE"
 
 If code will be run under a user without a home directory, or you just want to make sure that the envrionment variables are defined for all users, you can add the environment variable definitions to the /etc/profile file the same way you did above. 
+
+Note that you can set the `COMSKIP_INI_DIR` in the `.video_utilsrc` file:
+
+    {
+        "COMSKIP_INI_DIR" : "/path/to/comskip_inis"
+    }
+
+Settings in the `.video_utilsrc` are overriden by environment variables.
 
 To limit the definition of the variables to specifc users, you can filter by their uid.
 For example, if your user is uid 456, then you could add the following to /etc/profile:
@@ -104,18 +116,25 @@ To tune how comskip detects commerical breaks in videos, a `.ini` file is used.
 
 #### Comskip INI file
 
-To easily have comskip use a specific `.ini` file, define a COMSKIP\_INI environment variable for the user that will be running the scripts.
-To do this, simply add the following line to your ~/.bashrc or ~/.bash\_profile:
+By default, the `.ini` file included in the package (`video_utils/config/comskip.ini`) will be used for commercial skippping.
+To override this behavior, simply set the `COMSKIP_INI_DIR` environment variable and place the `comskip.ini` file you would like to use in that directory.
+For example, say you have a `comskip.ini` file in `/path/to/comskip_inis/`.
+Simply add the following line to your ~/.bashrc or ~/.bash\_profile:
 
-	export COMSKIP_INI=/path/to/comskip.ini
+	export COMSKIP_INI_DIR=/path/to/comskip_inis/
 
-If code will be run under a user without a home directory, such as on a Raspberry Pi where Plex typically runs under the plex user, one can add the environment variable definition to the /etc/profile file, which will define it for all user on the computer.
+If you happen to have tuned `.ini` files for specific shows, you can also place those in the `COMSKIP_INI_DIR` directory and they will be used.
+However, the file names MUST match the Plex convention for TV Show series name (i.e., Series name (year)) or Movie (i.e., Movie name (year)) for the package to find them.
+If no matching series/movie `.ini` is found, then the package will fall back to the `comskip.ini` file in the directory.
+Note that all files MUST end with the `.ini` extension.
+
+If code will be run under a user without a home directory, such as Linux where Plex typically runs under the plex user, one can add the environment variable definition to the /etc/profile file, which will define it for all user on the computer.
 You can also have it only defined for given users based on the uid.
 For example, if your plex user is uid 456, then you could add the following to /etc/profile:
 
 	# Add COMSKIP_INI environment variable if user plex (uid 456)
 	if [ "$(id -u)" -eq 456 ]; then
-            export COMSKIP_INI=/path/to/comskip.ini
+            export COMSKIP_INI_DIR=/path/to/comskip_inis
 	fi
 
 
