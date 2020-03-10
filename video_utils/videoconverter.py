@@ -308,7 +308,13 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     open(prog_file, 'a').close()                                                        # Touch inprogress file, acts as a kind of lock
 
     if removeCommercials:                                                               # If the removeCommercials keywords is set
-      if not self.removeCommercials( inFile, chapters = chapters ):                     # Run the removeCommericals method
+      name = ''                                                                         # Default value for name keyword for removeCommercials method
+      if self.metaData is not None:                                                     # If metaData attribute is not None
+        if self.metaData.isEpisode:                                                     # If metaData for episode
+          name = str(self.metaData.Series)                                              # Get series information
+        else:                                                                           # Else
+          name = str(self.metaData)                                                     # Get movie information
+      if not self.removeCommercials( inFile, chapters = chapters, name = name ):        # Run the removeCommericals method
         self.__log.error( 'Error cutting commercials, assuming bad file...' )
         self.transcode_status = 5
         self._cleanUp( prog_file )
