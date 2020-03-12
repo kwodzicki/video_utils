@@ -24,8 +24,9 @@ def standardize( info, **kwargs ):
   return info
 
 def tvdb2tmdb( info ):
-  if ('name' in info):
-    info['name'] = PARENTH.sub('', info['name'])
+  if info.get('name', None) is None:
+    return None
+  info['name'] = PARENTH.sub('', info['name'])
 
   if ('imdbId' in info):
     info[ 'external_ids' ] = {'imdb_id' : info.pop('imdbId') }
@@ -106,7 +107,8 @@ def imagePaths( info, **kwargs ):
 
 def parseInfo( info, **kwargs ):
   info = standardize(   info, **kwargs )
-  info = parseCredits(  info, **kwargs )
-  info = parseReleases( info, **kwargs ) 
-  info = imagePaths(    info, **kwargs )
+  if info is not None:
+    info = parseCredits(  info, **kwargs )
+    info = parseReleases( info, **kwargs ) 
+    info = imagePaths(    info, **kwargs )
   return info

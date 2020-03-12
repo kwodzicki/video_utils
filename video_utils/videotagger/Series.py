@@ -42,7 +42,9 @@ class TMDbSeries( BaseSeries ):
       self.URL = self.TMDb_URLSeries.format( args[0] )
       json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
       if json:
-        self._data.update( parseInfo( json, imageURL = self.TMDb_URLImage ) )
+        info = parseInfo( json, imageURL = self.TMDb_URLImage )
+        if info is not None: 
+          self._data.update( info )
     else:
       self.URL = self.TMDb_URLSeries.format( self.id )
       json = self.getExtra( *self.EXTRA )
@@ -68,7 +70,9 @@ class TVDbSeries( BaseSeries ):
       self.URL = self.TVDb_URLSeries.format( args[0] )
       json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
       if json and ('data' in json):
-        self._data.update( parseInfo( json['data'], **self.KWARGS) )
+        info = parseInfo( json['data'], **self.KWARGS) 
+        if info is not None:
+          self._data.update( info )
     #else:
     #  self.URL = self.TVDb_URLSeries.format( self.id )
     #  json = self.getExtra( *self.EXTRA )

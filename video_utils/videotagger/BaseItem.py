@@ -82,14 +82,23 @@ class BaseItem( BaseAPI ):
     return self._data.get('id', None)
 
   def _getDirectors(self):
-    return [i['name'] for i in self.crew if i.job == 'Director']
+    if self.crew is not None:
+      return [i['name'] for i in self.crew if i.job == 'Director']
+    return ['']
 
   def _getWriters(self):
-    persons = []
-    for person in self.crew:
-      if person.job in ['Writer', 'Story', 'Screenplay']:
-        persons.append( '{} ({})'.format( person.name, person.job ) )
-    return persons
+    if self.crew is not None:
+      persons = []
+      for person in self.crew:
+        if person.job in ['Writer', 'Story', 'Screenplay']:
+          persons.append( '{} ({})'.format( person.name, person.job ) )
+      return persons
+    return ['']
+
+  def _getCast(self):
+    if self.cast is not None:
+      return [i.name for i in self.cast]
+    return ['']
 
   def _getRating( self, **kwargs ):
     rating = ''
@@ -102,14 +111,19 @@ class BaseItem( BaseAPI ):
       rating = self.Series.rating
     return rating
 
+  def _getGenre(self):
+    if self.genres is not None:
+      return [i['name'] for i in self.genres]
+    return ['']
+
   def _getProdCompanies(self, **kwargs):
-    if 'production_companies' in self:
+    if self.production_companies is not None:
       return [i['name'] for i in self.production_companies]
-    return ''
+    return ['']
 
   def _getPlot(self, **kwargs):
     sPlot = lPlot = ''
-    if 'overview' in self:
+    if self.overview is not None:
       if len(self.overview) < 240:
         sPlot = self.overview
       else:
@@ -117,9 +131,9 @@ class BaseItem( BaseAPI ):
     return sPlot, lPlot 
 
   def _getCover( self, **kwargs ):
-    if 'filename' in self:
+    if self.filename is not None:
       return self.filename
-    elif 'poster_path' in self:
+    elif self.poster_path is not None:
       return self.poster_path
     return ''
 
@@ -132,11 +146,11 @@ class BaseItem( BaseAPI ):
              'episodeNum' : self.episode_number,
              'sPlot'      : plots[0],
              'lPlot'      : plots[1],
-             'cast'       : [i.name for i in self.cast],
+             'cast'       : self._getCast(),
              'prod'       : self._getProdCompanies(), 
              'dir'        : self._getDirectors(), 
              'wri'        : self._getWriters(),
-             'genre'      : [i for i in self.Series.genre],
+             'genre'      : self._getGenre(), 
              'rating'     : self._getRating( **kwargs ),
              'kind'       : 'episode',
              'cover'      : self._getCover()
@@ -150,11 +164,11 @@ class BaseItem( BaseAPI ):
              'title'  : title,
              'sPlot'  : plots[0],
              'lPlot'  : plots[1],
-             'cast'   : [i.name for i in self.cast],
+             'cast'   : self._getCast(),
              'prod'   : self._getProdCompanies(), 
              'dir'    : self._getDirectors(), 
              'wri'    : self._getWriters(),
-             'genre'  : [i['name'] for i in self.genres],
+             'genre'  : self._getGenre(),
              'rating' : self._getRating( **kwargs ),
              'kind'   : 'movie',
              'cover'  : self._getCover()

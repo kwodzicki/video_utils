@@ -68,12 +68,16 @@ class TMDbMovie( BaseMovie ):
       self.URL = self.TMDb_URLMovie.format( args[0] )
       json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
       if json:
-        self._data.update( parseInfo( json, imageURL = self.TMDb_URLImage ) )      
+        info = parseInfo( json, imageURL = self.TMDb_URLImage )
+        if info is not None: 
+          self._data.update( info )      
     else:
       self.URL = self.TMDb_URLMovie.format( self.id )
       json = self.getExtra( *self.EXTRA )
       if json:
-        self._data.update( parseInfo( json, imageURL = self.TMDb_URLImage ) )      
+        info = parseInfo( json, imageURL = self.TMDb_URLImage )
+        if info is not None: 
+          self._data.update( info )      
 
 class TVDbMovie( BaseMovie ):
   EXTRA = ['external_ids', 'credits', 'content_ratings']
@@ -86,9 +90,13 @@ class TVDbMovie( BaseMovie ):
       self.URL = self.TVDb_URLMovie.format( args[0] )
       json     = self._getJSON( self.URL )#, append_to_response = self.EXTRA )
       if json:
-        self._data.update( parseInfo( json ) )      
+        info = parseInfo( json )
+        if info is not None: 
+          self._data.update( info )      
     else:
       self.URL = self.TVDb_URLMovie.format( self.id )
       json = self.getExtra( *self.EXTRA )
       if json:
-        self._data.update( parseInfo( json ) ) 
+        info = parseInfo( json )
+        if info is not None: 
+          self._data.update( info )      

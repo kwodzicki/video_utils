@@ -67,12 +67,16 @@ class TMDbEpisode( BaseEpisode ):
       self.URL = self.TMDb_URLEpisode.format( self.Series.id, *args[1:3] )
       json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
       if json:
-        self._data.update( parseInfo(json, imageURL = self.TMDb_URLImage) )
+        info = parseInfo(json, imageURL = self.TMDb_URLImage)
+        if info is not None:
+          self._data.update( info )
     else:
       self.URL = self.TMDb_URLEpisode.format( self.Series.id, self.season_number, self.episode_number )
       json = self.getExtra( *self.EXTRA )
       if json:
-        self._data.update( parseInfo(json, imageURL = self.TMDb_URLImage) )
+        info = parseInfo(json, imageURL = self.TMDb_URLImage) 
+        if info is not None:
+          self._data.update( info )
   
     self._data['title'] = self.name
 
@@ -105,7 +109,9 @@ class TVDbEpisode( BaseEpisode ):
         actors = self._getJSON( self.Series.URL + '/actors' )
         if actors is not None and 'errors' not in actors:
           json['credits'] = {'cast' : actors['data']}
-        self._data.update( parseInfo(json, **self.KWARGS) )
+        info = parseInfo(json, **self.KWARGS)
+        if info is not None: 
+          self._data.update( info )
 
     #else:
     #  self.URL = self.TVDb_URLEpisode.format( self.Series.id, self.airedSeason, self.airedEpisodeNumber )

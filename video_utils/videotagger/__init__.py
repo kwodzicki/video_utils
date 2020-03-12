@@ -1,5 +1,5 @@
 import logging
-import os, re
+import os, re, time
 
 from .API import BaseAPI, KEYS
 from .Person import Person
@@ -78,23 +78,30 @@ class TVDb( BaseAPI ):
     super().__init__(*args, **kwargs)
     self.__log = logging.getLogger(__name__)
 
-  def search( self, title = None, episode = None, seasonEp = None, year = None, page = None ):
+  def search( self, title=None, episode=None, seasonEp=None, year=None, page=None, nresults=10 ):
     params = {'name' : title}
     if page: params['page'] = page
 
-    json = self._getJSON( self.TVDb_URLSearch, **params )
-    if json:
-      items = json['data']
-      for i in range( len(items) ): 
-        item = items.pop(0)
-        if ('seriesName' in item):
-          if seasonEp:
-            item = Episode.TVDbEpisode( item['id'], *seasonEp ) 
-          else:
-            item = Series.TVDbSeries( item['id'] )
-        items.append( item ) 
-      return items
-    return []
+    json = self._getJSON( self.TVDb_URLSearch, **params )                               # Get JSON data from API
+    if isinstance(json, dict) and 'data' in json:                                       # If json is dict and has data key
+      items = json['data'][:nresults]                                                   # Take first nresults
+      for i in range( len(items) ):                                                     # Iterate over all results
+        item = items.pop(0)                                                             # Pope off item from items
+        if ('seriesName' in item):                                                      # If key is in item
+          item = Series.TVDbSeries( item['id'] )                                        # Create TVDbSeries instance
+          if year is not None and item.air_date is not None:                            # If year input and air_date in series
+            try:
+              test = (item.air_date.year != year)
+            except:
+              test = False
+            if test: continue
+          if seasonEp:                                                                  # If seasonEp set
+            item = Episode.TVDbEpisode( item, *seasonEp )                               # Create TVDbEpisode
+          time.sleep(0.5)                                                               # Sleep for request limit
+        if item.title is not None:                                                      # If item title is set
+          items.append( item )                                                          # Append item to items list
+      return items                                                                      # Return items
+    return []                                                                           # Return empty list
   
   #################################
   def byIMDb( self, IMDbID, season=None, episode=None ):
