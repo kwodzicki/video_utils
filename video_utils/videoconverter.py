@@ -315,9 +315,10 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
         else:                                                                           # Else
           name = str(self.metaData)                                                     # Get movie information
       if not self.removeCommercials( inFile, chapters = chapters, name = name ):        # Run the removeCommericals method
-        self.__log.error( 'Error cutting commercials, assuming bad file...' )
         self.transcode_status = 5
-        self._cleanUp( prog_file )
+        if isRunning():
+          self.__log.error( 'Error cutting commercials, assuming bad file...' )
+          self._cleanUp( prog_file )
         return None
 
 
@@ -375,8 +376,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
         self._cleanUp( self.inFile )
 
       self.__log.info('Duration: {}'.format(datetime.now()-start_time))                 # Print compute time
-
-    else:                                                                               # Else, there was an issue with the transcode
+    elif isRunning():                                                                   # Else, there was an issue with the transcode
       self.__log.critical( 'All transcode attempts failed!!! Removing all created files' ) # Log critical information
       outFile = None                                                                    # Set out_file to None, this is returned at end of method
       self._createdFiles = self._cleanUp( *self._createdFiles ) 

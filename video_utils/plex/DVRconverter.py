@@ -75,6 +75,7 @@ class DVRconverter(VideoConverter):
       **kwargs)
 
     self.destructive = destructive
+    self.log         = logging.getLogger(__name__)
 
   ######################################################################################
   def convert(self, inFile):
@@ -125,14 +126,14 @@ class DVRconverter(VideoConverter):
 
       if (self.transcode_status == 0):
         success = True
-      elif (self.transcode_status == 5):
-        self.log.critical('Assuming bad file deleting: {}'.format(inFile) )         # Log error
-        no_remove = True                                                            # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
-        self._cleanUp( inFile )                                                     # If infile or file exists, delete it
       elif not isRunning():                                                         # Else, if not runnint 
         return success, out_file                                                    # Return status and out_file
+      elif (self.transcode_status == 5):
+        self.log.error('Assuming bad file, deleting: {}'.format(inFile) )         # Log error
+        no_remove = True                                                            # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
+        self._cleanUp( inFile )                                                     # If infile or file exists, delete it
       else:                                                                         # Else
-        self.log.critical('Failed to transcode file. Will delete input')            # Only
+        self.log.error('Failed to transcode file. Will delete input')            # Only
         no_remove = True                                                            # Set local no_remove variable to True; done so that directory is not scanned twice when the Plex Media Scanner command is run
         self._cleanUp( inFile, out_file )                                           # If infile exists, delete it
 

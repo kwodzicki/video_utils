@@ -51,7 +51,7 @@ class MediaInfo( object ):
         the xml tags have changes in newer versions.
     '''
     super().__init__(**kwargs);
-    self.log     = logging.getLogger(__name__);
+    self.__log     = logging.getLogger(__name__);
     self.cmd     = ['mediainfo', '--Full', '--Output={}'.format(output_fmt) ];  # The base command for mediainfo; just add [self.inFile]
     self.inFile = inFile;
 
@@ -110,7 +110,7 @@ class MediaInfo( object ):
   ##############################################################################
   def __parse_output(self):
     ''' Method that will run when the file attribute is changed'''
-    self.log.info('Running mediainfo command...');                              # If verbose is set, print some output
+    self.__log.info('Running mediainfo command...');                              # If verbose is set, print some output
     xmlstr = subproc.check_output( self.cmd  + [self.inFile] );                # Run the command
     root   = ET.fromstring( xmlstr );                                           # Parse xml tree
     data   = {}
@@ -185,12 +185,12 @@ class MediaInfo( object ):
       Modified 14 Dec. 2018 by Kyle R. Wodzicki
         Cleans up some code and comments.
     '''
-    self.log.info('Parsing audio information...');                              # If verbose is set, print some output
+    self.__log.info('Parsing audio information...');                              # If verbose is set, print some output
     if self.__mediainfo is None:         
-      self.log.warning('No media information!');                                # Print a message
+      self.__log.warning('No media information!');                                # Print a message
       return None;         
     if 'Audio' not in self.__mediainfo:         
-      self.log.warning('No audio information!');                                # Print a message
+      self.__log.warning('No audio information!');                                # Print a message
       return None;        
     if not isinstance( language, (list, tuple) ): language = (language,);       # If language input is a scalar, convert to tuple
   
@@ -244,7 +244,7 @@ class MediaInfo( object ):
         track_num += 1;
 
     if len(info['-map']) == 0:                                                  # If the --audio list is NOT empty
-      self.log.warning(  'NO audio stream(s) selected...');                     # If verbose is set, print some output
+      self.__log.warning(  'NO audio stream(s) selected...');                     # If verbose is set, print some output
       return None;
 
     return info;                                                              # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
@@ -284,15 +284,15 @@ class MediaInfo( object ):
       Modified 14 Dec. 2018 by Kyle R. Wodzicki
         Cleans up some code and comments.
     '''     
-    self.log.info('Parsing video information...');                              # If verbose is set, print some output
+    self.__log.info('Parsing video information...');                              # If verbose is set, print some output
     if self.__mediainfo is None:       
-      self.log.warning('No media information!');                                # Print a message
+      self.__log.warning('No media information!');                                # Print a message
       return None;        
     if 'Video' not in self.__mediainfo:        
-      self.log.warning('No video information!');                                # Print a message
+      self.__log.warning('No video information!');                                # Print a message
       return None;              
     if len( self.__mediainfo['Video'] ) > 2:         
-      self.log.error('More than one (1) video stream...Stopping!');             # Print a message
+      self.__log.error('More than one (1) video stream...Stopping!');             # Print a message
       return None;                                                              # If the video has multiple streams, return
     encoder    = '';
     filters    = [];
@@ -405,12 +405,12 @@ class MediaInfo( object ):
       Modified 14 Dec. 2018 by Kyle R. Wodzicki
         Cleans up some code and comments.
     ''' 
-    self.log.info('Parsing text information...');                               # If verbose is set, print some output
+    self.__log.info('Parsing text information...');                               # If verbose is set, print some output
     if self.__mediainfo is None:       
-      self.log.warning('No media information!');                                # Print a message
+      self.__log.warning('No media information!');                                # Print a message
       return None;         
     if 'Text' not in self.__mediainfo:         
-      self.log.warning('No text information!');                                 # Print a message
+      self.__log.warning('No text information!');                                 # Print a message
       return None;      
     if not isinstance( language, (list, tuple) ): language = (language,);       # If language input is a scalar, convert to tuple
     
@@ -466,7 +466,7 @@ class MediaInfo( object ):
                       'srt'    : False} );                                        # Update a dictionary to the list. vobsub and srt tags indicate whether a file exists or not
         j+=1;                                                                     # Increment sub title track number counter
     if len(n_elems) == 0:                                                         # If subtitle streams were found
-      self.log.warning(  'NO text stream(s) in file...');                         # If verbose is set, print some output
+      self.__log.warning(  'NO text stream(s) in file...');                         # If verbose is set, print some output
       return None;  
     else:
       # Double check forced flag
@@ -536,7 +536,7 @@ class MediaInfo( object ):
                       'srt'    : False} );                                        # Update a dictionary to the list. vobsub and srt tags indicate whether a file exists or not
         j+=1;                                                                     # Increment sub title track number counter
     if len(n_elems) == 0:                                                         # If subtitle streams were found
-      self.log.warning(  'NO text stream(s) in file...');                         # If verbose is set, print some output
+      self.__log.warning(  'NO text stream(s) in file...');                         # If verbose is set, print some output
       return None;  
     else:
       # Double check forced flag

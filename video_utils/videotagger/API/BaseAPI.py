@@ -30,7 +30,6 @@ def convertDate( info ):
         try:                                                                            # Try to convert date string into datetime object
           info[key] = datetime.strptime(val, DATEFMT)
         except:
-          log.warning('Failed to convert date : {}'.format(val))
           info[key] = None
   return info
 
@@ -77,14 +76,14 @@ class BaseAPI( object ):
       None. Sets attributes and creates token file in user home dir
     '''
     if KEYS.TVDb_API_TOKEN:                                                             # If api token is valid
-      self.__log.debug( 'Using existing TVDb token' )                                   # Log info
+      self.__log.log( 5, 'Using existing TVDb token' )                                   # Log info
       self.__TVDb_Headers['Authorization'] = 'Bearer {}'.format(KEYS.TVDb_API_TOKEN)    # Set TVDb headers
       return True
     else:                                                                               # Else
       self.__TVDb_Headers.pop('Authorization', None)                                    # Pop off Authorization
       KEYS.TVDb_API_TOKEN = None                                                        # Set token to None
       if KEYS.TVDb_API_KEY:                                                             # If the api key is set
-        self.__log.debug( 'Getting new TVDb token' )                                    # Log info
+        self.__log.log( 5, 'Getting new TVDb token' )                                    # Log info
         data = {"apikey": KEYS.TVDb_API_KEY}                                            # Data for requesting in api token
         if KEYS.TVDb_USERNAME and KEYS.TVDb_USERKEY:                                    # If the username and userkey are set (not recommended)
           data.update( {"username": KEYS.TVDb_USERNAME, "userkey": KEYS.TVDb_USER} )    # Add to the data dict
@@ -129,10 +128,10 @@ class BaseAPI( object ):
     try:
       resp  = requests.get( url, **kwargs )
     except Exception as err:
-      self.__log.error( 'Request failed: {}'.format(err) )
+      self.__log.warning( 'Request failed: {}'.format(err) )
     else:
       if not resp.ok:
-        self.__log.error( 'Request is not okay' )
+        self.__log.warning( 'Request is not okay: {}; {}'.format(url, resp) )
         resp = self._closeRequest( resp )
     return resp
 
