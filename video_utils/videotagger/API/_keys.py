@@ -2,27 +2,35 @@ import os, time
 
 from ...config import CONFIG
 
-TVDbCACHE = os.path.join( os.path.expanduser('~'), '.tvdbToken' )
-TIMEOUT   = 23 * 60 * 60
+TVDbCACHE = os.path.join( os.path.expanduser('~'), '.tvdbToken' )                       # Set location of cache file for tvdbtoken
+TIMEOUT   = 23 * 60 * 60                                                                # Set timeout for TVDb token to 23 hours
 
 class Keys( object ):
-  __TMDb_API_KEY    = os.environ.get('TMDB_API_KEY',   CONFIG.get('TMDB_API_KEY', None) )
-  __TMDb_API_TOKEN  = os.environ.get('TMDB_API_TOKEN', None)
-  __TVDb_API_KEY    = os.environ.get('TVDB_API_KEY',   CONFIG.get('TVDB_API_KEY', None) )
-  __TVDb_API_TOKEN  = os.environ.get('TVDB_API_TOKEN', None)
+  __TMDb_API_KEY    = os.environ.get('TMDB_API_KEY',   CONFIG.get('TMDB_API_KEY', None) )# Try to get TMDB_API_KEY from user environment; then try to get from CONFIG; then just use None
+  __TMDb_API_TOKEN  = os.environ.get('TMDB_API_TOKEN', None)                             # Try to get TMDB_API_TOKEN from environment; then just use None
+  __TVDb_API_KEY    = os.environ.get('TVDB_API_KEY',   CONFIG.get('TVDB_API_KEY', None) )# Try to get TVDB_API_KEY from user environment; then try to get from CONFIG; then just use None 
+  __TVDb_API_TOKEN  = os.environ.get('TVDB_API_TOKEN', None)                             # Try to get TVDB_API_TOKEN from environment; then just use None
+ 
   __TVDb_USERNAME   = None
   __TVDb_USERKEY    = None
   __TVDb_TIME       = None
-  def __init__(self):
-    if os.path.isfile( TVDbCACHE ):
-      with open(TVDbCACHE, 'r') as fid:
-        token, t = fid.read().split()
-      t        = float(t)
-      if ( (time.time() - t) < TIMEOUT ):
-        self.__TVDb_API_TOKEN = token
-        self.__TVDb_TIME      = t
 
-  #######
+  def __init__(self):
+    '''
+    Method to initialize class
+    '''
+    if os.path.isfile( TVDbCACHE ):                                                     # If the TVDb cache file exists
+      with open(TVDbCACHE, 'r') as fid:                                                 # Open for reading
+        token, t = fid.read().split()                                                   # Read in the data; split on space to get token and time token was obtained
+      t = float(t)                                                                      # Convert time to float
+      if ( (time.time() - t) < TIMEOUT ):                                               # If current time minus token time is less than timeout
+        self.__TVDb_API_TOKEN = token                                                   # Set token
+        self.__TVDb_TIME      = t                                                       # Set token time
+      else:                                                                             # Else
+        self.__TVDb_API_TOKEN = None                                                    # Set token to None
+        self.__TVDb_TIME      = None                                                    # Set token time to None
+
+  ###############################################
   # The Movie Database
   @property
   def TMDb_API_KEY(self):
@@ -38,7 +46,7 @@ class Keys( object ):
   def TMDb_API_TOKEN(self, val):
     self.__TMDb_API_TOKEN = val
 
-  ######
+  #####################################################
   # The TV Database
   @property
   def TVDb_API_KEY(self):

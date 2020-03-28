@@ -29,28 +29,32 @@ class ComRemove( object ):
   def __init__(self, **kwargs):
     '''
     Keywords:
-      ini      : Path to comskip.ini file for comskip settings
+      iniDir   : Path to directory containing .ini files for
+                   comskip settigs. If set, will try to find
+                   .ini file with same name as TV show series,
+                   falling back to comskip.ini if not found.
+                   Default is to use .ini included in pacakge.
       threads  : Number of threads comskip is allowed to use
       cpulimit : Set limit of cpu usage per thread
       verbose  : Depricated
     ''' 
     super().__init__( **kwargs );
     self.__log = logging.getLogger(__name__);
-    iniDir     = kwargs.get('iniDir', None)
-    if iniDir is None:
-      iniDir = os.environ.get('COMSKIP_INI_DIR', None)
-    if iniDir is None:
-      iniDir = config.CONFIG.get('COMSKIP_INI_DIR', None)
-    if iniDir is not None:
-      if not os.path.isdir( iniDir ):
-        iniDir = None
+    iniDir     = kwargs.get('iniDir', None)                                             # Get iniDir from kwargs, returning None if it does not exist
+    if iniDir is None:                                                                  # If iniDir is None
+      iniDir = os.environ.get('COMSKIP_INI_DIR', None)                                  # Try to get from environment; return None if not exist
+      if iniDir is None:                                                                # If iniDir is still None
+        iniDir = config.CONFIG.get('COMSKIP_INI_DIR', None)                             # Try to get from CONFIG; return None if not exist
+    if iniDir is not None:                                                              # If iniDir is not None
+      if not os.path.isdir( iniDir ):                                                   # If path does not exist
+        iniDir = None                                                                   # Set iniDir to None
 
-    self.iniDir   = iniDir    
-    self.threads  = kwargs.get('threads',  POPENPOOL.threads)
+    self.iniDir   = iniDir                                                              # Set attribute 
+    self.threads  = kwargs.get('threads',  POPENPOOL.threads)                           # Set number of threads process will use; default is number of threads in POPENPOOL
     self.cpulimit = kwargs.get('cpulimit', None)
     self.verbose  = kwargs.get('verbose',  None)
-    self.__outDir   = None;
-    self.__fileExt  = None;
+    self.__outDir   = None
+    self.__fileExt  = None
 
   ########################################################
   def removeCommercials(self, in_file, chapters = False, name = '' ):

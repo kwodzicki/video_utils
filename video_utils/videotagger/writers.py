@@ -23,6 +23,9 @@ def encoder( val ):
   else:
     return val
 
+# A dictionary where keys are the starndard internal tags and values are MP4 tags
+# If a value is a tuple, then the first element is the tag and the seoncd is the
+# encoder function required to get the value to the correct format
 MP4KEYS = {
   'year'       :  '\xa9day',
   'title'      :  '\xa9nam',
@@ -41,7 +44,9 @@ MP4KEYS = {
   'cover'      :  'covr'
 }
 
-
+# A dictionary where keys are the standard internal tags and values are MKV tags
+# THe first value of each tuple is the level of the tag and the second is the tag name
+# See: https://matroska.org/technical/specs/tagging/index.html
 MKVKEYS = {
   'year'       : (50, 'DATE_RELEASED'),
   'title'      : (50, 'TITLE'),
@@ -115,7 +120,9 @@ def mp4Tagger( file, metaData ):
     A function to parse information from the IMDbPY API and
     write Tag data to MP4 files.
   Inputs:
-    file   : Full path of file to write metadata to.
+    file     : Full path of file to write metadata to.
+    metaData : Dictionary of meta data where keys are internal
+                  metadata keys and values are metadata values
   Outputs:
     Returns following values based on completion.
        0 : Completed successfully.
@@ -128,7 +135,7 @@ def mp4Tagger( file, metaData ):
       10 : IMDbPY not installed AND getTMDb_Info failed to import
       11 : File is too large
   Keywords:
-    metaData : Set to result of .toMP4() method of metaData object
+    None
   Dependencies:
     mutagen
   Author and History: 
@@ -215,29 +222,31 @@ def addTag( ele, key, val ):
 def mkvTagger( file, metaData ):
   '''
   Name:
-      mkvTagger
+    mkvTagger
   Purpose:
-      A function to parse information from the IMDbPY API and
-      write Tag data to MP4 files.
+    A function to parse information from the IMDbPY API and
+    write Tag data to MP4 files.
   Inputs:
-      file   : Full path of file to write metadata to.
+    file     : Full path of file to write metadata to.
+    metaData : Dictionary of meta data where keys are internal
+                metadata keys and values are metadata values
   Outputs:
-      Returns following values based on completion.
-           0 : Completed successfully.
-           1 : Input was NOT and MKV
-           2 : IMDb ID was not valid
-           3 : Failed to download information from IMDb AND themoviedb.org
-           4 : Writing tags is NOT possible
-           5 :    Failed when trying to remove tags from file.
-           6 : Failed when trying to write tags to file.
-          10 : IMDbPY not installed AND getTMDb_Info failed to import
-          11 : File is too large
+    Returns following values based on completion.
+         0 : Completed successfully.
+         1 : Input was NOT and MKV
+         2 : IMDb ID was not valid
+         3 : Failed to download information from IMDb AND themoviedb.org
+         4 : Writing tags is NOT possible
+         5 :    Failed when trying to remove tags from file.
+         6 : Failed when trying to write tags to file.
+        10 : IMDbPY not installed AND getTMDb_Info failed to import
+        11 : File is too large
   Keywords:
-      metaData : Set to result of .toMKV() method from metaData object
+    None.
   Dependencies:
-      mkvpropedit
+    mkvpropedit
   Author and History: 
-      Kyle R. Wodzicki     Created 18 Feb. 2018
+    Kyle R. Wodzicki     Created 18 Feb. 2018
   '''
   log = logging.getLogger(__name__);                                              # Set up a logger
   log.debug( 'Testing file is MKV' );                                             # Debugging information
@@ -249,6 +258,7 @@ def mkvTagger( file, metaData ):
     log.error('Input file is too large!'); return 11;                           # Print message and return code eleven (11)
       
   metaData = toMKV( metaData )
+
   if len(metaData) == 0:
     log.warning('No metadata, cannot write tags')
     return 3
