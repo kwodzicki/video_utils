@@ -10,8 +10,8 @@ except:
   logging.getLogger(__name__).warning( 'vobsub2srt is NOT installed' )
   raise
 
-from ..utils.subprocManager import subprocManager;
-from .srt_cleanup import srt_cleanup;
+from ..utils.subprocManager import SubprocManager;
+from .srtUtils import srtCleanup;
 
 def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, threads = None ):
   '''
@@ -43,8 +43,8 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
   if text_info is None: return 2, files;                                        # If text info has not yet been defined, return
   log.info('Converting VobSub(s) to SRT(s)...');                                # Print logging info
   fmt     = '  {:2d} of {:2d} - {}';                                            # Format for counter in logging
-  subproc = subprocManager(cpulimit = cpulimit, threads = threads);             # Initialize subprocManager
-  subproc._logFMT = fmt;                                                        # Set format for counter in the subprocManager
+  subproc = SubprocManager(cpulimit = cpulimit, threads = threads);             # Initialize SubprocManager
+  subproc._logFMT = fmt;                                                        # Set format for counter in the SubprocManager
 
   failed   = 0
   skipped  = 0  
@@ -73,7 +73,7 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
   for i in range( len(subproc.returncodes) ):                                   # Iterate over all the return codes
     if subproc.returncodes[i] == 0:                                             # If the return code is zero (0)
       text_info[i]['srt'] = True;                                               # Set srt exists flag in text_info dictionary to True
-      status = srt_cleanup( newFiles[i] )                                       # Run SRT music notes on the file
+      status = srtCleanup( newFiles[i] )                                       # Run SRT music notes on the file
     else:                                                                       # Else
       failed += 1;                                                              # Increment failed by one (1)
 

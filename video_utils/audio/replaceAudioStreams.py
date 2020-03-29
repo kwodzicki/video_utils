@@ -5,7 +5,7 @@ from threading import Thread
 from datetime import timedelta
 from time import sleep
 
-from ..mediainfo import mediainfo
+from ..mediainfo import MediaInfo
 from ..videotagger.metadata.getMetaData  import getMetaData
 from ..videotagger.mp4Tags import mp4Tags
 
@@ -64,7 +64,7 @@ def fileNameInfo( inFile, info = None ):
 	Keywords:
 	   None.
 	'''
-	m = mediainfo(inFile) if info is None else info;                              # Get information about the file
+	m = MediaInfo(inFile) if info is None else info;                              # Get information about the file
 	if m['Video'][0]['Height'] <= 480:                                            # If image size if <= 480
 		info = ['480p'];                                                            # Set resolution to 480p
 	elif m['Video'][0]['Height'] <= 720:                                          # Else, if image size is <= 720
@@ -132,8 +132,8 @@ def replaceAudioStreams( in1, in2, outDir = None, replace = False):
 	opts   = ['-movflags', 'disable_chpl', '-hide_banner'];                       # Extra options; removes weird extra movie chaptes
 	aCodec = '-c:a:{} aac -b:a:{} 192k';                                          # String formatter for audio transcoding
 	
-	info1   = mediainfo( in1 );                                                   # get information for input one
-	info2   = mediainfo( in2 );                                                   # get information for input two
+	info1   = MediaInfo( in1 );                                                   # get information for input one
+	info2   = MediaInfo( in2 );                                                   # get information for input two
 
 	if len(info1['Video']) != 1:                                                  # If there is not one (1) video stream in input one
 	  print('Input one (1) must have only one (1) video stream!')

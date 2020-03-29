@@ -1,10 +1,11 @@
 import logging
+import os, json
 from threading import Event
 import signal
 
 from .version import __version__
-from ._logging import screenFMT
 from .utils.checkCLI import checkCLI
+from .config import screenFMT
 
 # Check for required CLIs
 for cli in ['ffmpeg', 'mediainfo']:
@@ -13,7 +14,6 @@ for cli in ['ffmpeg', 'mediainfo']:
 __doc__     = "Collection of utilities to manipulate video files; " + \
   "namely transcoding, subtitle extraction, audio aligning/downmixing, "+\
   "and metadata editing."
-
 
 # Set up the logger for the module
 log = logging.getLogger( __name__ );                                          # Get root logger based on package name
@@ -40,5 +40,8 @@ def isRunning():
 
 signal.signal(signal.SIGINT,  _handle_sigint)
 signal.signal(signal.SIGTERM, _handle_sigterm)
+
+from .utils.subprocPool import PopenPool
+POPENPOOL = PopenPool()
 
 del cli, screenFMT;

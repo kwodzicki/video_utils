@@ -1,12 +1,12 @@
-# video_utils
+# video\_utils
 
-**video_utils** is a Python package containing many tools useful for converting video files to h264/h265 encoded MP4 or MKV files.
+**video\_utils** is a Python package containing many tools useful for converting video files to h264/h265 encoded MP4 or MKV files.
 
 ## Main features
 
 * Compatible with Python3
 * Will try to download SRT subtitles from opensubtitles.org if no subtitles in input file
-* Can tag movies and TV shows (MP4 files only)
+* Can tag movies and TV shows
 * Can extract closed captions and VOBSUB subtitles from input file and convert to SRT files (dependencies required)
 * Can be set to use a certain percentage of CPU available (dependency required)
 
@@ -31,8 +31,8 @@ The required and optional utilities are listed below.
 * [MediaInfo][mediainfo]  - Used to get stream information for transcode settings
 
 #### Optional
-* [comskip][comskip]       - Used to locate commercials in DVRed TV files
-* [MKVToolNix][mkv]        - Used to extract VobSub subtitles from MKV files
+* [comskip][comskip]       - Used to locate commercials in DVRed files
+* [MKVToolNix][mkv]        - Used for MKV tagging and extraction of VobSub subtitles from MKV files
 * [ccextractor][ccextract] - Used to extract captions from DVRed TV files to SRT
 * [VobSub2SRT][vobsub]     - Used to convert VobSub subtitles to SRT subtitles
 * [cpulimit][cpu]          - Used to prevent processes from using 100% of CPU
@@ -40,8 +40,7 @@ The required and optional utilities are listed below.
 ## Automated MP4 Tagging
 
 This package includes code to tag MP4 video files using data from various websites.
-These include IMDb, The Movie Database (TMDb), and The TV Database (TVDb).
-While the default site used to get metadata from movies and TV shows is IMDb, it is always nice to have more options to ensure that the metadata is complete and accurate.
+These include The Movie Database (TMDb) and The TV Database (TVDb).
 However, to enable use of TMDb and TVDb, API keys are required. 
 
 #### Obtaining API keys
@@ -54,40 +53,44 @@ From there you can create an API key; the v3 key is what is required.
 
 ##### TVDb
 
-To get an API key for TMDb, you must go to their website and create an account.
+To get an API key for TVDb, you must go to their website and create an account.
 After you have created an account, go to API Access and generate a new key.
 
 #### Installing API keys
 
 After you have generated your own API keys, there are two ways to install them.
 
-##### Method 1 - api\_keys.py file
+##### Method 1 - `~/.video_utilsrc` file
 
-This method requires you to create a file named `api_keys.py` in the directory where the `video_utils` package installed.
+This method requires you to create a file in your home directory named `.video_utilsrc`.
 If this does not make sense, [Method 2](#method-2---environment-variables) may be the way to go.
 
-After this file is created, you can add your API keys to it.
+After this file is created, you can add your API key(s) to it.
 Note that if you only registered for one API key, you should only place that one in the file.
+The file is JSON formatted:
 
-    tvdb = 'YOUR_TVDb_KEY_HERE'
-    tmdb = 'YOUR_TMDb_KEY_HERE'
+    {
+        "TMDB_API_KEY" : "YOUR_TMDb_KEY_HERE",
+        "TVDB_API_KEY" : "YOUR_TVDb_KEY_HERE"
+    }
 
-After your API keys are added, you can save and close the file.
-You won't have to worry about this again!
+After you add your API key(s), you can save and close the file.
+You won't have to worry about this again unless you need to change your keys!
+Note that Settings in the `.video_utilsrc` are overriden by environment variables; see next section.
 
 ##### Method 2 - Environment variables
 
 This method requires you to set environment variables that the `video_utils` package can use to get the API keys.
-These variables must be set for the user that will be running the scripts.
-To do this, simply add the following lines to your ~/.bashrc or ~/.bash\_profile:
+These variables must be set for the user that will be running the package.
+To do this, simply add the following lines to your `~/.bashrc` or `~/.bash_profile`:
 
     export TVDB_API_KEY="YOUR_TVDb_KEY_HERE"
     export TMDB_API_KEY="YOUR_TMDb_KEY_HERE"
 
-If code will be run under a user without a home directory, or you just want to make sure that the envrionment variables are defined for all users, you can add the environment variable definitions to the /etc/profile file the same way you did above. 
+If code will be run under a user without a home directory, or you just want to make sure that the envrionment variables are defined for all users, you can add the environment variable definitions to the `/etc/profile` file the same way you did above. 
 
 To limit the definition of the variables to specifc users, you can filter by their uid.
-For example, if your user is uid 456, then you could add the following to /etc/profile:
+For example, if your user is uid 456, then you could add the following to `/etc/profile`:
 
     # Add TVDB_API_KEY and TMDB_API_KEY environment variables to user with uid 456
     if [ "$(id -u)" -eq 456 ]; then
@@ -100,24 +103,38 @@ For example, if your user is uid 456, then you could add the following to /etc/p
 
 To enable automated commercial skipping, ensure that the [comskip][comskip] utility is installed and in your PATH environment variable.
 To tune how comskip detects commerical breaks in videos, a `.ini` file is used.
-`video_utils` provides an easy way to set the `.ini` file through an environment variable as discussed below.
+`video_utils` provides an easy way to set the `.ini` file through the config file or an environment variable as discussed below.
 
 #### Comskip INI file
 
-To easily have comskip use a specific `.ini` file, define a COMSKIP\_INI environment variable for the user that will be running the scripts.
-To do this, simply add the following line to your ~/.bashrc or ~/.bash\_profile:
+By default, the `.ini` file included in the package (`video_utils/config/comskip.ini`) will be used for commercial skippping.
+To override this behavior, simply set the `COMSKIP_INI_DIR` environment variable and place the `comskip.ini` file you would like to use in that directory.
+For example, say you have a `comskip.ini` file in `/path/to/comskip_inis/`.
+Simply add the following line to your `~/.bashrc` or `~/.bash_profil`e:
 
-	export COMSKIP_INI=/path/to/comskip.ini
+	export COMSKIP_INI_DIR=/path/to/comskip_inis/
 
-If code will be run under a user without a home directory, such as on a Raspberry Pi where Plex typically runs under the plex user, one can add the environment variable definition to the /etc/profile file, which will define it for all user on the computer.
+If you happen to have tuned `.ini` files for specific shows, you can also place those in the `COMSKIP_INI_DIR` directory and they will be used.
+However, the file names MUST match the Plex convention for TV Show series name (i.e., Series name (year)) or Movie (i.e., Movie name (year)) for the package to find them.
+If no matching series/movie `.ini` is found, then the package will fall back to the `comskip.ini` file in the directory.
+Note that all files MUST end with the `.ini` extension.
+
+If code will be run under a user without a home directory, such as Linux where Plex typically runs under the plex user, one can add the environment variable definition to the /etc/profile file, which will define it for all user on the computer.
 You can also have it only defined for given users based on the uid.
 For example, if your plex user is uid 456, then you could add the following to /etc/profile:
 
 	# Add COMSKIP_INI environment variable if user plex (uid 456)
 	if [ "$(id -u)" -eq 456 ]; then
-            export COMSKIP_INI=/path/to/comskip.ini
+            export COMSKIP_INI_DIR=/path/to/comskip_inis
 	fi
 
+Note that you can set the `COMSKIP_INI_DIR` in the `~/.video_utilsrc` file:
+
+    {
+        "COMSKIP_INI_DIR" : "/path/to/comskip_inis"
+    }
+
+Settings in the `.video_utilsrc` are overriden by environment variables.
 
 ## Command line utilities
 
@@ -128,9 +145,9 @@ This package provides a few command line utilities for some of the core componen
 Commercials can be removed using the `comremove` utility, which allows for input of a Mpeg Transport Stream file (.ts), with some extra options for `.ini` file specification and CPU limiting.
 For more information use the `--help` flag when running the utility.
 
-#### Tagging of MP4 files
-###### mp4tagger
-The `mp4tagger` utility tags MP4 files with data from IMDb, TMDb, and TVDb (pending API keys installed) either using the IMDb id found in the file name if the file naming convention is used, or using a user supplied IMDb id. 
+#### Tagging of MP4 or MKV files
+###### videotagger
+The `videotagger` utility tags MP4 or MKV files with data from TMDb or TVDb (pending API keys installed) either using the TMDb or TVDb id found in the file name if the file naming convention is used, or using a user supplied id. 
 For more information use the `--help` flag when running the utility.
 
 ## Watchdogs
@@ -149,18 +166,19 @@ This watchdog does a few things:
  * Watches specified directory(ies) for new files, filtering by given extensions (default `.mkv`)
  * Attempts to extract subtitles to VobSub (requires [MKVToolNix][mkv])
    * Convert subtitles to SRT (requires [VobSub2SRT][vobsub]
- * Converts movie to MP4 format using the `videoconverter` class
- * Attempts to download and write MP4 tags to file
+ * Converts movie to MP4/MKV format using the `VideoConverter` class
+ * Attempts to download and write MP4/MKV tags to file
  * Attempts to run `Plex Media Scanner` to add output file to Plex Library
 
-Sample workflow for convering files:
+Sample workflow for converting files:
 
  * Use MakeMKV to create `.mkv` file; shoud NOT save to directory being watched by this watchdog
  * Rename the file to conform to input naming convention
  * Move/copy file into watched directory
  * Let program take care of the rest
 
-See the `makemkv_watchdog.service` file in ./systemd for an example of how to set up the service.
+See the `makemkv_watchdog.service` file in `./systemd` directory for an example of how to set up a Linux service.
+See the `makemkv_watchdog.plist` file in `./LaunchDaemons` directory for an example of how to set up a macOS service.
  
 #### Post Processing of Plex DVR
 ###### Plex\_DVR\_Watchdog
@@ -175,7 +193,7 @@ This watchdog does a few things:
  * Attempts to add chapters marking commercials in file using `comskip` CLI if installed; 
     can remove commercials if --destructive flag is set
  * Attempts to extract subtitles to SRT using `ccextractor` CLI if installed
- * Converts movie to MP4 format using the `videoconverter` class
+ * Converts movie to MP4 format using the `VideoConverter` class
  * Attempts to download and write MP4 tags to file
  * Attempts to run `Plex Media Scanner` to locate `.mp4` file; re-runs scanner if
     source `.ts` file is deleted
@@ -185,11 +203,11 @@ Just use the `--script` flag when setting up the service; this will override all
 
 ## Code example
 Of course you can always use these utilities in your own code.
-A brief example of how to use the videoconverter class is below:
+A brief example of how to use the VideoConverter class is below:
 
-    # create an instance of videoconverter class
-    from video_utils import videoconverter
-    converter = videoconverter()
+    # create an instance of VideoConverter class
+    from video_utils.videoconverter import VideoConverter
+    converter = VideoConverter()
 
     # set path to file to convert
     file = '/path/to/file/Forgetting Sarah Marshall..2008.tt0800039.mkv'

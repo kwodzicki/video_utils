@@ -1,17 +1,20 @@
 import logging
 
-import os, time
+import os, time, re
 from threading import Thread
 from queue import Queue
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from . import _sigintEvent, _sigtermEvent
-from .videoconverter import videoconverter
+from . import isRunning
+from .videoconverter import VideoConverter
 from .plex.plexMediaScanner import plexMediaScanner
 
+TIMEOUT = 1.0
+
 class MakeMKV_Watchdog( FileSystemEventHandler ):
+  seasonEp = re.compile( r'[sS](\d{2,4})[eE](\d{2,4})' )
   def __init__(self, *args, **kwargs):
     super().__init__()
     self.log         = logging.getLogger(__name__)
@@ -27,7 +30,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     else:                                                                           # Else
       self.fileExt = fileExt                                                        # Set fileExt attribute using fileExt keyword value
 
-    self.converter = videoconverter( **kwargs ) 
+    self.converter = VideoConverter( **kwargs ) 
     self.Queue     = Queue()                                                         # Initialize queue for sending files to converting thread
     self.Observer  = Observer()                                                      # Initialize a watchdog Observer
     for arg in args:                                                                # Iterate over input arguments
@@ -49,16 +52,6 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     if event.src_path.endswith( self.fileExt ):
       self.Queue.put( event.src_path )                                              # Add split file path (dirname, basename,) tuple to to_convert list
       self.log.debug( 'New file added to queue : {}'.format( event.src_path) )      # Log info
-
-  def on_moved(self, event):
-    '''
-    Purpose:
-      Method to handle events when file is moved.
-    '''
-    if event.is_directory: return
-    if event.dest_path.endswith( self.fileExt ):
-      self.Queue.put( event.dest_path )                                              # Add split file path (dirname, basename,) tuple to to_convert list
-      self.log.debug( 'New file added to queue : {}'.format( event.dest_path) )      # Log info
 
   def join(self):
     '''
@@ -117,15 +110,16 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     Keywords:
       None.
     '''
-    while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):         # While the kill event is NOT set
+    while isRunning():                                                          # While the kill event is NOT set
       try:                                                                      # Try
-        file = self.Queue.get( timeout = 0.5 )                                  # Get a file from the queue; block for 0.5 seconds then raise exception
+        file = self.Queue.get( timeout = TIMEOUT )                              # Get a file from the queue; block for 0.5 seconds then raise exception
       except:                                                                   # Catch exception
         continue                                                                # Do nothing
 
-      self._checkSize( file )                                     # Wait to make sure file finishes copying/moving
+      self._checkSize( file )                                                   # Wait to make sure file finishes copying/moving
+
       try:        
-        out_file = self.converter.transcode( file )  # Convert file 
+        out_file = self.converter.transcode( file )                             # Convert file 
       except:
         self.log.exception('Failed to convert file')
       else:

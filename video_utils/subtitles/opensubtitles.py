@@ -12,7 +12,7 @@ from ..config import opensubtitles as opensubs_config
   
 ext = ('.avi', '.m4v', '.mp4', '.mkv', '.mpeg', '.mov', '.wmv');                # List of some common video extensions
 
-class opensubtitles( ServerProxy ):
+class OpenSubtitles( ServerProxy ):
   '''
   A python class to download SRT subtitles for opensubtitles.org.
   '''
@@ -29,7 +29,7 @@ class opensubtitles( ServerProxy ):
 
   server_lang = 'en';                                                    # Set up the server
   attempts    = 10;
-  def __init__( self, username = '', userpass = '', verbose = False):
+  def __init__( self, username = '', userpass = '', verbose = False, **kwargs):
     '''
     Name:
        __init__
@@ -49,13 +49,13 @@ class opensubtitles( ServerProxy ):
     Example:
       To download the top 5 subtiles for foreign language parts and full movie
       based on score in english, the call word look like:
-        subs = opensubtitles().getSubtitles('/path/to/file', nSubs=5)
+        subs = OpenSubtitles().getSubtitles('/path/to/file', nSubs=5)
       as the default for sorting is score and english is the
       default language.
       
       To download the 5 newest subtitles in Russian for foreign 
       language parts and full movie the call word look like:
-        subs = opensubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
+        subs = OpenSubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
     Author and history:
        Kyle R. Wodzicki     Created 12 Sep. 2017
          Modified 21 Sep. 2017 by Kyle R. Wodzicki
@@ -69,7 +69,7 @@ class opensubtitles( ServerProxy ):
     '''
     super().__init__( opensubs_config['url'], verbose=False )
 
-    self.log         = logging.getLogger(__name__);
+    self.__log         = logging.getLogger(__name__);
   
     self.username    = '' if username is None else username;                     # Set username attribute 
     self.userpass    = '' if userpass is None else userpass;                     # Set userpass attribute
@@ -144,7 +144,7 @@ class opensubtitles( ServerProxy ):
     A python function to search for, download, and save subtitles.
     '''
     if self.login_token is None: return;
-    self.log.info("Searching for subtitles...");
+    self.__log.info("Searching for subtitles...");
 
     search  = {'sublanguageid' : ','.join( kwargs.get('lang', self.lang) )};    # Initialize search attribute with language(s) set; keyword input overrides class attribute lang
     if ('IMDb' in kwargs) or self.IMDb:                                         # If IMDb is input
@@ -172,9 +172,9 @@ class opensubtitles( ServerProxy ):
           if self.check_status( resp ):                                         # Get server status
             time.sleep(0.3);                                                    # Sleep 0.3 seconds so that request limit is NOT reached
             if resp['data'] == False:                                           # If the data tag in the response is False
-              self.log.info("No subtitles found"); return;                      # Print log and return
+              self.__log.info("No subtitles found"); return;                      # Print log and return
             elif len(resp['data']) == 0:                                        # Else, if the data tag has a length of zero (0)
-              self.log.info("No subtitles found"); return;                      # Print log and return
+              self.__log.info("No subtitles found"); return;                      # Print log and return
             self.sortSubs( resp['data'] );                                      # Sort the subtitles
             return;                                                             # Return from the function
     return
@@ -224,10 +224,10 @@ class opensubtitles( ServerProxy ):
       srt_base = file;                                                     # Use input file path
 
     for lang in self.lang:
-      self.log.info('Language: {:}, forced: {:}'.format(lang,self.get_forced));
+      self.__log.info('Language: {:}, forced: {:}'.format(lang,self.get_forced));
       subs = self.subs[lang][self.sort]
       if subs is None:
-        self.log.info('  No subtitle(s) found');
+        self.__log.info('  No subtitle(s) found');
         continue;
 
       for i in range( self.nSubs ):                                             # Iterate over number of subtitle files to grab
@@ -239,7 +239,7 @@ class opensubtitles( ServerProxy ):
         srt = '{}.srt'.format(srt)
 
         if os.path.isfile( srt ):
-          self.log.info('  File already exists...Skipping!');
+          self.__log.info('  File already exists...Skipping!');
           files.append( srt )
           continue;
 
@@ -256,7 +256,7 @@ class opensubtitles( ServerProxy ):
     '''
     A function to download subtitle file and return the decompressed data.
     '''
-    self.log.info('  Downloading subtitle...');                                 # Print to log
+    self.__log.info('  Downloading subtitle...');                                 # Print to log
     for i in range(self.attempts):                                              # Try n times to download
       try:                                                                      # Try to ...
         resp = self.DownloadSubtitles(self.login_token, 
@@ -271,14 +271,14 @@ class opensubtitles( ServerProxy ):
           else:                                                                 # Else.
             decoded = standard_b64decode(resp['data'][0]['data']);              # Decode the data
           return decompress(decoded, 15 + 32);                                  # Return decompressed data
-    self.log.error('  Failed to download subtitle!');                           # Log error
+    self.__log.error('  Failed to download subtitle!');                           # Log error
     return None;                                                                # If reached here, the data did NOT download correctly
 
   ##############################################################################
   # Login / Logout / Check_status
   def login(self):
     '''Log in to OpenSubtitles'''
-    self.log.info("Login to opensubtitles.org...");                             # Print log for logging in
+    self.__log.info("Login to opensubtitles.org...");                             # Print log for logging in
     for i in range(self.attempts):                                              # Try n times to log in
       try:                                                                      # Try to...
         resp = self.LogIn(self.username, self.userpass, 
@@ -290,12 +290,12 @@ class opensubtitles( ServerProxy ):
           self.login_token = resp['token'];                                     # Set the login token
           return;                                                               # Return from function
     # If get to here, login failed
-    self.log.error( "Failed to login!" );                                       # Print log
+    self.__log.error( "Failed to login!" );                                       # Print log
     self.login_token = None;                                                    # Set the login token to None
   def logout(self):
     '''Log out from OpenSubtitles'''
     if self.login_token is None: return;                                        # If the login token is None, then NOT logged in and just return
-    self.log.info("Logout of opensubtitles.org...");                            # Print log for logging out
+    self.__log.info("Logout of opensubtitles.org...");                            # Print log for logging out
     for i in range(self.attempts):                                              # Try n times to log in
       try:                                                                      # Try to...
         resp = self.LogOut(self.login_token);                            # Logout of opensubtitles.org
@@ -306,7 +306,7 @@ class opensubtitles( ServerProxy ):
           self.login_token = None;                                              # Reset login token to None.
           return;                                                               # Return from function
     # If get to here, logout failed
-    self.log.error( "Failed to logout!" );                                      # Print error to log
+    self.__log.error( "Failed to logout!" );                                      # Print error to log
     self.login_token = None;                                                    # Reset login token to None.
   def check_status(self, resp):
     '''Check the return status of the request.
@@ -314,12 +314,12 @@ class opensubtitles( ServerProxy ):
     '''
     try:
       if resp['status'].upper() != '200 OK':
-        self.log.error( "Response error from " + self.api_url );
-        self.log.error( "Response status was: " + resp['status'] );
+        self.__log.error( "Response error from " + self.api_url );
+        self.__log.error( "Response status was: " + resp['status'] );
         return False;
       return True;
     except:
-      self.log.error( "No response from API!" );
+      self.__log.error( "No response from API!" );
       return False;
 
 ################################################################################
@@ -336,5 +336,5 @@ if __name__ == "__main__":
   sh = logging.StreamHandler();                                                 # Load a stream handler
   logger.addHandler(sh);                                                        # Add the stream handler to the logger
   
-  files = opensubtitles().getSubtitles( args.file, IMDb = args.imdb )
+  files = OpenSubtitles().getSubtitles( args.file, IMDb = args.imdb )
 #   exit( x );

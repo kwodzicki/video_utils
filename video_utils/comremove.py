@@ -1,23 +1,25 @@
 import logging
 import os, re
 from datetime import timedelta
-from subprocess import Popen, PIPE, STDOUT, DEVNULL
 
+from . import config
 from .utils.checkCLI import checkCLI
-
+from .utils.ffmpeg_utils import getVideoLength
 try:
-  checkCLI( 'comskip' )
+  COMSKIP = checkCLI( 'comskip' )
 except:
   logging.getLogger(__name__).error( "comskip is NOT installed or not in your PATH!" )
-  raise 
+  COMSKIP = None
 
-from .utils.subprocManager import subprocManager;
+from . import POPENPOOL
+
+#from .utils.subprocManager import SubprocManager;
 
 # Following code may be useful for fixing issues with audio in
 # video files that cut out
 # ffmpeg -copyts -i "concat:in1.ts|in2.ts" -muxpreload 0 -muxdelay 0 -c copy joint.ts
 
-class comremove( subprocManager ):
+class ComRemove( object ):
   # _comskip = ['comskip', '--hwassist', '--cuvid', '--vdpau'];
   _comskip = ['comskip'];
   _comcut  = ['ffmpeg', '-nostdin', '-y', '-i'];
@@ -27,25 +29,35 @@ class comremove( subprocManager ):
   def __init__(self, **kwargs):
     '''
     Keywords:
-      ini      : Path to comskip.ini file for comskip settings
+      iniDir   : Path to directory containing .ini files for
+                   comskip settigs. If set, will try to find
+                   .ini file with same name as TV show series,
+                   falling back to comskip.ini if not found.
+                   Default is to use .ini included in pacakge.
       threads  : Number of threads comskip is allowed to use
       cpulimit : Set limit of cpu usage per thread
       verbose  : Depricated
     ''' 
     super().__init__( **kwargs );
-    self.__log      = logging.getLogger(__name__);
-    if ('ini' in kwargs):
-      self.ini = kwargs['ini']
-    else:
-      self.ini = os.environ.get('COMSKIP_INI', None)
-    self.threads  = kwargs.get('threads', None)
+    self.__log = logging.getLogger(__name__);
+    iniDir     = kwargs.get('iniDir', None)                                             # Get iniDir from kwargs, returning None if it does not exist
+    if iniDir is None:                                                                  # If iniDir is None
+      iniDir = os.environ.get('COMSKIP_INI_DIR', None)                                  # Try to get from environment; return None if not exist
+      if iniDir is None:                                                                # If iniDir is still None
+        iniDir = config.CONFIG.get('COMSKIP_INI_DIR', None)                             # Try to get from CONFIG; return None if not exist
+    if iniDir is not None:                                                              # If iniDir is not None
+      if not os.path.isdir( iniDir ):                                                   # If path does not exist
+        iniDir = None                                                                   # Set iniDir to None
+
+    self.iniDir   = iniDir                                                              # Set attribute 
+    self.threads  = kwargs.get('threads',  POPENPOOL.threads)                           # Set number of threads process will use; default is number of threads in POPENPOOL
     self.cpulimit = kwargs.get('cpulimit', None)
     self.verbose  = kwargs.get('verbose',  None)
-    self.__outDir   = None;
-    self.__fileExt  = None;
+    self.__outDir   = None
+    self.__fileExt  = None
 
   ########################################################
-  def process(self, in_file, chapters = False ):
+  def removeCommercials(self, in_file, chapters = False, name = '' ):
     '''
     Purpose:
       Main method for commercial identification and removal.
@@ -58,6 +70,8 @@ class comremove( subprocManager ):
                   If set, will generate .chap file containing
                   Show segment and commercial break chapter info
                   for FFmpeg.
+      name     : Name of series or movie (Plex convention). Required
+                  if trying to use specific comskip.ini file
     '''
     self.__outDir  = os.path.dirname( in_file )                                     # Store input file directory in attribute
     self.__fileExt = in_file.split('.')[-1]                                         # Store Input file extension in attrubute
@@ -65,9 +79,12 @@ class comremove( subprocManager ):
     tmp_Files    = None                                                             # Set the status to True by default
     cut_File     = None
     status       = False
-    edl_file     = self.comskip( in_file )                                          # Attempt to run comskip and get edl file path
+    edl_file     = self.comskip( in_file, name = name )                             # Attempt to run comskip and get edl file path
     if edl_file:                                                                    # If eld file path returned
-      if chapters:                                                                  # If chapters keyword set
+      if os.path.getsize( edl_file ) == 0:                                          # If edl_file size is zero (0)
+        status = True                                                               # Set status True
+        os.remove(edl_file)                                                         # Delete to edl file
+      elif chapters:                                                                # If chapters keyword set
         status = self.comchapter( in_file, edl_file )                               # Generate .chap file
         os.remove(edl_file)                                                         # Delete to edl file
       else:                                                                         # Else, actually cut up file to remove commercials
@@ -84,7 +101,7 @@ class comremove( subprocManager ):
     return status                                                                   # Return the status 
 
   ########################################################
-  def comskip(self, in_file):
+  def comskip(self, in_file, name = ''):
     '''
     Purpose:
       Method to run the comskip CLI to locate commerical breaks
@@ -96,16 +113,18 @@ class comremove( subprocManager ):
       comskip runs successfully. If comskip does not run
       successfully, then None is returned.
     '''
+    if not COMSKIP:
+      self.__log.info('comskip utility NOT found!')
+      return None 
+
     self.__log.info( 'Running comskip to locate commercial breaks')
     if (self.__outDir  is None): self.__outDir  = os.path.dirname( in_file );                                  # Store input file directory in attribute
     if (self.__fileExt is None): self.__fileExt = in_file.split('.')[-1];                                      # Store Input file extension in attrubute
     
     cmd = self._comskip.copy();
-    if self.threads:
-      cmd.append( '--threads={}'.format(self.threads) );
-    if self.ini:
-      cmd.append( '--ini={}'.format(self.ini) );
-    
+    cmd.append( '--threads={}'.format(self.threads) )
+    cmd.append( '--ini={}'.format( self._getIni(name=name) ) )
+
     tmp_file  = os.path.splitext( in_file )[0];                            # Get file path with no extension
     edl_file  = '{}.edl'.format(      tmp_file );                               # Path to .edl file
     txt_file  = '{}.txt'.format(      tmp_file );                               # Path to .txt file
@@ -113,29 +132,25 @@ class comremove( subprocManager ):
     
     cmd.append( '--output={}'.format(self.__outDir) );
     cmd.extend( [in_file, self.__outDir] );
-    
     self.__log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
-    self.addProc(cmd)
-#    if self.verbose:
-#      self.addProc(cmd, stdout = log, stderr = err);
-#    else:
-#      self.addProc(cmd);
-    self.run( block = False )                                                   # Start command but do NOT block until done; next line handles blocking
-    if not self.wait( timeout = 8 * 3600 ):                                     # Wait for 8 hours for comskip to finish; this should be more than enough time
+    proc = POPENPOOL.Popen_async(cmd, threads = self.threads)
+
+    if not proc.wait( timeout = 8 * 3600 ):                                     # Wait for 8 hours for comskip to finish; this should be more than enough time
       self.__log.error('comskip NOT finished after 8 hours; killing')
-      self.kill()
-      
-    if sum(self.returncodes) == 0:
-      self.__log.info('comskip ran successfully');
-      if not os.path.isfile( edl_file ):
+      proc.kill()
+    if proc.returncode == 0 or proc.returncode == 1:
+      self.__log.info('comskip ran successfully')
+      if proc.returncode == 1:
+        self.__log.info('No commericals detected!')
+      elif not os.path.isfile( edl_file ):
         self.__log.warning('No EDL file was created; trying to convert TXT file')
         edl_file = self.convertTXT( txt_file, edl_file )
       for file in [txt_file, logo_file]:
         try:
-          os.remove( file );
+          os.remove( file )
         except:
           pass
-      return edl_file;
+      return edl_file
       
     self.__log.warning('There was an error with comskip')
     for file in [txt_file, edl_file, logo_file]:
@@ -144,7 +159,7 @@ class comremove( subprocManager ):
       except:
         pass
 
-    return None;
+    return None
 
   ########################################################
   def comchapter(self, in_file, edl_file):
@@ -166,7 +181,7 @@ class comremove( subprocManager ):
     fName, fExt = os.path.splitext( fBase )                                             # Split file name and extension
     metaFile    = os.path.join( fDir, '{}.chap'.format(fName) )                 # Generate file name for chapter metadata
 
-    fileLength  = self.getVideoLength(in_file)
+    fileLength  = getVideoLength(in_file)
     segment     = 1
     commercial  = 1
 
@@ -226,6 +241,7 @@ class comremove( subprocManager ):
     segStart = timedelta( seconds = 0.0 );                                      # Initial start time of the show segment; i.e., the beginning of the recording
     fid      = open(edl_file, 'r');                                             # Open edl_file for reading
     info     = fid.readline();                                                  # Read first line from the edl file
+    procs    = []
     while info:                                                                 # While the line is NOT empty
       comStart, comEnd = info.split()[:2];                                      # Get the start and ending times of the commercial
       comStart   = timedelta( seconds = float(comStart) );                      # Get start time of commercial as a time delta
@@ -237,13 +253,13 @@ class comremove( subprocManager ):
         cmd      = cmdBase + ['-ss', str(segStart), '-t', str(segDura)];        # Append start time and duration to cmdBase to start cuting command;
         cmd     += ['-c', 'copy', outFile];                                     # Append more options to the command
         tmpFiles.append( outFile );                                             # Append temporary output file path to tmpFiles list
-        self.addProc( cmd, single = True );                                     # Add the command to the subprocManager queue
+        procs.append( POPENPOOL.Popen_async( cmd, threads=1 ) )                 # Add the command to the SubprocManager queue
       segStart = comEnd;                                                        # The start of the next segment of the show is the end time of the current commerical break 
       info     = fid.readline();                                                # Read next line from edl file
       fnum    += 1;                                                             # Increment the file number
     fid.close();                                                                # Close the edl file
-    self.run();                                                                 # Run all the subprocess
-    if sum( self.returncodes ) != 0:                                            # If one or more of the process failed
+    POPENPOOL.wait()
+    if sum( [p.returncode for p in procs] ) != 0:                               # If one or more of the process failed
       self.__log.critical( 'There was an error cutting out commericals!' );
       for tmp in tmpFiles:                                                      # Iterate over list of temporary files
         if os.path.isfile( tmp ):                                               # If the file exists
@@ -274,15 +290,15 @@ class comremove( subprocManager ):
     self.__log.info( 'Joining video segments into one file')
     inFiles = '|'.join( tmpFiles );
     inFiles = 'concat:{}'.format( inFiles );
-    outFile = 'tmp_nocom.{}'.format(self.__fileExt);                              # Output file name for joined file
-    outFile = os.path.join(self.__outDir, outFile);                               # Output file path for joined file
-    cmd     = self._comjoin + [inFiles, '-c', 'copy', '-map', '0', outFile];    # Command for joining files
-    self.addProc( cmd );                                                        # Run the command
-    self.run();
+    outFile = 'tmp_nocom.{}'.format(self.__fileExt);                                    # Output file name for joined file
+    outFile = os.path.join(self.__outDir, outFile);                                     # Output file path for joined file
+    cmd     = self._comjoin + [inFiles, '-c', 'copy', '-map', '0', outFile];            # Command for joining files
+    proc    = POPENPOOL.Popen_async( cmd )                                              # Run the command
+    proc.wait()
     for file in tmpFiles:                                                       # Iterate over the input files
       self.__log.debug('Deleting temporary file: {}'.format(file));               # Debugging information 
       os.remove( file );                                                        # Delete the temporary file
-    if sum(self.returncodes) == 0:
+    if proc.returncode == 0:
       return outFile;
     else:
       try:
@@ -351,16 +367,26 @@ class comremove( subprocManager ):
     return edl_file;                                                            # Return edl_file path
 
   ########################################################
-  def getVideoLength(self, in_file):
-    proc = Popen( ['ffmpeg', '-i', in_file], stdout=PIPE, stderr=STDOUT)
-    info = proc.stdout.read().decode()
-    dur  = re.findall( r'Duration: ([^,]*)', info )
-    if (len(dur) == 1):
-      hh, mm, ss = [float(i) for i in dur[0].split(':')]
-      dur = hh*3600.0 + mm*60.0 + ss
-    else:
-      dur = 86400.0
-    return timedelta( seconds = dur )
+  def _getIni( self, name = '' ):
+    '''
+    Purpose:
+      Method to get name of .ini file to use for commercial removal
+    Inputs:
+      None.
+    Keywords:
+      name   : Plex formatted TV series or Movie name.
+    Returns:
+      Path to Comskip INI file to use for commercial removal
+    '''
+    if self.iniDir:                                                                     # If the iniDir is defined
+      if name != '':                                                                    # If name not empty
+        ini = os.path.join( self.iniDir, '{}.ini'.format(name) )                        # Define path
+        if os.path.isfile( ini ):                                                       # If file exists
+          return ini                                                                    # Return path
+      ini  = os.path.join( self.iniDir, 'comskip.ini' )                                 # Set path default for user defined directory
+      if os.path.isfile( ini ):                                                         # If the file exists
+        return ini                                                                      # Return path
+    return config.COMSKIPINI                                                            # Return default file
 
   ########################################################
   def __size_fmt(self, num, suffix='B'):

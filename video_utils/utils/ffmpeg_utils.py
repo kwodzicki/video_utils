@@ -1,17 +1,18 @@
 import logging
-import os, time, re
+import os, time, re, json
 import numpy as np
 from datetime import datetime, timedelta
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, check_output, PIPE, STDOUT, DEVNULL
 
 from .. import _sigintEvent, _sigtermEvent
+from .. import POPENPOOL
 
-_progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' );                     # Regex pattern for locating file duration in ffmpeg ouput 
-_durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' );                # Regex pattern for locating file processing location
-_cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' );                         # Regex pattern for extracting crop information
-_resPat  = re.compile( r'(\d{3,5}x\d{3,5})' );                                  # Regex pattern for video resolution
-
-_info    = 'Estimated Completion Time: {}';                                     # String formatter for conversion progress
+_progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' )                      # Regex pattern for locating file duration in ffmpeg ouput 
+_durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' )                 # Regex pattern for locating file processing location
+_cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' )                          # Regex pattern for extracting crop information
+_resPat  = re.compile( r'(\d{3,5}x\d{3,5})' )                                   # Regex pattern for video resolution
+_durPat  = re.compile( r'Duration: ([^,]*)' )
+_info    = 'Estimated Completion Time: {}'                                     # String formatter for conversion progress
 
 _toSec   = np.array( [3600, 60, 1], dtype = np.float32 );                       # Array for conversion of hour/minutes/seconds to total seconds
 _chunk   = np.full( (128, 4), np.nan );                                         # Base numpy chunk
@@ -177,6 +178,18 @@ def progress( proc, interval = 60.0, nintervals = None ):
         line = proc.stdout.readline();                                          # Read the next line
     return
 
+########################################################
+def getVideoLength(in_file):
+  proc = Popen( ['ffmpeg', '-i', in_file], stdout=PIPE, stderr=STDOUT)
+  info = proc.stdout.read().decode()
+  dur  = _durPat.findall( info )
+  if (len(dur) == 1):
+    hh, mm, ss = [float(i) for i in dur[0].split(':')]
+    dur = hh*3600.0 + mm*60.0 + ss
+  else:
+    dur = 86400.0
+  return timedelta( seconds = dur )
+
 ###############################################################################
 def checkIntegrity(filePath):
   '''
@@ -227,9 +240,118 @@ def _testFile():
     proc.communicate()                                                          
 
 ###############################################################################
-if __name__ == "__main__":
-    logging.getLogger().setLevel(0);
-    stream = logging.StreamHandler()
-    stream.setLevel(0)
-    logging.getLogger().addHandler( stream )
-    _testFile()
+def splitOnChapter(inFile, nChap):
+  '''
+  Name:
+    splitOnChapter
+  Purpose:
+    A python script to split a video file based on chapters.
+    the idea is that if a TV show is ripped with multiple 
+    episodes in one file, assuming all episodes have the 
+    same number of chapters, one can split the file into
+    individual episode files.
+  Inputs:
+    inFile  : Full path to the file that is to be split.
+    nChaps  : The number of chapters in each episode.
+  Outputs:
+    Outputs n files, where n is equal to the total number
+    of chapters in the input file divided by nChaps.
+  Keywords:
+    None.
+  Author and History:
+    Kyle R. Wodzicki     Created 01 Feb. 2018
+  '''
+  if type(nChap) is not int: nChap = int(nChap);                                # Ensure that nChap is type int
+  cmd = ['ffprobe', '-i', inFile, '-print_format', 'json', 
+         '-show_chapters', '-loglevel', 'error'];                               # Command to get chapter information
+  try:                                                                          # Try to...
+    chaps = str(check_output( cmd ), 'utf-8')                                   # Get chapter information from ffprobe
+    chaps = json.loads( chaps )['chapters']                                     # Parse the chapter information
+  except:                                                                       # On exception
+    print('Failed to get chapter information');                                 # Print a message
+    return;                                                                     # Return
+  
+  cmd = ['ffmpeg', '-v', 'quiet', '-stats', 
+         '-ss', '', 
+         '-i', inFile,
+          '-codec', 'copy', '-map', '0',
+         '-t', '', ''];                                                         # Set up list for command to split file
+  fmt = 'split_{:03d}.' + inFile.split('.')[-1];                                # Set file name for split files
+  num = 0;                                                                      # Set split file number
+  for i in range(0, len(chaps), nChap):                                         # Iterate over chapter ranges
+    fName   = fmt.format(num);                                                  # Set file name
+    s, e    = i, i+nChap-1
+    start   = timedelta( seconds = float(chaps[s]['start_time']) + 0.05 );      # Get chapter start time
+    end     = timedelta( seconds = float(chaps[e]['end_time'])   - 0.05 );      # Get chapter end time
+    dur     = end - start;                                                      # Get chapter duration
+    cmd[ 5] = str(start);                                                       # Set start offset to string of start time
+    cmd[-2] = str(dur);                                                         # Set duration to string of dur time
+    cmd[-1] = os.path.join( os.path.dirname(inFile), fName );                   # Set output file
+
+    proc = Popen(cmd, stderr=DEVNULL)                                           # Write errors to /dev/null
+    proc.communicate();                                                         # Wait for command to complete
+    if proc.returncode != 0:                                                    # If return code is NOT zero
+      print('FFmpeg had an error!');                                            # Print message
+      return;                                                                   # Return
+    num += 1;                                                                   # Increment split number
+
+#if __name__ == "__main__":
+#  import argparse;                                                              # Import library for parsing
+#  parser = argparse.ArgumentParser(description="Split on Chapter");             # Set the description of the script to be printed in the help doc, i.e., ./script -h
+#  parser.add_argument("file",          type=str, help="Input file to split"); 
+#  parser.add_argument("-n", "--nchap", type=int, help="Number of chapters per track"); 
+#  args = parser.parse_args();                                                   # Parse the arguments
+#
+#  splitOnChapter( args.file, args.nchap );
+
+###############################################################################
+def combine_mp4_files(outFile, *args):
+  '''
+  Purpose:
+    Function for combining multiple (2+) mp4 files into a single
+    mp4 file. Needs the ffmpeg CLI
+  Inputs
+    inFiles : List of input file paths
+    outFile : Output (combined) file path
+  Outputs:
+    Creates a new combined mp4 file
+  Keywords:
+    None.
+  '''
+  log = logging.getLogger( __name__ )
+  if len(args) < 2:                                                          # If there are less than 2 ipputs
+    log.critical('Need at least two (2) input files!')
+    return;                                                                     # Return from function
+  tmpFiles = [ '.'.join(f.split('.')[:-1])+'.ts' for f in args]                 # Iterate over inFiles list and create intermediate TS file paths
+
+  cmdTS = ['ffmpeg', '-y', '-nostdin', 
+    '-i',      '', 
+    '-c',     'copy', 
+    '-bsf:v', 'h264_mp4toannexb',
+    '-f',     'mpegts', ''
+  ];                                                                            # List with options for creating intermediate files
+  cmdConcat = ['ffmpeg', '-nostdin', 
+    '-i',     'concat:{}'.format( '|'.join(tmpFiles) ),
+    '-c',     'copy', 
+    '-bsf:a', 'aac_adtstoasc',
+    outFile
+  ];                                                                            # List with options for combining TS files back into MP4
+  for i in range(len(args)):                                                 # Iterate over all the input files
+    cmdTS[4], cmdTS[-1] = args[i], tmpFiles[i];                              # Set input/output files in the cmdTS list
+    proc = POPENPOOL.Popen_async( cmdTS.copy() )
+  proc.wait()
+  POPENPOOL.wait()
+  proc = POPENPOOL.Popen_async( cmdConcat )
+  proc.wait()
+
+  for f in tmpFiles:                                                            # Iterate over the temporary files
+    if os.path.isfile(f):                                                       # If the file exists
+      os.remove(f);                                                             # Delete it
+
+#if __name__ == "__main__":
+#  import argparse
+#  parser = argparse.ArgumentParser(description="Simple python wrapper for FFmpeg to combine multiple mp4 files")
+#  parser.add_argument('inputs', nargs='+', help='input file(s) to combine')
+#  parser.add_argument('output', help='Name of the output file')
+#  args = parser.parse_args()
+#  combine_mp4_files( args.output, *args.inputs );
