@@ -3,14 +3,17 @@
 import argparse;                                                              # Import library for parsing
 from video_utils.version   import __version__;
 from video_utils.comremove import ComRemove;
+from video_utils.utils.threadCheck import MAXTHREADS
+from video_utils.config import COMSKIPINI
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="comskip");           # Set the description of the script to be printed in the help doc, i.e., ./script -h
-  parser.add_argument("infile",                type   = str,          help = "Input file to remove commercials from"); 
-  parser.add_argument("--ini",                 type   = str,          help = "comskip ini file to use for commercial detection"); 
-  parser.add_argument("-t", "--threads",       type   = int,          help = "Set number of threads to use. Default: all the threads");  
-  parser.add_argument("-c", "--cpulimit",      type   = int,          help = "Set to limit CPU usage. Default: all the cpu");
-  parser.add_argument("-v", "--verbose",       action = "store_true", help = "Increase verbosity (not implemented");
+  parser = argparse.ArgumentParser(description="comskip",
+                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+  parser.add_argument("infile",                type   = str,                     help = "Input file to remove commercials from"); 
+  parser.add_argument("--ini",                 type   = str, default=COMSKIPINI, help = "comskip ini file to use for commercial detection"); 
+  parser.add_argument("-t", "--threads",       type   = int, default=MAXTHREADS, help = "Set number of threads to use. Default: all the threads");  
+  parser.add_argument("-c", "--cpulimit",      type   = int, default=75,         help = "Set to limit CPU usage.");
+  parser.add_argument("-v", "--verbose",       action = "store_true",            help = "Increase verbosity (not implemented");
   parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
 
   args = parser.parse_args();                                                   # Parse the arguments

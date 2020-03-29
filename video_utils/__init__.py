@@ -1,7 +1,7 @@
 import logging
 import os, json
-from threading import Event
 import signal
+from threading import Event
 
 from .version import __version__
 from .utils.checkCLI import checkCLI

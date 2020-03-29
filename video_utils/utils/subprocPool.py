@@ -4,11 +4,10 @@ import atexit
 from subprocess import Popen, STDOUT, DEVNULL 
 from queue import Queue
 from threading import Thread, Lock, Event
-from multiprocessing import cpu_count
 from .checkCLI import checkCLI
+from .threadCheck import threadCheck
 from .. import isRunning, _sigtermEvent
 
-THREADS = cpu_count()
 TIMEOUT = 1.0
 
 try:
@@ -31,11 +30,11 @@ def makeDirs( path ):
 class NLock( object ):                                                          
   __n       = 0                                                                    
   __threads = 0                                                                    
-  def __init__(self, threads = THREADS):                                                 
+  def __init__(self, threads = None):                                                 
     self.__lock1 = Lock()                                                       
     self.__lock2 = Lock()                                                       
-    self.threads = threads                                                         
-                                                                                
+    self.threads = threads 
+
   @property                                                                     
   def n(self):                                                                  
     return self.__n                                                             
@@ -45,10 +44,8 @@ class NLock( object ):
     return self.__threads                                                          
   @threads.setter                                                                  
   def threads(self, val):                                                          
-    if isinstance(val, int):                                                    
-      with self.__lock1:                                                        
-        self.__threads = 1 if (val < 1) else val                                   
-                                                                                
+    self.__threads = threadCheck( val ) 
+
   def __enter__(self, *args, **kwargs):                                         
     self.acquire( *args, **kwargs )                                             
                                                                                 
@@ -75,8 +72,12 @@ class NLock( object ):
     Returns:
       True if lock acquire, False if not
     ''' 
-    threads = kwargs.pop('threads', 1)                                                  # Get threads keyword for number of processes to reserver, default is 1                                                             
- 
+    threads = kwargs.pop('threads', None)                                                  # Get threads keyword for number of processes to reserver, default is 1 
+    if not isinstance(threads, int):
+      threads = 1
+    elif threads < 1:
+      threads = 1
+
     with self.__lock1:                                                          
       self.__n += threads                                                               # Increment number of locks to grab
       check     = self.__n >= self.__threads                                       
@@ -86,7 +87,7 @@ class NLock( object ):
       return False                                                                      # Return false
     return True                                                                         # Return True; this happens when (check == False) or (check == True) and (grabbed lock)
 
-  def release(self, threads = 1):
+  def release(self, threads = None):
     ''''
     Purpose:
       This method acts the same as a normal Lock.release()
@@ -101,6 +102,10 @@ class NLock( object ):
       None
     ''' 
     with self.__lock1:                                                          
+      if not isinstance(threads, int):
+        threads = 1
+      elif threads < 1:
+        threads = 1
       self.__n -= threads 
       if self.__lock2.locked():                                                 
         self.__lock2.release()                                                  
@@ -113,8 +118,9 @@ class PopenThread( Thread ):
   def __init__(self, *args, **kwargs):
     super().__init__()
     self.__log         = logging.getLogger(__name__)
-    self._threads      = kwargs.pop('threads',     1)
     self._cpulimit     = kwargs.pop('cpulimit', None)
+    threads            = kwargs.pop('threads',  None) 
+    self._threads      = threadCheck( threads )
     self._args         = args
     self._kwargs       = kwargs
     self._proc         = None
@@ -166,6 +172,7 @@ class PopenThread( Thread ):
 
   def run(self):
     '''Overload run method'''
+    PROCLOCK.acquire( threads = self._threads )                                         # Release lock
     kwargs = self._kwargs.copy()
     stdout = kwargs.get('stdout', DEVNULL)
     stderr = kwargs.get('stderr', STDOUT)
@@ -236,14 +243,15 @@ class PopenThread( Thread ):
 class PopenPool(Thread):
   __threads  =    1
   __cpulimit = None
-  def __init__(self, threads = THREADS, cpulimit = 75, queueDepth = 50, *args, **kwargs):
+  def __init__(self, threads = None, cpulimit = None, queueDepth = None, *args, **kwargs):
     kwargs['daemon'] = kwargs.pop('daemon', True)                                       # Default to deamon
     super().__init__(*args, **kwargs)
-    self.__log        = logging.getLogger(__name__)
-    self.__closed     = Event()
+    self.__log         = logging.getLogger(__name__)
+    self.__closed      = Event()
+    if not isinstance(queueDepth, int): queueDepth = 50
     self.__threadQueue = Queue( maxsize = queueDepth )
-    self.threads      = threads
-    self.cpulimit     = cpulimit
+    self.threads       = threads
+    self.cpulimit      = cpulimit
     self.start()
     atexit.register( self.close )
 
@@ -252,10 +260,8 @@ class PopenPool(Thread):
     return self.__threads
   @threads.setter
   def threads(self, val):
-    if isinstance(val, int):
-      val = val if val > 0 else 1
-      self.__threads   = val
-      PROCLOCK.threads = val
+    self.__threads = threadCheck( val )
+    PROCLOCK.threads = self.__threads
 
   @property
   def cpulimit(self):
@@ -365,6 +371,7 @@ class PopenPool(Thread):
     '''
     if PROCLOCK.acquire(timeout = TIMEOUT, threads = thread.threads):                   # Grab lock specifying theads and with timeout
       thread.start()                                                                    # If got lock, start the thread
+      PROCLOCK.release(threads = thread.threads)                                        # Release lock
       self.__threadQueue.task_done()                                                    # Signal that work on dequeued item finished
       return None                                                                       # Return None to signal thread started
     return thread                                                                       # Return thread to signal NOT started

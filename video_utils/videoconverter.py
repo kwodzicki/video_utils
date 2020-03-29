@@ -3,13 +3,13 @@ import logging
 import os, re, time
 from datetime import datetime
 from subprocess import PIPE, STDOUT
-from multiprocessing import cpu_count
 
 # Parent classes
 from . import _sigintEvent, _sigtermEvent, isRunning
 from .mediainfo import MediaInfo
 from .comremove import ComRemove
 from .utils.ffmpeg_utils   import cropdetect, progress
+from .utils.threadCheck import threadCheck 
 
 # Subtitle imports
 from .subtitles.opensubtitles import OpenSubtitles
@@ -59,9 +59,9 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
                in_place      = False, 
                no_ffmpeg_log = True,
                lang          = None, 
-               threads       = cpu_count(), 
+               threads       = None, 
                container     = 'mp4',
-               cpulimit      = 75, 
+               cpulimit      = None, 
                x265          = False,
                remove        = False,
                vobsub        = False, 
@@ -118,8 +118,9 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     if self.srt and (not vobsub_to_srt):
       self.__log.warning('VobSub2SRT conversion is DISABLED! Check that vobsub2srt is installed and in your PATH')
 
-    self.cpulimit = cpulimit;
-    self.threads  = threads;
+    if not isinstance(cpulimit, int): cpulimit = 75
+    self.cpulimit = cpulimit
+    self.threads  = threadCheck( threads )
 
 
     # Set up all the easy parameters first

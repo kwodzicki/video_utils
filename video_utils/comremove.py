@@ -5,6 +5,7 @@ from datetime import timedelta
 from . import config
 from .utils.checkCLI import checkCLI
 from .utils.ffmpeg_utils import getVideoLength
+from .utils import threadCheck
 try:
   COMSKIP = checkCLI( 'comskip' )
 except:
@@ -40,6 +41,11 @@ class ComRemove( object ):
     ''' 
     super().__init__( **kwargs );
     self.__log = logging.getLogger(__name__);
+
+    threads    = kwargs.get('threads',  None)                                           # Set number of threads process will use
+    if not isinstance(threads, int):                                                    # If threads is not integer type, use number of threads in POPENPOOL
+      threads = POPENPOOL.threads
+
     iniDir     = kwargs.get('iniDir', None)                                             # Get iniDir from kwargs, returning None if it does not exist
     if iniDir is None:                                                                  # If iniDir is None
       iniDir = os.environ.get('COMSKIP_INI_DIR', None)                                  # Try to get from environment; return None if not exist
@@ -50,7 +56,7 @@ class ComRemove( object ):
         iniDir = None                                                                   # Set iniDir to None
 
     self.iniDir   = iniDir                                                              # Set attribute 
-    self.threads  = kwargs.get('threads',  POPENPOOL.threads)                           # Set number of threads process will use; default is number of threads in POPENPOOL
+    self.threads  = threads                                                             # Set number of threads process will use; default is number of threads in POPENPOOL
     self.cpulimit = kwargs.get('cpulimit', None)
     self.verbose  = kwargs.get('verbose',  None)
     self.__outDir   = None
