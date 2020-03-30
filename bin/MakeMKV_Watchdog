@@ -25,14 +25,7 @@ from video_utils.config import MakeMKVFMT
 from video_utils.version import __version__
 from video_utils.MakeMKV_Watchdog import MakeMKV_Watchdog
 from video_utils.utils.threadCheck import HALFTHREADS
-
-'''
-Note for file removing;
-We do NOT want to remove the file after transcoding as the child 
-process that runs on a delay will take care of this flag; the 
-input file should remain so that Plex can move things and not
-get mad.
-'''
+from video_utils.utils.pidCheck import pidRunning
 
 def _initLogFile( logLevel ):
   noHandler = True;                                                             # Initialize noHandle
@@ -77,6 +70,10 @@ if __name__ == "__main__":
   parser.add_argument("--ffmpeg_log",          action = "store_true",             help = "Set to enable logging ffmpeg stdout & stderr to file. Files will be created in '{outdir}/logs'.");
   parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
   args = parser.parse_args();                                                   # Parse the arguments
+
+  if pidRunning( MakeMKVFMT['pidFile'] ):
+    log.critical('MakeMKV_Watchdog instance already running!')
+    exit(1)
 
   if (args.fileExt is not None):                                                # If user ser fileExt flag
     args.fileExt = [item for sublist in args.fileExt for item in sublist]       # Flatten the list

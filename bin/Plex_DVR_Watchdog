@@ -26,14 +26,7 @@ from video_utils.version import __version__
 from video_utils.config import plex_dvr
 from video_utils.plex.library_watchdog import library_watchdog
 from video_utils.utils.threadCheck import HALFTHREADS
-
-'''
-Note for file removing;
-We do NOT want to remove the file after transcoding as the child 
-process that runs on a delay will take care of this flag; the 
-input file should remain so that Plex can move things and not
-get mad.
-'''
+from video_utils.utils.pidCheck import pidRunning
 
 def _initLogFile( logLevel ):
   noHandler = True;                                                             # Initialize noHandle
@@ -76,6 +69,10 @@ if __name__ == "__main__":
   parser.add_argument("--no-srt",          action = "store_true",             help = "Set to disbale conversion of VobSub(s) to SRT");
   parser.add_argument('--version',         action = 'version', version = '%(prog)s '+__version__)
   args = parser.parse_args();                                                   # Parse the arguments
+
+  if pidRunning( plexFMT['pidFile'] ):
+    log.critical('Plex_DVR_Watchdog instance already running!')
+    exit(1)
 
   _initLogFile( args.verbose )
 

@@ -29,6 +29,7 @@ fileFMT    = {
 }
 
 plexFMT    = {
+  'pidFile'     : os.path.join( APPDIR, 'Plex_DVR_Watchdog.pid'),
   'file'        : os.path.join( LOGDIR, 'Plex_DVR_Watchdog.log'),
   'name'        : 'plex_dvr',
   'maxBytes'    : 5 * 1024**2,
@@ -43,6 +44,7 @@ plexFMT    = {
 }
 
 MakeMKVFMT = {
+  'pidFile'     : os.path.join( APPDIR, 'MakeMKV_Watchdog.pid'),
   'file'        : os.path.join( LOGDIR, 'MakeMKV_Watchdog.log'),
   'name'        : 'MakeMKV',
   'maxBytes'    : 5 * 1024**2,
