@@ -10,8 +10,8 @@
 		<!--Set environment variables here-->
 		<key>EnvironmentVariables</key>                                 
 		<dict>
-			<key>COMSKIP_INI</key>                                 
-			<string>/path/to/comskip.ini</string>                                       
+			<key>COMSKIP_INI_DIR</key>                                 
+			<string>/path/to/comskip_inis</string>                                       
 			<key>TVDB_API_KEY</key>                                 
 			<string></string>                                       
 			<key>TMDB_API_KEY</key>                                 
