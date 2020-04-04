@@ -5,7 +5,7 @@ After=plexmediaserver.service
 [Service]
 Type=simple
 User=plex
-Environment=COMSKIP_INI=/path/to/comskip.ini
+Environment=COMSKIP_INI_DIR=/path/to/comskip_inis
 Environment=TVDB_API_KEY=''
 Environment=TMDB_API_KEY=''
 ExecStart=/usr/bin/python3 /var/lib/plexmediaserver/.local/bin/Plex_DVR_Watchdog '/path/to/TV Shows'
