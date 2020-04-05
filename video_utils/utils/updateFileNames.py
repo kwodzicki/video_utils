@@ -30,6 +30,8 @@ def tvRename( topDir, path, metadata, imdbID, rootdir = None ):
   except:
     return False
   else:
+    metadata.writeTags( newPath )
+    shutil.copystat( path, newPath )
     print( 'Source       : {}'.format(path) )
     print( 'Copy created : {}'.format(newPath) )
     print()
@@ -54,6 +56,8 @@ def movieRename( topDir, path, metadata, imdbID ):
   except:
     return False
   else:
+    metadata.writeTags( newPath )
+    shutil.copystat( path, newPath )
     print( 'Source       : {}'.format(path) )
     print( 'Copy created : {}'.format(newPath) )
     print()
@@ -160,7 +164,7 @@ def updateFileNames(*args, rootdir = None):
       print( 'Cancelled' )
       exit()
     # Run plex media scanner
-    PMS('scan', section=section)#, directory=rootdir if rootdir is not None else indir)
+    PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
 
     res  = input('Want to delete old files (YES/n): ')
     if res != 'YES':
@@ -184,5 +188,5 @@ def updateFileNames(*args, rootdir = None):
           print('Failed to remove directory, is full? {}'.format(path) )
         else:
           print('Removed directory : {}'.format(path) )
-    PMS('scan', section=section)#, directory=rootdir if rootdir is not None else indir)
+    PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
 

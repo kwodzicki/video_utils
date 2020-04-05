@@ -14,6 +14,7 @@ values per key are supported.
 class BaseItem( BaseAPI ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
+    self.__log      = logging.getLogger(__name__)
     self._data      = kwargs.get('data', {})
     self._isMovie   = False
     self._isSeries  = False
@@ -190,7 +191,7 @@ class BaseItem( BaseAPI ):
       elif file.endswith('.mkv'):
         return mkvTagger( file, metaData = data )
       else:
-        self.log.error('Unsupported file type!')
+        self.__log.error('Unsupported file type : {}'.format(file))
         return False
-    self.log.error('Failed to get metadata')
+    self.__log.error('Failed to get metadata')
     return False

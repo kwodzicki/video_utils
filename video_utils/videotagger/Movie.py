@@ -38,14 +38,15 @@ class BaseMovie( BaseItem ):
     Returns:
       Returns string of 'Title (year).Modifier.ID'
     '''
+    title = self.title.replace('.', '_')
     try:
       year = self.release_date.year
     except:
       year = None
-    return getBasename( self.title, year, self.version, self.getID(), **kwargs )
+    return getBasename( title, year, self.version, self.getID(), **kwargs )
 
   def getDirname(self, root = ''):
-    mdir = replaceChars( str(self) )
+    mdir = replaceChars( str(self) ).replace('.', '_')
     return os.path.join( root, 'Movies', mdir )
 
   def getID(self, **kwargs):

@@ -25,17 +25,18 @@ class BaseEpisode( BaseItem ):
     return '<{} ID: {}; Title: {}>'.format( self.__class__.__name__, self.id, self )
 
   def getBasename(self, **kwargs):
-    ID = self.Series.getID()
-    return getBasename( self.season_number, self.episode_number, self.title, ID, **kwargs )  
+    ID    = self.Series.getID()
+    title = self.title.replace('.', '_')
+    return getBasename( self.season_number, self.episode_number, title, ID, **kwargs )  
 
   def getDirname(self, root = ''):
     '''
     Keywords:
       root    : Root directory
     '''
-    series = replaceChars( str(self.Series) )
+    series = replaceChars( str(self.Series) ).replace('.', '_')
     season = 'Season {:02d}'.format( self.season_number ) 
-    return os.path.join( root, 'TV Shows',series, season )
+    return os.path.join( root, 'TV Shows', series, season )
 
   def getID(self, **kwargs):
     ID = super().getID( **kwargs )
