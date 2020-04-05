@@ -25,6 +25,10 @@ def tvRename( topDir, path, metadata, imdbID, rootdir = None ):
     os.makedirs( newDir )
   newName = '.'.join(info)
   newPath = os.path.join( newDir, newName )
+  if os.path.isfile( newPath ):
+    print( 'Already Exists : {}'.format(newPath) )
+    return newDir
+
   try:
     shutil.copy( path, newPath )
   except:
@@ -32,8 +36,8 @@ def tvRename( topDir, path, metadata, imdbID, rootdir = None ):
   else:
     metadata.writeTags( newPath )
     shutil.copystat( path, newPath )
-    print( 'Source       : {}'.format(path) )
-    print( 'Copy created : {}'.format(newPath) )
+    print( 'Source         : {}'.format(path) )
+    print( 'Copy created   : {}'.format(newPath) )
     print()
   return newDir
 
@@ -51,6 +55,10 @@ def movieRename( topDir, path, metadata, imdbID ):
     os.makedirs( newDir )
   newName = '.'.join(info)
   newPath = os.path.join( newDir, newName ) 
+  if os.path.isfile( newPath ):
+    print( 'Already Exists : {}'.format(newPath) )
+    return newDir
+
   try:
     shutil.copy( path, newPath )
   except:
@@ -58,8 +66,8 @@ def movieRename( topDir, path, metadata, imdbID ):
   else:
     metadata.writeTags( newPath )
     shutil.copystat( path, newPath )
-    print( 'Source       : {}'.format(path) )
-    print( 'Copy created : {}'.format(newPath) )
+    print( 'Source         : {}'.format(path) )
+    print( 'Copy created   : {}'.format(newPath) )
     print()
   return newDir
 
@@ -95,12 +103,13 @@ def genHardLinks( topDir, rootdir = None ):
       seriesID = res['episode of'].getID()                                      # Get series ID
 
       res = tvdb.byIMDb(seriesID, season, episode)
-      if len(res) != 1:
+      if res is None or len(res) != 1:
         print('Incorrect number of results: {}'.format(paths[0]) )
+        continue
       episode = res[0]
       if not episode.isEpisode:
         print('Not an episode: {}'.format(paths[0]))
-
+        continue
       for path in paths:                                                        # Iterate over all files that contain this ID
         newDir = tvRename( topDir, path, episode, imdbID, rootdir ) 
         if newDir:                                                              # If hardlink created
@@ -127,7 +136,24 @@ def genHardLinks( topDir, rootdir = None ):
           toRemove.append( path )                                               # Append path to the toRemove list
   return toScan, toRemove                                                               # Return the toRemove list
 
-def updateFileNames(*args, rootdir = None):
+def updateSpecials(season00, dbID, rootdir):
+  toRemove = []
+  for item in os.listdir(season00):
+    path = os.path.join(season00, item)
+    if os.path.isfile(path):
+      seasonEp = re.findall( r'[sS](\d{2,})[eE](\d{2,})', item )
+      if len(seasonEp) == 1:
+        imdbID = IMDBID.findall( item )                                           # Get IMDb ID from file name
+        if len(imdbID) == 1:                                                      # If IMDB id
+          imdbID = imdbID[0]                                                      # Get only instance
+        episode = TVDbEpisode(dbID, *seasonEp[0]) 
+        newDir  = tvRename( season00, path, episode, imdbID, rootdir ) 
+        if newDir:                                                              # If hardlink created
+          toRemove.append( path )                                               # Append path to the toRemove list
+  return None, toRemove
+  
+
+def updateFileNames(*args, rootdir = None, dbID = None):
   '''
   Purpose:
     Function to iterate over Plex Library directories to rename
@@ -158,7 +184,10 @@ def updateFileNames(*args, rootdir = None):
     else:
       indir = os.path.join( *indir )
     print( 'Working on: {}'.format( indir ) )
-    scanDirs, toRemove = genHardLinks( indir, rootdir = rootdir )
+    if dbID:
+      scanDirs, toRemove = updateSpecials( indir, dbID, rootdir )
+    else:
+      scanDirs, toRemove = genHardLinks( indir, rootdir = rootdir )
     res      = input('Want to run Plex Media Scanner (YES/n): ')
     if res != 'YES':
       print( 'Cancelled' )

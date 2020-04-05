@@ -131,7 +131,8 @@ class BaseAPI( object ):
       self.__log.warning( 'Request failed: {}'.format(err) )
     else:
       if not resp.ok:
-        self.__log.warning( 'Request is not okay: {}; {}'.format(url, resp) )
+        kwargs.pop('Authorization', None)                                               # Try to pop off authorization for logging; don't want to store this in logs
+        self.__log.warning( 'Request is not okay: {}; {}; {}'.format(url, kwargs, resp) )
         resp = self._closeRequest( resp )
     return resp
 

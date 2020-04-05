@@ -9,5 +9,6 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('indir', nargs='+', help='Directories to rename files in')
 parser.add_argument('--root', type=str, help='Directories to rename files in')
+parser.add_argument('--dbID', type=str, help='Directories to rename files in')
 args = parser.parse_args()
-updateFileNames( *args.indir, rootdir=args.root )
+updateFileNames( *args.indir, rootdir=args.root, dbID = args.dbID )
