@@ -46,7 +46,7 @@ class BaseMovie( BaseItem ):
     return getBasename( title, year, self.version, self.getID(), **kwargs )
 
   def getDirname(self, root = ''):
-    mdir = replaceChars( str(self) ).replace('.', '_')
+    mdir = replaceChars( str(self) )
     return os.path.join( root, 'Movies', mdir )
 
   def getID(self, **kwargs):

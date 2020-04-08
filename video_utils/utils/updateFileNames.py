@@ -14,18 +14,38 @@ imdb     = IMDb()
 tmdb     = TMDb()
 tvdb     = TVDb()
 
-def tvRename( topDir, path, metadata, imdbID, rootdir = None ):
+def tvRename( topDir, path, imdbID, seriesID, rootdir = None ):
   fileDir, fileBase = os.path.split(path)                                       # Get dirname and basename
+  seasonEp = SEASONEP.findall( fileBase )                                   # GEt season/episode number
+  if len(seasonEp) == 1:                                                    # If season episode number found
+    season, episode = map(int, seasonEp[0])                                 # Parse into integers
+  else:
+    print('Failed to find season/ep: {}'.format(path))
+    exit()
+  if 'tvdb' in seriesID:
+    episode = TVDbEpisode( seriesID, season, episode )
+  else:
+    res = tvdb.byIMDb(seriesID, season, episode)
+    if res is None or len(res) != 1:
+      print('Incorrect number of results: {}'.format(path) )
+      return False 
+    episode = res[0]
+  if not episode.isEpisode:
+    print('Not an episode: {}'.format(path))
+    return False 
+
   info = fileBase.split('.')[1:]                                                # Split base name on period and lose first element (episode name)
   info.remove( imdbID )                                                         # Remove IMDb id from list
-  info.insert( 0, metadata.getBasename() )
+  info.insert( 0, episode.getBasename() )
   newDir = rootdir if rootdir is not None else os.path.dirname( topDir )
-  newDir = metadata.getDirname(newDir) 
+  newDir = episode.getDirname(newDir) 
   if not os.path.isdir( newDir ):
     os.makedirs( newDir )
+
   newName = '.'.join(info)
   newPath = os.path.join( newDir, newName )
   if os.path.isfile( newPath ):
+    print( 'Source         : {}'.format(path) )
     print( 'Already Exists : {}'.format(newPath) )
     return newDir
 
@@ -34,14 +54,14 @@ def tvRename( topDir, path, metadata, imdbID, rootdir = None ):
   except:
     return False
   else:
-    metadata.writeTags( newPath )
+    episode.writeTags( newPath )
     shutil.copystat( path, newPath )
     print( 'Source         : {}'.format(path) )
     print( 'Copy created   : {}'.format(newPath) )
     print()
   return newDir
 
-def movieRename( topDir, path, metadata, imdbID ):
+def movieRename( topDir, path, metadata, imdbID, rootdir = None):
   fileDir, fileBase = os.path.split(path)                                       # Get dirname and basename
   info = fileBase.split('.')[1:]                                                # Split on period and lose first element (movie name)
   mod  = info.pop(0)                                                            # Pop qualifier off of list (i.e., Unrated, etc.)
@@ -49,13 +69,14 @@ def movieRename( topDir, path, metadata, imdbID ):
   info.remove( imdbID )                                                         # Remove the IMDb id from list
   metadata.version = mod
   info.insert( 0, metadata.getBasename() )
-  newDir = os.path.dirname( topDir )
-  newDir = metadata.getDirname(newPath) 
+  newDir = rootdir if rootdir is not None else os.path.dirname( topDir )
+  newDir = metadata.getDirname(newDir) 
   if not os.path.isdir( newDir ):
     os.makedirs( newDir )
   newName = '.'.join(info)
   newPath = os.path.join( newDir, newName ) 
   if os.path.isfile( newPath ):
+    print( 'Source         : {}'.format(path) )
     print( 'Already Exists : {}'.format(newPath) )
     return newDir
 
@@ -93,25 +114,25 @@ def genHardLinks( topDir, rootdir = None ):
   for imdbID, paths in imdbIDs.items():                                         # Iterate over all IMDb IDs in imdbIDs dictioanry
     res = imdb.get_movie( imdbID[2:] )                                          # Get information from imdbpy
     if 'episode of' in res:                                                     # If episode
-      fileBase = os.path.basename( paths[0] )
-      seasonEp = SEASONEP.findall( fileBase )                                   # GEt season/episode number
-      if len(seasonEp) == 1:                                                    # If season episode number found
-        season, episode = map(int, seasonEp[0])                                 # Parse into integers
-      else:
-        print('Failed to find season/ep: {}'.format(paths[0]))
-        exit()
       seriesID = res['episode of'].getID()                                      # Get series ID
-
-      res = tvdb.byIMDb(seriesID, season, episode)
-      if res is None or len(res) != 1:
-        print('Incorrect number of results: {}'.format(paths[0]) )
-        continue
-      episode = res[0]
-      if not episode.isEpisode:
-        print('Not an episode: {}'.format(paths[0]))
-        continue
+#      fileBase = os.path.basename( paths[0] )
+#      seasonEp = SEASONEP.findall( fileBase )                                   # GEt season/episode number
+#      if len(seasonEp) == 1:                                                    # If season episode number found
+#        season, episode = map(int, seasonEp[0])                                 # Parse into integers
+#      else:
+#        print('Failed to find season/ep: {}'.format(paths[0]))
+#        exit()
+#      seriesID = res['episode of'].getID()                                      # Get series ID
+#      res = tvdb.byIMDb(seriesID, season, episode)
+#      if res is None or len(res) != 1:
+#        print('Incorrect number of results: {}'.format(paths[0]) )
+#        continue
+#      episode = res[0]
+#      if not episode.isEpisode:
+#        print('Not an episode: {}'.format(paths[0]))
+#        continue
       for path in paths:                                                        # Iterate over all files that contain this ID
-        newDir = tvRename( topDir, path, episode, imdbID, rootdir ) 
+        newDir = tvRename( topDir, path, imdbID, seriesID, rootdir ) 
         if newDir:                                                              # If hardlink created
           toScan.append( newDir )
           toRemove.append( path )                                               # Append path to the toRemove list
@@ -134,22 +155,23 @@ def genHardLinks( topDir, rootdir = None ):
       for path in paths:                                                        # Iterate over all paths with ID
         if movieRename( topDir, path, movie, imdbID, rootdir ):                    # If hardlink created
           toRemove.append( path )                                               # Append path to the toRemove list
+
   return toScan, toRemove                                                               # Return the toRemove list
 
 def updateSpecials(season00, dbID, rootdir):
   toRemove = []
-  for item in os.listdir(season00):
-    path = os.path.join(season00, item)
-    if os.path.isfile(path):
-      seasonEp = re.findall( r'[sS](\d{2,})[eE](\d{2,})', item )
-      if len(seasonEp) == 1:
-        imdbID = IMDBID.findall( item )                                           # Get IMDb ID from file name
-        if len(imdbID) == 1:                                                      # If IMDB id
-          imdbID = imdbID[0]                                                      # Get only instance
-        episode = TVDbEpisode(dbID, *seasonEp[0]) 
-        newDir  = tvRename( season00, path, episode, imdbID, rootdir ) 
-        if newDir:                                                              # If hardlink created
-          toRemove.append( path )                                               # Append path to the toRemove list
+  for root, dirs, items in os.walk(season00):
+    for item in items:
+      path = os.path.join(root, item)
+      if os.path.isfile(path):
+        seasonEp = re.findall( r'[sS](\d{2,})[eE](\d{2,})', item )
+        if len(seasonEp) == 1:
+          imdbID = IMDBID.findall( item )                                           # Get IMDb ID from file name
+          if len(imdbID) == 1:                                                      # If IMDB id
+            imdbID = imdbID[0]                                                      # Get only instance
+          newDir  = tvRename( season00, path, imdbID, dbID, rootdir ) 
+          if newDir:                                                              # If hardlink created
+            toRemove.append( path )                                               # Append path to the toRemove list
   return None, toRemove
   
 
@@ -170,52 +192,57 @@ def updateFileNames(*args, rootdir = None, dbID = None):
   Returns:
     None.
   '''
-  for indir in args:
-    tmp = rootdir if rootdir else indir
-    if os.path.basename(tmp) == '':
-      section = os.path.basename(os.path.dirname(tmp))
-    else:
-      section = os.path.basename(tmp)
-    rootdir = os.path.dirname(rootdir)
-
-    indir = os.path.split( indir )
-    if indir[1] == '':
-      indir = indir[0]
-    else:
-      indir = os.path.join( *indir )
-    print( 'Working on: {}'.format( indir ) )
-    if dbID:
-      scanDirs, toRemove = updateSpecials( indir, dbID, rootdir )
-    else:
-      scanDirs, toRemove = genHardLinks( indir, rootdir = rootdir )
-    res      = input('Want to run Plex Media Scanner (YES/n): ')
-    if res != 'YES':
-      print( 'Cancelled' )
-      exit()
-    # Run plex media scanner
-    PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
-
-    res  = input('Want to delete old files (YES/n): ')
-    if res != 'YES':
-      print( 'Cancelled' )
-      exit()
-    for path in toRemove:
-      try:
-        os.remove( path )
-      except:
-        print('Failed to remove file: {}'.format(path))
+  for arg in args:
+    for item in os.listdir(arg):
+      indir = os.path.join(arg, item)
+      if not os.path.isdir(indir): continue
+      if rootdir:
+        tmp = rootdir
       else:
-        print('Removed file : {}'.format(path))
+        tmp = os.path.dirname(arg)
 
-    for root, dirs, items in os.walk(indir, topdown=False):
-      for dir in dirs:
-        if dir[0] == '.': continue
-        path = os.path.join( root, dir )
-        try:
-          os.rmdir( path )
-        except:
-          print('Failed to remove directory, is full? {}'.format(path) )
-        else:
-          print('Removed directory : {}'.format(path) )
-    PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
+      if os.path.basename(tmp) == '':
+        section = os.path.basename( os.path.dirname(tmp) )
+      else:
+        section = os.path.basename(tmp)
+
+      root  = os.path.dirname(tmp)
+      indir = os.path.split( indir )
+      if indir[1] == '':
+        indir = indir[0]
+      else:
+        indir = os.path.join( *indir )
+      print( 'Working on: {}'.format( indir ) )
+      if dbID:
+        scanDirs, toRemove = updateSpecials( indir, dbID, root )
+      else:
+        scanDirs, toRemove = genHardLinks( indir, rootdir = root )
+       
+      if len(toRemove) != 0:
+        res      = input('Want to run Plex Media Scanner (YES/n): ')
+        if res == 'YES':
+          # Run plex media scanner
+          PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
+
+          res  = input('Want to delete old files (YES/n): ')
+          if res == 'YES':
+            for path in toRemove:
+              try:
+                os.remove( path )
+              except:
+                print('Failed to remove file: {}'.format(path))
+              else:
+                print('Removed file : {}'.format(path))
+
+            for root, dirs, items in os.walk(indir, topdown=False):
+              for dir in dirs:
+                if dir[0] == '.': continue
+                path = os.path.join( root, dir )
+                try:
+                  os.rmdir( path )
+                except:
+                  print('Failed to remove directory, is full? {}'.format(path) )
+                else:
+                  print('Removed directory : {}'.format(path) )
+            PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
 

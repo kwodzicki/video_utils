@@ -34,7 +34,7 @@ class BaseEpisode( BaseItem ):
     Keywords:
       root    : Root directory
     '''
-    series = replaceChars( str(self.Series) ).replace('.', '_')
+    series = replaceChars( str(self.Series) )
     season = 'Season {:02d}'.format( self.season_number ) 
     return os.path.join( root, 'TV Shows', series, season )
 

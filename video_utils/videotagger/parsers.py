@@ -77,13 +77,16 @@ def parseCredits( info, **kwargs ):
     log.debug('Found credits to parse')
     for key, val in credits.items():
       if isinstance(val, list):
-        log.debug( 'Parsing: {}'.format(key) )
-        for i in range( len(val) ):
-          val[i] = Person( data = val[i] )
-        if (key != 'crew') and ('order' in val[0]):
-          info[key] = sorted(val, key=lambda x: x.order)
+        if len(val)== 0:
+          log.debug( 'Empty  : {}'.format(key) )
         else:
-          info[key] = val
+          log.debug( 'Parsing: {}'.format(key) )
+          for i in range( len(val) ):
+            val[i] = Person( data = val[i] )
+          if (key != 'crew') and ('order' in val[0]):
+            info[key] = sorted(val, key=lambda x: x.order)
+          else:
+            info[key] = val
   return info
 
 def parseReleases( info, **kwargs ):

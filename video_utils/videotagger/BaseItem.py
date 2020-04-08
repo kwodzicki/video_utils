@@ -1,5 +1,7 @@
 import logging
 
+from datetime import datetime
+
 from .API import BaseAPI
 from .writers import mp4Tagger, mkvTagger
 
@@ -140,7 +142,8 @@ class BaseItem( BaseAPI ):
 
   def _episodeData(self, **kwargs):
     plots = self._getPlot()
-    data  = {'year'       : str( self.air_date.year ),
+    year  = str( self.air_date.year ) if isinstance(self.air_date, datetime) else ''
+    data  = {'year'       : year,
              'title'      : self.title,
              'seriesName' : self.Series.title,
              'seasonNum'  : self.season_number, 
@@ -161,7 +164,8 @@ class BaseItem( BaseAPI ):
   def _movieData(self, **kwargs):
     title = '{} - {}'.format(self.title, self.version) if self.version else self.title
     plots = self._getPlot()
-    data  = {'year'   : str( self.release_date.year ),
+    year  = str( self.release_date.year ) if isinstance(self.release_date, datetime) else ''
+    data  = {'year'   : year, 
              'title'  : title,
              'sPlot'  : plots[0],
              'lPlot'  : plots[1],

@@ -39,7 +39,13 @@ class TMDbSeries( BaseSeries ):
     if not self._data:
       if (len(args) == 0):
         raise Exception( "Must input series ID or use 'data' keyword" )
-      self.URL = self.TMDb_URLSeries.format( args[0] )
+      seriesID = args[0]
+      if isinstance(seriesID, str):
+        if 'tvdb' in seriesID:
+          raise Exception('Cannot pass TVDb ID to TMDb')
+        elif 'tmdb' in seriesID:
+          seriesID = seriesID.replace('tmdb', '')
+      self.URL = self.TMDb_URLSeries.format( seriesID )
       json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
       if json:
         info = parseInfo( json, imageURL = self.TMDb_URLImage )
@@ -67,7 +73,13 @@ class TVDbSeries( BaseSeries ):
     if not self._data:
       if (len(args) == 0):
         raise Exception( "Must input series ID or use 'data' keyword" )
-      self.URL = self.TVDb_URLSeries.format( args[0] )
+      seriesID = args[0]
+      if isinstance(seriesID, str):
+        if 'tmdb' in seriesID:
+          raise Exception('Cannot pass TMDb ID to TVDb')
+        elif 'tvdb' in seriesID:
+          seriesID = seriesID.replace('tvdb', '')
+      self.URL = self.TVDb_URLSeries.format( seriesID )
       json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
       if json and ('data' in json):
         info = parseInfo( json['data'], **self.KWARGS) 
