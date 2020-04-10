@@ -23,22 +23,24 @@ def tvRename( topDir, path, imdbID, seriesID, rootdir = None ):
     print('Failed to find season/ep: {}'.format(path))
     exit()
   if 'tvdb' in seriesID:
-    episode = TVDbEpisode( seriesID, season, episode )
+    ep = TVDbEpisode( seriesID, season, episode )
   else:
     res = tvdb.byIMDb(seriesID, season, episode)
     if res is None or len(res) != 1:
       print('Incorrect number of results: {}'.format(path) )
       return False 
-    episode = res[0]
-  if not episode.isEpisode:
-    print('Not an episode: {}'.format(path))
-    return False 
+    ep = res[0]
+  if ep.isSeries:                                                               # If it is series
+    ep = TVDbEpisode( ep.id, season, episode )                                  # Try to get episode
+  if not ep.isEpisode:                                                          # If still not episode
+    print('Not an episode: {}'.format(path))                                    # Print message
+    return False                                                                # Return
 
   info = fileBase.split('.')[1:]                                                # Split base name on period and lose first element (episode name)
   info.remove( imdbID )                                                         # Remove IMDb id from list
-  info.insert( 0, episode.getBasename() )
+  info.insert( 0, ep.getBasename() )
   newDir = rootdir if rootdir is not None else os.path.dirname( topDir )
-  newDir = episode.getDirname(newDir) 
+  newDir = ep.getDirname(newDir) 
   if not os.path.isdir( newDir ):
     os.makedirs( newDir )
 
@@ -54,7 +56,7 @@ def tvRename( topDir, path, imdbID, seriesID, rootdir = None ):
   except:
     return False
   else:
-    episode.writeTags( newPath )
+    ep.writeTags( newPath )
     shutil.copystat( path, newPath )
     print( 'Source         : {}'.format(path) )
     print( 'Copy created   : {}'.format(newPath) )

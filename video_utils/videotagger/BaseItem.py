@@ -52,15 +52,25 @@ class BaseItem( BaseAPI ):
     return self._data.keys()
 
   def getExtra(self, *keys):
-    if self.URL:
-      extra = {}
-      for key in keys:
-        if (key not in self._data):
-          URL  = '{}/{}'.format(self.URL, key)
-          json = self._getJSON(URL)
-          if json:
-            extra[key] = json
-      return extra
+    '''
+    Purpose:
+      Method to get extra information from an api 
+    Inputs:
+      List of keys for API call
+    Keywords:
+      None.
+    Returns:
+      Dictionary of extra information
+    '''
+    if self.URL:                                                                        # If URL is defined
+      extra = {}                                                                        # Initialize extra as empty dictionary
+      for key in keys:                                                                  # Iterate over each key
+        if (key not in self._data):                                                     # If the key does NOT already exist in object
+          URL  = '{}/{}'.format(self.URL, key)                                          # Build URL
+          json = self._getJSON(URL)                                                     # Get JSON data
+          if json:                                                                      # If data is valid
+            extra[key] = json                                                           # Place data under key in extra
+      return extra                                                                      # Return extra
     return None
 
   def getID(self, external = None):
@@ -85,11 +95,31 @@ class BaseItem( BaseAPI ):
     return self._data.get('id', None)
 
   def _getDirectors(self):
+    '''
+    Purpose:
+      Method to get list of director(s)
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      List of srings containing director(s)
+    '''
     if self.crew is not None:
       return [i['name'] for i in self.crew if i.job == 'Director']
     return ['']
 
   def _getWriters(self):
+    '''
+    Purpose:
+      Method to get list of writer(s)
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      List of srings containing writer(s)
+    '''
     if self.crew is not None:
       persons = []
       for person in self.crew:
@@ -99,32 +129,86 @@ class BaseItem( BaseAPI ):
     return ['']
 
   def _getCast(self):
+    '''
+    Purpose:
+      Method to get list of cast members
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      List of srings containing cast members
+    '''
     if self.cast is not None:
       return [i.name for i in self.cast]
     return ['']
 
   def _getRating( self, **kwargs ):
-    rating = ''
-    country = kwargs.get('country', 'US')
-    if 'release_dates' in self:
-      for release in self.release_dates[country]:
-        if release['type'] <= 3 and release['certification'] != '':
-          rating = release['certification']
-    elif self.isEpisode:
-      rating = self.Series.rating
-    return rating
+    '''
+    Purpose:
+      Method to iterate over release dates to extract rating
+    Inputs:
+      None.
+    Keywords:
+      country  : The country of release to get rating from.
+                  Default is US
+    Returns:
+      String containing rating
+    '''
+    rating = ''                                                                         # Default rating is emtpy string
+    country = kwargs.get('country', 'US')                                               # Get country from kwargs, default to US
+    if 'release_dates' in self:                                                         # If 'release_dates' key in self
+      releases = self.release_dates.get(country, [])                                    # Try to get releases for country; return empty list on no key
+      for release in releases:                                                          # Iterate over all releases
+        if release['type'] <= 3 and release['certification'] != '':                     # If the release meets these criteria
+          return release['certification']
+          #rating = release['certification']                                             # Set the rating
+    elif self.isEpisode:                                                                # Else, if object is episode
+      return self.Series.rating                                                       # Get rating from series
+      #rating = self.Series.rating                                                       # Get rating from series
+    return rating                                                                       # Return rating
 
   def _getGenre(self):
+    '''
+    Purpose:
+      Method to get list of genre(s) 
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      List of strings containing genre(s)
+    '''
     if self.genres is not None:
       return [i['name'] for i in self.genres]
     return ['']
 
   def _getProdCompanies(self, **kwargs):
+    '''
+    Purpose:
+      Method to get list of production company(s) 
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      List of strings containing production company(s)
+    '''
     if self.production_companies is not None:
       return [i['name'] for i in self.production_companies]
     return ['']
 
   def _getPlot(self, **kwargs):
+    '''
+    Purpose:
+      Method to get short and long plots 
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      Tuple containg short (less than 240 characters) and long plots
+    '''
     sPlot = lPlot = ''
     if self.overview is not None:
       if len(self.overview) < 240:
@@ -134,6 +218,16 @@ class BaseItem( BaseAPI ):
     return sPlot, lPlot 
 
   def _getCover( self, **kwargs ):
+    '''
+    Purpose:
+      Method to get URL of poster
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      URL to poster if exists, else empty string
+    '''
     if self.filename is not None:
       return self.filename
     elif self.poster_path is not None:
@@ -181,6 +275,16 @@ class BaseItem( BaseAPI ):
     return data
 
   def metadata(self, **kwargs):
+    '''
+    Purpose:
+      Method to get metadata in internal, standard format
+    Inputs:
+      None.
+    Keywords:
+      Various.
+    Returns:
+      Dictionary of metadata in internal, standard format
+    '''
     if self.isEpisode:
       return self._episodeData(**kwargs)
     elif self.isMovie:
@@ -188,6 +292,16 @@ class BaseItem( BaseAPI ):
     return None
 
   def writeTags( self, file, **kwargs ):
+    '''
+    Purpose:
+      Method to write metadata to file
+    Inputs:
+      file   : Path to video file to write metadata to
+    Keywords:
+      Various.
+    Returns:
+      True if tags written, False otherwise
+    '''
     data = self.metadata( **kwargs )
     if data:
       if file.endswith('.mp4'):
