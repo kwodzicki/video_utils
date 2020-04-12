@@ -201,7 +201,7 @@ def updateFileNames(*args, rootdir = None, dbID = None):
       if rootdir:
         tmp = rootdir
       else:
-        tmp = os.path.dirname(arg)
+        tmp = arg
 
       if os.path.basename(tmp) == '':
         section = os.path.basename( os.path.dirname(tmp) )
@@ -246,5 +246,5 @@ def updateFileNames(*args, rootdir = None, dbID = None):
                   print('Failed to remove directory, is full? {}'.format(path) )
                 else:
                   print('Removed directory : {}'.format(path) )
-            PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
+            #PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
 

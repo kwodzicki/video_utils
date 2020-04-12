@@ -84,9 +84,35 @@ class MediaInfo( object ):
     self.__mediainfo[key] = value
 
   ##############################################################################
+  def get(self, *args):
+    '''Method for geting mediainfo keys; acts a dict'''
+    return self.__mediainfo.get(*args)
+
+  ##############################################################################
   def keys(self):
     '''Method for geting mediainfo keys; acts a dict'''
     return self.__mediainfo.keys();
+
+  ##############################################################################
+  def videoSize(self):
+    '''
+    Purpose:
+      Method to get dimensions of video
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      Tuple containing video (width, height) if video stream exists.
+      None otherwise.
+    '''
+    tmp = self.get('Video', [])
+    if len(tmp) > 0:
+      try:
+        return (tmp[0]['Width'], tmp[0]['Height'],)
+      except:
+        pass
+    return None
 
   ##############################################################################
   def isValidFile(self):

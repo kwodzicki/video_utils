@@ -22,6 +22,7 @@ setuptools.setup(
                            "requests", "psutil", "watchdog"],
   scripts              = ['bin/comremove',
                           'bin/videotagger',
+                          'bin/updateFileNames',
                           'bin/MakeMKV_Watchdog',
                           'bin/Plex_DVR_Watchdog'],
   zip_safe             = False

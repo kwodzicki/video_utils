@@ -378,11 +378,12 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
       self.__log.info('Duration: {}'.format(datetime.now()-start_time))                 # Print compute time
     elif isRunning():                                                                   # Else, there was an issue with the transcode
-      self.__log.critical( 'All transcode attempts failed!!! Removing all created files' ) # Log critical information
+      msg = 'All transcode attempts failed : {}. Removing all created files.'           # Message for log
+      self.__log.critical( msg.format(self.inFile) )                                    # Log critical information
       outFile = None                                                                    # Set out_file to None, this is returned at end of method
       self._createdFiles = self._cleanUp( *self._createdFiles ) 
     
-    self._cleanUp( prog_file )
+    if isRunning(): self._cleanUp( prog_file )                                          # Only cleanup progress file if still running
 
     return outFile                                                              # Return output file from function, i.e., transcode was success
 
@@ -570,7 +571,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     '''
     cmd = self._ffmpeg_base( )                                                  # Call method to generate base command for ffmpeg
 
-    cropVals  = cropdetect( self.inFile );                                     # Attempt to detect cropping
+    cropVals  = cropdetect( self.inFile, threads = self.threads )               # Attempt to detect cropping
     videoKeys = self._videoKeys();                                              # Generator for orderer keys in video_info
     audioKeys = self._audioKeys();                                              # Generator for orderer keys in audio_info
     avOpts    = [True, True];                                                   # Booleans for if all av options have been parsed
@@ -602,7 +603,8 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     return cmd
 
   ##############################################################################
-  def _ffmpeg_base(self):
+  def _ffmpeg_base(self, strict = 'experimental',
+       max_muxing_queue_size = 2048):
     '''
     Purpose
       A method to generate basic ffmpeg command
@@ -611,10 +613,22 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     Outputs:
       Returns list containing command
     Keywords:
-      None.
+      strict :  Specify how strictly to follow the standards.
+                Possible values:
+                   ‘very’
+                       strictly conform to an older more strict version of the spec or reference software 
+                   ‘strict’
+                       strictly conform to all the things in the spec no matter what consequences 
+                   ‘normal’
+                   ‘unofficial’
+                       allow unofficial extensions 
+                   ‘experimental’
+                       allow non standardized experimental things, experimental (unfinished/work in progress/not well tested) decoders and encoders. Note: experimental decoders can pose a security risk, do not use this for decoding untrusted input. 
+      max_muxing_queue_size : Should not have to change; see https://trac.ffmpeg.org/ticket/6375
+    Returns:
+      List containing base ffmpeg command for converting
     '''
     cmd  = ['ffmpeg', '-nostdin', '-i', self.inFile]
-
     if os.path.isfile(self.chapterFile):                                        # If the chapter file exits
       self.__log.info( 'Adding chapters from file : {}'.format(self.chapterFile) )
       cmd += ['-i', self.chapterFile, '-map_metadata', '1']                     # Append to command and set meta data mapping from file
@@ -623,7 +637,8 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     cmd += ['-tune', 'zerolatency']                                             # Enable faster streaming
     cmd += ['-f', self.container, '-threads', str(self.threads)]                # Set container and number of threads to use
-
+    cmd += ['-strict', strict]
+    cmd += ['-max_muxing_queue_size', str(max_muxing_queue_size)]
     return cmd                                                                  # Return command
 
   ##############################################################################

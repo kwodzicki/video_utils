@@ -11,10 +11,9 @@ from . import isRunning
 from .videoconverter import VideoConverter
 from .plex.plexMediaScanner import plexMediaScanner
 
-TIMEOUT = 1.0
-
+TIMEOUT =  1.0
+SLEEP   = 10.0
 class MakeMKV_Watchdog( FileSystemEventHandler ):
-  seasonEp = re.compile( r'[sS](\d{2,4})[eE](\d{2,4})' )
   def __init__(self, *args, **kwargs):
     super().__init__()
     self.log         = logging.getLogger(__name__)
@@ -52,6 +51,16 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     if event.src_path.endswith( self.fileExt ):
       self.Queue.put( event.src_path )                                              # Add split file path (dirname, basename,) tuple to to_convert list
       self.log.debug( 'New file added to queue : {}'.format( event.src_path) )      # Log info
+
+  def on_moved(self, event):
+    '''
+    Purpose:
+      Method to handle events when file is created.
+    '''
+    if event.is_directory: return                                                   # If directory; just return
+    if event.dest_path.endswith( self.fileExt ):
+      self.Queue.put( event.dest_path )                                             # Add split file path (dirname, basename,) tuple to to_convert list
+      self.log.debug( 'New file added to queue : {}'.format( event.dest_path) )     # Log info
 
   def join(self):
     '''
@@ -95,7 +104,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     prev = -1                                                                       # Set previous file size to -1
     curr = os.path.getsize(file)                                                    # Get current file size
     while (prev != curr):                                                           # While sizes differ
-      time.sleep(0.5)                                                               # Sleep 0.5 seconds
+      time.sleep(SLEEP)                                                             # Sleep a few seconds seconds
       prev = curr                                                                   # Set previous size to current size
       curr = os.path.getsize(file)                                                  # Update current size
  
@@ -123,8 +132,9 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       except:
         self.log.exception('Failed to convert file')
       else:
-        plexMediaScanner('scan', directory = os.path.dirname(out_file),
-          section = 'TV Shows' if self.converter.is_episode else 'Movies')
+        if out_file is not None and isRunning():
+          plexMediaScanner('scan', 'refresh', 
+            section = 'TV Shows' if self.converter.metaData.isEpisode else 'Movies')
 
       self.Queue.task_done() 
 

@@ -18,7 +18,7 @@ _toSec   = np.array( [3600, 60, 1], dtype = np.float32 );                       
 _chunk   = np.full( (128, 4), np.nan );                                         # Base numpy chunk
 
 ###############################################################################
-def cropdetect( infile, dt = 20 ):
+def cropdetect( infile, dt = 20, threads = POPENPOOL.threads):
   '''
   Name:
     cropdetect
@@ -34,15 +34,35 @@ def cropdetect( infile, dt = 20 ):
     dt  : Length of video, in seconds, starting from beginning to use
           for crop detection, default is 20 seconds
   '''
-  log  = logging.getLogger(__name__);                                           # Get a logger
-  whxy = [ [] for i in range(4) ];                                              # Initialize list of 4 lists for crop parameters
-  res  = None;                                                                  # Initialize video resolution to None
-  dt   = str( timedelta(seconds = dt) );                                        # Get nicely formatted time
-  ss   = timedelta(seconds = 0)
-  cmd  = ['ffmpeg', '-nostats', '-ss', '', '-i', infile];                       # Base command for crop detection
-  cmd  = cmd + ['-t', dt, '-vf', 'cropdetect', '-f', 'null', '-'];              # Add length, cropdetec filter and pipe to null muxer
-  nn   = 0;                                                                     # Counter for number of crop regions detected
-  crop = _chunk.copy();                                                         # List of crop regions
+  log  = logging.getLogger(__name__);                                                   # Get a logger
+
+  def buildCmd(infile, ss, dt, threads):                                                # Local function to build command for ffmpeg
+    '''
+    Purpose:
+      Generate ffmpeg command list for cropping
+    Inputs:
+      infile   : str; File to read from
+      ss       : timedelta; Start time for segment
+      dt       : timedelta; Length of segment for crop detection
+      threads  : int; number of threads to let ffmpeg use
+    Keywords:
+      None.
+    Returns:
+      List of strings containing ffmpeg command
+    '''
+    if not isinstance(ss,      str): ss = str(ss)
+    if not isinstance(dt,      str): dt = str(dt)
+    if not isinstance(threads, str): threads = str(threads)
+    cmd = ['ffmpeg', '-nostats', '-threads', threads, '-ss', ss, '-i', infile]          # Base command for crop detection
+    return cmd + ['-t', dt, '-vf', 'cropdetect', '-f', 'null', '-']                     # Add length, cropdetec filter and pipe to null muxer
+
+  if not isinstance(threads, int): threads = 1
+  whxy    = [ [] for i in range(4) ];                                                   # Initialize list of 4 lists for crop parameters
+  res     = None;                                                                       # Initialize video resolution to None
+  dt      = timedelta(seconds = dt)                                                     # Get nicely formatted time
+  ss      = timedelta(seconds = 0)
+  nn      = 0;                                                                          # Counter for number of crop regions detected
+  crop    = _chunk.copy();                                                              # List of crop regions
 
   log.debug( 'Detecting crop using chunks of length {}'.format( dt ) );
 
@@ -50,36 +70,43 @@ def cropdetect( infile, dt = 20 ):
   while detect and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):    # While detect is True, keep iterating
     detect = False;                                                                 # Set detect to False; i.e., at beginning of iteration, assume no crop found
     log.debug( 'Checking crop starting at {}'.format( ss ) );
-    cmd[3] = str(ss);                                                               # Set the start offset in the video
-    proc   = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True );     # Start the command, piping stdout and stderr to a pipe
-    line   = proc.stdout.readline();                                                # Read line from pipe
-    while line != '':                                                               # While line is not empty
-      if res is None:                                                               # If resolution not yet found
-        res = _resPat.findall( line );                                              # Try to find resolution information
-        res = [int(i) for i in res[0].split('x')] if len(res) == 1 else None;       # Set res to resolution if len of res is 1, else set back to None
-      whxy = _cropPat.findall( line );                                              # Try to find pattern in line
+    cmd    = buildCmd( infile, ss, dt, threads )
+    proc   = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True )          # Start the command, piping stdout and stderr to a pipe
+    line   = proc.stdout.readline()                                                     # Read line from pipe
+    while line != '':                                                                   # While line is not empty
+      if res is None:                                                                   # If resolution not yet found
+        res = _resPat.findall( line )                                                   # Try to find resolution information
+        res = [int(i) for i in res[0].split('x')] if len(res) == 1 else None            # Set res to resolution if len of res is 1, else set back to None
+      whxy = _cropPat.findall( line )                                                   # Try to find pattern in line
     
-      if len(whxy) == 1:                                                        # If found the pattern
-        if not detect: detect = True;                                           # If detect is False, set to True
-        if (nn == crop.shape[0]):                                               # If the current row is outside of the number of rows
-          crop = np.concatenate( [crop, _chunk], axis = 0 );                    # Concat a new chunk onto the array
-        crop[nn,:] = np.array( [int(i) for i in whxy[0].split(':')] );          # Split the string on colon
-        nn += 1;                                                                # Increment nn counter
-      line = proc.stdout.readline();                                            # Read another line form pipe
-    proc.communicate();                                                         # Wait for FFmpeg to finish cleanly
-    ss += timedelta( seconds = 60 * 5 );                                        # Increment ss by 5 minutes
+      if len(whxy) == 1:                                                                # If found the pattern
+        if not detect: detect = True                                                    # If detect is False, set to True
+        if (nn == crop.shape[0]):                                                       # If the current row is outside of the number of rows
+          crop = np.concatenate( [crop, _chunk], axis = 0 )                             # Concat a new chunk onto the array
+        #log.debug( 'Crop : {}'.format(whxy) )
+        crop[nn,:] = np.array( [int(i) for i in whxy[0].split(':')] )                   # Split the string on colon
+        nn += 1                                                                         # Increment nn counter
+      line = proc.stdout.readline()                                                     # Read another line form pipe
+    proc.communicate()                                                                  # Wait for FFmpeg to finish cleanly
+    ss += timedelta( seconds = 60 * 5 )                                                 # Increment ss by 5 minutes
 
-  crop = np.nanmedian( crop, axis = 0 )                                         # Medain of crop values down column as integers
-  if not np.isnan( crop[0] ):                                                   # If there is a non NaN value in the medain values, then at least one of the values was finite
-    crop = crop.astype( np.uint16 )
-    if res is not None:                                                         # If input resolution was found
-      if (crop[0] == res[0]) and (crop[1] == res[1]):                           # If the crop size is the same as the input size
-        log.debug( 'Crop size same as input size, NOT cropping' );              # Debug info
-        return None;                                                            # Return None
-    log.debug( 'Values for crop: {}'.format(crop) );                            # Debug info
-    return 'crop={}:{}:{}:{}'.format( *crop );                                  # Return formatted string with crop option
-  log.debug( 'No cropping region detected' );
-  return None;                                                                  # Return None b/c if made here, no crop detected
+  maxVals = np.nanmax(crop, axis = 0)                                                   # Compute maximum across all values
+  xWidth  = maxVals[0]                                                                  # First value is maximum width
+  yWidth  = maxVals[1]                                                                  # Second is maximum height
+
+  if (xWidth/res[0] > 0.5) and (yWidth/res[1] > 0.5):                                   # If crop width and height are atleast 50% of video width and height
+    xOffset = (res[0] - xWidth) // 2                                                    # Compute x-offset, this is half of the difference between video width and crop width because applies to both sizes of video
+    yOffset = (res[1] - yWidth) // 2                                                    # Compute x-offset, this is half of the difference between video height and crop height because applies to both top and bottom of video
+    crop    = np.asarray( (xWidth, yWidth, xOffset, yOffset), dtype = np.uint16 )       # Numpy array containing crop width/height of offsets as unsigned 16-bit integers
+
+    if res is not None:                                                                 # If input resolution was found
+      if (crop[0] == res[0]) and (crop[1] == res[1]):                                   # If the crop size is the same as the input size
+        log.debug( 'Crop size same as input size, NOT cropping' )                       # Debug info
+        return None                                                                     # Return None
+    log.debug( 'Values for crop: {}'.format(crop) )                                     # Debug info
+    return 'crop={}:{}:{}:{}'.format( *crop )                                           # Return formatted string with crop option
+  log.debug( 'No cropping region detected' )
+  return None                                                                           # Return None b/c if made here, no crop detected
 
 ###############################################################################
 def totalSeconds( *args ):
