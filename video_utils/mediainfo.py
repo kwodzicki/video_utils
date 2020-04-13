@@ -3,8 +3,6 @@ import re
 import subprocess as subproc
 from xml.etree import ElementTree as ET
 
-from .audio.DolbyDownmix import getDownmixFilter
-
 cmd  = ['mediainfo', '--version']
 proc = subproc.Popen( cmd, stdout = subproc.PIPE, stderr = subproc.PIPE );
 stdout, stderr = proc.communicate()
@@ -230,50 +228,49 @@ class MediaInfo( object ):
     track_num = 0;
     for lang in language:                                                       # Iterate over all languages
       for track in self.__mediainfo['Audio']:                                   # Iterate over all audio information
-        lang3 = track['Language/String3'] if 'Language/String3' in track else '';
+        lang3 = track.get( 'Language/String3', '' )
         if lang != lang3 and lang3 != '': continue;                             # If the track language does NOT match the current language AND it is not an empty string
-        # id    = track['ID']               if 'ID'               in track else '';
-        fmt   = track['Format']           if 'Format'           in track else '';
-        nCH   = track['Channel_s_']       if 'Channel_s_'       in track else '';
-        lang1 = track['Language/String']  if 'Language/String'  in track else '';
-        lang2 = track['Language/String2'] if 'Language/String2' in track else '';
-        title = track['Title']            if 'Title'            in track else 'Source Track: {}'.format(track_id);
-        if type(nCH) is str: nCH = max( [int(j) for j in nCH.split('/')] );     # If nCH is of type string, split number of channels for the audio stream on forward slash, convert all to integer type, take maximum; some DTS streams have 6 or 7 channel layouts 
+        fmt   = track.get( 'Format',           '' )
+        nCH   = track.get( 'Channel_s_',       '' )
+        lang1 = track.get( 'Language/String',  '' )
+        lang2 = track.get( 'Language/String2', '' )
+        title = track.get( 'Title',            'Source Track: {}'.format(track_id) )
+        if type(nCH) is str: nCH = max( map( int, nCH.split('/') ) )                    # If nCH is of type string, split number of channels for the audio stream on forward slash, convert all to integer type, take maximum; some DTS streams have 6 or 7 channel layouts 
         lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_';                    # Set default language to English
         try:
             mapping = track['StreamOrder'].split('-');                          # Try to split StreamOrder on hyphen
         except:
-            mapping = ['0', str(track['StreamOrder'])];                         # On exception, assume StreamOrder is integer; convert to string and create own mapping
-        mapping = ':'.join( mapping );                                          # Join mapping list on colon
-        info['file_info'].append( lang2 + fmt );                              # Append the language and format for the second strem, which is a copy of the orignal stream
+            mapping = ['0', str(track['StreamOrder'])];                                 # On exception, assume StreamOrder is integer; convert to string and create own mapping
+        mapping = ':'.join( mapping );                                                  # Join mapping list on colon
+        info['file_info'].append( '-'.join( (lang2 + fmt).split() ) )                   # Append the language and format for the second strem, which is a copy of the orignal stream
 
-        if nCH > 2:                                                             # If there are more than 2 audio channels
-          info['-map'].extend(    ['-map', mapping]                        );   # Append the track number to the --audio list
-          info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']    );   # Append audio codecs to faac and copy
-          info['-title'].append( '-metadata:s:a:{}'.format(track_num)      );   # Append  audio track names
-          info['-title'].append( 'title={} - {}'.format(title, fmt)        );
-          info['-language'].append( '-metadata:s:a:{}'.format(track_num)   );   # Append  audio track names
-          info['-language'].append( 'language={}'.format(lang3)            );
-        else:                                                                   # Else, there are 2 or fewer channels
-          info['-map'].extend(    ['-map', mapping]                      );   # Append the track number to the --audio list
-          info['-codec'].extend(  ['-c:a:{}'.format(track_num), 'copy']  );   # Append audio codecs to faac and copy
-          info['-title'].append( '-metadata:s:a:{}'.format(track_num) );     # Append  audio track names
-          if nCH == 2:                                                          # If there are only 2 audio channels
-            info['-title'].append( 'title=stereo' );
-          else:                                                                 # Else, must be only a single channel
-            info['-title'].append( 'title=mono'   );
+        if nCH > 2:                                                                     # If there are more than 2 audio channels
+          info['-map'     ].extend( ['-map', mapping]                     )             # Append the track number to the --audio list
+          info['-codec'   ].extend( ['-c:a:{}'.format(track_num), 'copy'] )             # Append audio codecs to faac and copy
+          info['-title'   ].append( '-metadata:s:a:{}'.format(track_num)  )             # Append  audio track names
+          info['-title'   ].append( 'title={} - {}'.format(title, fmt)    )
+          info['-language'].append( '-metadata:s:a:{}'.format(track_num)  )             # Append  audio track names
+          info['-language'].append( 'language={}'.format(lang3)           )
+        else:                                                                           # Else, there are 2 or fewer channels
+          info['-map'  ].extend( ['-map', mapping]                     )                # Append the track number to the --audio list
+          info['-codec'].extend( ['-c:a:{}'.format(track_num), 'copy'] )                # Append audio codecs to faac and copy
+          info['-title'].append( '-metadata:s:a:{}'.format(track_num)  )                # Append  audio track names
+          if nCH == 2:                                                                  # If there are only 2 audio channels
+            info['-title'].append( 'title=stereo' )
+          else:                                                                         # Else, must be only a single channel
+            info['-title'].append( 'title=mono'   )
 
-          info['-language'].append( '-metadata:s:a:{}'.format(track_num) );     # Append  audio track names
-          info['-language'].append( 'language={}'.format(lang3)          );
+          info['-language'].append( '-metadata:s:a:{}'.format(track_num) )              # Append  audio track names
+          info['-language'].append( 'language={}'.format(lang3)          )
 
-        track_id = str( int(track_id) + 1 );                                    # Increment audio track
-        track_num += 1;
+        track_id   = str( int(track_id) + 1 )                                           # Increment audio track
+        track_num += 1
 
-    if len(info['-map']) == 0:                                                  # If the --audio list is NOT empty
-      self.__log.warning(  'NO audio stream(s) selected...');                     # If verbose is set, print some output
+    if len(info['-map']) == 0:                                                          # If the --audio list is NOT empty
+      self.__log.warning(  'NO audio stream(s) selected...')                            # If verbose is set, print some output
       return None;
 
-    return info;                                                              # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
+    return info                                                                         # If audio info was parsed, i.e., the '--audio' tag is NOT empty, then set the audio_info to the info dictionary      
 
   ################################################################################
   def get_video_info( self, x265 = False ):
@@ -457,17 +454,18 @@ class MediaInfo( object ):
     j, n_elems, info = 0, [], [];                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
     for lang in language:                                                         # Iterate over all languages
       for track in self.__mediainfo['Text']:                                             # Iterate over all text information
-        lang3  = track['Language/String3']  if 'Language/String3' in track else ''; 
+        lang3  = track.get( 'Language/String3', '' )
         if lang != lang3: continue;                                               # If the track language does NOT matche the current language
-        id     = track['ID']                if 'ID'                in track else '';
-        lang1  = track['Language/String']   if 'Language/String'   in track else '';
-        lang2  = track['Language/String2']  if 'Language/String2'  in track else '';
-        elems  = track['count_of_elements'] if 'count_of_elements' in track else '';
-        frames = track['Frame_count']       if 'Frame_count'       in track else '';
+        id     = track.get( 'ID',                '' )                                   # Get track ID returning empty string if not in dictionary
+        lang1  = track.get( 'Language/String',   '' )
+        lang2  = track.get( 'Language/String2',  '' )
+        elems  = track.get( 'count_of_elements', '' )
+        frames = track.get( 'Frame_count',       '' )
         if 'Forced' in track:
           forced = True if track['Forced'].lower() == 'yes' else False;
         else:
           forced = False
+
         ext = '.' + str( j );                                                     # Append sub title track number to file
         if lang3 != '':  
           ext = ext + '.' + lang3;                                                # Append 2 character language code if language is present
@@ -527,14 +525,14 @@ class MediaInfo( object ):
     j, n_elems, info = 0, [], [];                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
     for lang in language:                                                         # Iterate over all languages
       for track in self.__mediainfo['Text']:                                             # Iterate over all text information
-        lang3  = track['Language/String3']  if 'Language/String3' in track else ''; 
+        lang3  = track.get( 'Language/String3', '' )
         # The following line is commented because language information not available for DCCTV in mediainfo output, but may be in future
         # if lang != lang3: continue;                                               # If the track language does NOT matche the current language
-        id     = track['ID']                if 'ID'                in track else '';
-        lang1  = track['Language/String']   if 'Language/String'   in track else '';
-        lang2  = track['Language/String2']  if 'Language/String2'  in track else '';
-        elems  = track['count_of_elements'] if 'count_of_elements' in track else '';
-        frames = track['Frame_count']       if 'Frame_count'       in track else '';
+        id     = track.get( 'ID',                '' )
+        lang1  = track.get( 'Language/String',   '' )
+        lang2  = track.get( 'Language/String2',  '' )
+        elems  = track.get( 'count_of_elements', '' )
+        frames = track.get( 'Frame_count',       '' )
         if 'Forced' in track:
           forced = True if track['Forced'].lower() == 'yes' else False;
         else:
