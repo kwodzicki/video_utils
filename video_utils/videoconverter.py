@@ -8,7 +8,8 @@ from subprocess import PIPE, STDOUT
 from . import _sigintEvent, _sigtermEvent, isRunning
 from .mediainfo import MediaInfo
 from .comremove import ComRemove
-from .utils.ffmpeg_utils   import cropdetect, progress
+from .utils.handlers import RotatingFile
+from .utils.ffmpeg_utils   import cropdetect, FFmpegProgress, progress
 from .utils.threadCheck import threadCheck 
 
 # Subtitle imports
@@ -58,6 +59,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   def __init__(self, 
                in_place      = False, 
                no_ffmpeg_log = True,
+               transcode_log = None,
                lang          = None, 
                threads       = None, 
                container     = 'mp4',
@@ -128,6 +130,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.logDir        = kwargs.get('logDir', LOGDIR)
     self.in_place      = in_place                                                       # Set the in_place attribute based on input value
     self.no_ffmpeg_log = no_ffmpeg_log                                                  # Set the no_ffmpeg_log attribute based on the input value
+    self.transcode_log = transcode_log
     self.miss_lang     = []
     self.x265          = x265
     self.remove        = remove
@@ -328,7 +331,8 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     self.__log.info( 'Transcoding file...' )
 
-    kwargs = {'threads' : self.threads}                                                 # Initialzie keyword arguments from Popen_async method
+    progress = FFmpegProgress( nintervals = 10 )                                        # Initialize ffmpeg progress class
+    kwargs   = {'threads' : self.threads}                                               # Initialzie keyword arguments from Popen_async method
     if self.no_ffmpeg_log:                                                              # If creation of ffmpeg log files is disabled
       kwargs.update(
         {'stdout'             : PIPE, 
@@ -336,8 +340,13 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
          'universal_newlines' : True}
       )                                                                                 # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
     else:                                                                               # Else
-      logFile = os.path.basename(self.outFile) + '.log'                                 # Set log file path
-      kwargs.update( {'stderr' : os.path.join(self.logDir, logFile)} )                  # Update keyword arguments
+      if self.transcode_log:
+        logFile = self.transcode_log
+      else:
+        logFile = os.path.basename(self.outFile) + '.log'                                 # Set log file path
+        logFile = os.path.join(self.logDir, logFile)
+      stderr  = RotatingFile( logFile, callback=progress.progress )
+      kwargs.update( {'stderr' : stderr} )                                              # Update keyword arguments
 
     self.__log.debug('ffmpeg cmd: {}'.format(' '.join(self.ffmpeg_cmd)))
     try:
@@ -348,7 +357,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     if proc and self.no_ffmpeg_log:                                                     # If ffmpeg log files are disabled, we want to know a little bit about what is going on
       self.__log.debug('Applying progress function...')
       proc.startWait( timeout = 2.0 )
-      if not proc.applyFunc( progress, nintervals = 10 ):                   # Apply the 'progess' function to the process to monitor ffmpeg progress
+      if not proc.applyFunc( progress.progress ):                   # Apply the 'progess' function to the process to monitor ffmpeg progress
         self.__log.warning('Failed to apply progress function')
     proc.wait()
 

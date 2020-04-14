@@ -2,7 +2,7 @@ import logging
 import os
 
 from .. import isRunning#_sigintEvent, _sigtermEvent
-from ..config import CONFIG
+from ..config import CONFIG, plexFMT
 from ..videoconverter import VideoConverter
 from ..utils.ffmpeg_utils import checkIntegrity
 from ..utils.handlers import EMailHandler
@@ -70,7 +70,8 @@ class DVRconverter(VideoConverter):
     super().__init__(
       log_dir       = logdir,
       in_place      = True,
-      no_ffmpeg_log = True,
+      no_ffmpeg_log = False,
+      transcode_log = plexFMT['transcode'],
       lang          = lang,
       remove        = not no_remove,
       subfolder     = False,

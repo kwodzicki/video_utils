@@ -144,66 +144,140 @@ def prettyTime( *args, timeFMT = '%H:%M:%S' ):
     '''
     return [time.strftime( timeFMT, time.gmtime( i ) ) for i in args];          # Interate over each argument and convert to string time, returning the list
 
+class FFmpegProgress(object):
+  '''
+  Name:
+    progess
+  Purpose:
+    A function to loop over the output from ffmpeg to determine how much
+    time remains in the conversion.
+  Inputs:
+    proc  : A subprocess.Popen instance. The stdout of Popen must be set
+             to subprocess.PIPE and the stderr must be set to 
+             subprocess.STDOUT so that all information runs through 
+             stdout. The universal_newlines keyword must be set to True
+             as well
+  Outputs:
+    Returns nothing. Does NOT wait for the process to finish so MUST handle
+    that in calling function
+  Keywords:
+    interval   : The update interval, in seconds, to log time remaining info.
+                  Default is sixty (60) seconds, or 1 minute.
+    nintervals : Set to number of updates you would like to be logged about
+                  progress. Default is to log as many updates as it takes
+                  at the interval requested. Setting this keyword will 
+                  override the value set in the interval keyword.
+                  Note that the value of interval will be used until the
+                  first log, after which point the interval will be updated
+                  based on the remaing conversion time and the requested
+                  number of updates
+  '''
+  def __init__(self, interval = 60.0, nintervals = None):
+    self.log = logging.getLogger(__name__)                                          # Initialize logger for the function
+    self.t0  = self.t1 = time.time()                                                      # Initialize t0 and t1 to the same time; i.e., now
+    self.dur        = None                                                             # Initialize dur to None; this is the file duration
+    self.interval   = interval
+    self.nintervals = nintervals
+
+  def progress(self, inVal):
+    if isinstance( inVal, Popen ):
+      self._subprocess( inVal )
+    else:
+      self._processLine( inVal )
+
+  def _subprocess( self, proc ):
+    if proc.stdout is None:                                                     # If the stdout of the process is None
+      log.error( 'Subprocess stdout is None type! No progess to print!' );    # Log an error
+      return                                                                 # Return
+    if not proc.universal_newlines:                                             # If universal_newlines was NOT set on Popen initialization
+      log.error( 'Must set universal_newlines to True in call to Popen! No progress to print!' ); # Log an error
+      return                                                                 # Return
+
+    line = proc.stdout.readline();                                           # Read a line from stdout for while loop start
+    while (line != ''):                                                         # While the line is NOT empty
+      self._processLine( line )
+      line = proc.stdout.readline();                                          # Read the next line
+
+  def _processLine( self, line ):
+    if self.dur is None:                                                         # If the file duration has NOT been set yet
+      tmp = _durPat.findall( line );                                      # Try to find the file duration pattern in the line
+      if len(tmp) == 1:                                                   # If the pattern is found
+        self.dur = totalSeconds( tmp[0] )[0];                            # Compute the total number of seconds in the file, take element zero as returns list
+    elif (time.time()-self.t1) >= self.interval:                                      # Else, if the amount of time between the last logging and now is greater or equal to the interval
+      self.t1  = time.time();                                                  # Update the time at which we are logging
+      tmp      = _progPat.findall( line );                                     # Look for progress time in the line
+      if len(tmp) == 1:                                                   # If progress time found
+        elapsed = self.t1 - self.t0                                              # Compute the elapsed time
+        prog    = totalSeconds( tmp[0] )[0]                             # Compute total number of seconds comverted so far, take element zero as returns list
+        ratio   = elapsed / prog                                       # Ratio of real-time seconds per seconds of video processed
+        remain  = ratio * (self.dur - prog)                                 # Multiply ratio by the number of seconds of video left to convert
+        endTime = datetime.now() + timedelta( seconds=remain )         # Compute estimated completion time
+        self.log.info( _info.format( endTime ) )                            # Log information
+        if (self.nintervals is not None) and (self.nintervals > 1):               # If the adaptive interval keyword is set AND nn is greater than zero
+          self.nintervals -= 1                                            # Decrement nintervals
+          self.interval    = remain / float(self.nintervals)                   # Set interval to remaining time divided by nn
+
+
 ###############################################################################
 def progress( proc, interval = 60.0, nintervals = None ):
-    '''
-    Name:
-      progess
-    Purpose:
-      A function to loop over the output from ffmpeg to determine how much
-      time remains in the conversion.
-    Inputs:
-      proc  : A subprocess.Popen instance. The stdout of Popen must be set
-               to subprocess.PIPE and the stderr must be set to 
-               subprocess.STDOUT so that all information runs through 
-               stdout. The universal_newlines keyword must be set to True
-               as well
-    Outputs:
-      Returns nothing. Does NOT wait for the process to finish so MUST handle
-      that in calling function
-    Keywords:
-      interval   : The update interval, in seconds, to log time remaining info.
-                    Default is sixty (60) seconds, or 1 minute.
-      nintervals : Set to number of updates you would like to be logged about
-                    progress. Default is to log as many updates as it takes
-                    at the interval requested. Setting this keyword will 
-                    override the value set in the interval keyword.
-                    Note that the value of interval will be used until the
-                    first log, after which point the interval will be updated
-                    based on the remaing conversion time and the requested
-                    number of updates
-    '''
-    log = logging.getLogger(__name__);                                          # Initialize logger for the function
-    if proc.stdout is None:                                                     # If the stdout of the process is None
-        log.error( 'Subprocess stdout is None type! No progess to print!' );    # Log an error
-        return;                                                                 # Return
-    if not proc.universal_newlines:                                             # If universal_newlines was NOT set on Popen initialization
-        log.error( 'Must set universal_newlines to True in call to Popen! No progress to print!' ); # Log an error
-        return;                                                                 # Return
+  '''
+  Name:
+    procProgess
+  Purpose:
+    A function to loop over the output from ffmpeg to determine how much
+    time remains in the conversion.
+  Inputs:
+    proc  : A subprocess.Popen instance. The stdout of Popen must be set
+             to subprocess.PIPE and the stderr must be set to 
+             subprocess.STDOUT so that all information runs through 
+             stdout. The universal_newlines keyword must be set to True
+             as well
+  Outputs:
+    Returns nothing. Does NOT wait for the process to finish so MUST handle
+    that in calling function
+  Keywords:
+    interval   : The update interval, in seconds, to log time remaining info.
+                  Default is sixty (60) seconds, or 1 minute.
+    nintervals : Set to number of updates you would like to be logged about
+                  progress. Default is to log as many updates as it takes
+                  at the interval requested. Setting this keyword will 
+                  override the value set in the interval keyword.
+                  Note that the value of interval will be used until the
+                  first log, after which point the interval will be updated
+                  based on the remaing conversion time and the requested
+                  number of updates
+  '''
+  log = logging.getLogger(__name__);                                          # Initialize logger for the function
+  if proc.stdout is None:                                                     # If the stdout of the process is None
+    log.error( 'Subprocess stdout is None type! No progess to print!' );    # Log an error
+    return;                                                                 # Return
+  if not proc.universal_newlines:                                             # If universal_newlines was NOT set on Popen initialization
+    log.error( 'Must set universal_newlines to True in call to Popen! No progress to print!' ); # Log an error
+    return;                                                                 # Return
 
-    t0 = t1 = time.time();                                                      # Initialize t0 and t1 to the same time; i.e., now
-    dur     = None;                                                             # Initialize dur to None; this is the file duration
-    line    = proc.stdout.readline();                                           # Read a line from stdout for while loop start
-    while (line != ''):                                                         # While the line is NOT empty
-        if dur is None:                                                         # If the file duration has NOT been set yet
-            tmp = _durPat.findall( line );                                      # Try to find the file duration pattern in the line
-            if len(tmp) == 1:                                                   # If the pattern is found
-                dur     = totalSeconds( tmp[0] )[0];                            # Compute the total number of seconds in the file, take element zero as returns list
-        elif (time.time()-t1) >= interval:                                      # Else, if the amount of time between the last logging and now is greater or equal to the interval
-            t1  = time.time();                                                  # Update the time at which we are logging
-            tmp = _progPat.findall( line );                                     # Look for progress time in the line
-            if len(tmp) == 1:                                                   # If progress time found
-                elapsed = t1 - t0;                                              # Compute the elapsed time
-                prog    = totalSeconds( tmp[0] )[0]                             # Compute total number of seconds comverted so far, take element zero as returns list
-                ratio   = elapsed / prog;                                       # Ratio of real-time seconds per seconds of video processed
-                remain  = ratio * (dur - prog);                                 # Multiply ratio by the number of seconds of video left to convert
-                endTime = datetime.now() + timedelta( seconds=remain );         # Compute estimated completion time
-                log.info( _info.format( endTime ) );                            # Log information
-                if (nintervals is not None) and (nintervals > 1):               # If the adaptive interval keyword is set AND nn is greater than zero
-                    nintervals -= 1;                                            # Decrement nintervals
-                    interval    = remain / float(nintervals);                   # Set interval to remaining time divided by nn
-        line = proc.stdout.readline();                                          # Read the next line
-    return
+  t0 = t1 = time.time();                                                      # Initialize t0 and t1 to the same time; i.e., now
+  dur     = None;                                                             # Initialize dur to None; this is the file duration
+  line    = proc.stdout.readline();                                           # Read a line from stdout for while loop start
+  while (line != ''):                                                         # While the line is NOT empty
+    if dur is None:                                                         # If the file duration has NOT been set yet
+      tmp = _durPat.findall( line );                                      # Try to find the file duration pattern in the line
+      if len(tmp) == 1:                                                   # If the pattern is found
+        dur     = totalSeconds( tmp[0] )[0];                            # Compute the total number of seconds in the file, take element zero as returns list
+    elif (time.time()-t1) >= interval:                                      # Else, if the amount of time between the last logging and now is greater or equal to the interval
+      t1  = time.time();                                                  # Update the time at which we are logging
+      tmp = _progPat.findall( line );                                     # Look for progress time in the line
+      if len(tmp) == 1:                                                   # If progress time found
+        elapsed = t1 - t0;                                              # Compute the elapsed time
+        prog    = totalSeconds( tmp[0] )[0]                             # Compute total number of seconds comverted so far, take element zero as returns list
+        ratio   = elapsed / prog;                                       # Ratio of real-time seconds per seconds of video processed
+        remain  = ratio * (dur - prog);                                 # Multiply ratio by the number of seconds of video left to convert
+        endTime = datetime.now() + timedelta( seconds=remain );         # Compute estimated completion time
+        log.info( _info.format( endTime ) );                            # Log information
+        if (nintervals is not None) and (nintervals > 1):               # If the adaptive interval keyword is set AND nn is greater than zero
+          nintervals -= 1;                                            # Decrement nintervals
+          interval    = remain / float(nintervals);                   # Set interval to remaining time divided by nn
+    line = proc.stdout.readline();                                          # Read the next line
+  return
 
 ########################################################
 def getVideoLength(in_file):

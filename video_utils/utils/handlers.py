@@ -1,7 +1,12 @@
 import logging
+from logging.handlers import RotatingFileHandler
+
+import os
+
 import smtplib
 from email.message import EmailMessage
-from threading import Lock
+
+from threading import Thread, Lock
 
 HOST = 'smtp.gmail.com'  
 PORT = 465 
@@ -54,3 +59,103 @@ class EMailHandler( logging.Handler ):
       server.close() 
     except:
       pass
+
+########################################################################################
+class RotatingFile( Thread ):
+  '''
+  A class that acts like the logging.handlers.RotatingFileHander;
+  writing data out to a file until file grows too large, then rolling
+  over.
+
+  This class is intended to be used for stdout and stderr for calls to
+  subprocess module routines, such as the Popen constructor. However, there
+  are many other applications for this class.
+  '''
+  def __init__(self, *args, **kwargs):
+    super().__init__()
+    self.rw         = None                                                              # Initialize read/write pipe as None
+    self.callback   = kwargs.pop('callback', None)                                      # Pop off 'callback' keyword; set to None
+    self.log        = RotatingFileHandler(*args, **kwargs)                              # Initialize rotating file handler
+    self.log.format = lambda x: x.rstrip()                                              # Set formatting
+
+  def __enter__(self, *args, **kwargs):
+    self.start()
+
+  def __exit__(self, *args, **kwargs):
+    self.close()
+
+  def start(self):
+    self.rw = os.pipe()                                                                 # Open a pipe
+    super().start()                                                                     # Call supercalls start method
+
+  def run(self):
+    '''
+    Purpose:
+      Overloads the run method; this method will run in own thread.
+      Reads data from pipe and passes to self.log.emit
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      None.
+    '''
+    with os.fdopen(self.rw[0]) as fid:                                                  # Open the read-end of pipe
+      for line in iter(fid.readline, ''):                                               # Iterate over all lines
+        self.log.emit( line )                                                           # Pass line to rotating logger
+        if self.callback:                                                               # If call back is set
+          self.callback( line )                                                         # Pass line to call back
+
+  def close(self):
+    '''
+    Purpose:
+      Method to clean up the pipe and logging file
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      None.
+    '''
+    if self.rw:                                                                         # If rw is set
+      os.close(self.rw[1])                                                              # Close the write-end of pipe
+      self.rw = None                                                                    # Set rw to None
+    self.log.close()                                                                    # Close the log
+ 
+  def fileno(self):
+    '''
+    Purpose:
+      Method to get underlying file pointer; in this case pipe
+    Inputs:
+      None.
+    Keywords:
+      None.
+    Returns:
+      None.
+    '''
+    if not self.rw:                                                                     # If read/write pipe NOT set
+      self.start()                                                                      # Start thread
+    return self.rw[1]                                                                   # Return write-end of pipe
+
+########################################################################################
+def callbackFunc( level ):
+  log = logging.getLogger(__name__)
+  def callbackFuncWrapper( line ):
+    log.log(level, line.rstrip() )
+
+  return callbackFuncWrapper
+
+########################################################################################
+if __name__ == "__main__":
+  log = logging.getLogger()
+  log.setLevel( 0 )
+  log.addHandler( logging.StreamHandler() )
+  log.handlers[0].setLevel(0)
+  log.handlers[0].setFormatter( logging.Formatter( '%(levelname)s %(message)s' ) )
+
+  from subprocess import Popen, STDOUT
+  x = RotatingFile('test.txt', maxBytes = 6, backupCount= 3, callback=callbackFunc(20) )
+  with x:
+    p = Popen( ['./bashtest'], stdout = x, stderr = STDOUT )
+  p.communicate()
+ 

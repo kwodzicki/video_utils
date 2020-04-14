@@ -31,6 +31,7 @@ fileFMT    = {
 plexFMT    = {
   'pidFile'     : os.path.join( APPDIR, 'Plex_DVR_Watchdog.pid'),
   'file'        : os.path.join( LOGDIR, 'Plex_DVR_Watchdog.log'),
+  'transcode'   : os.path.join( LOGDIR, 'Plex_DVR_Watchdog_Transcode.log'), 
   'name'        : 'plex_dvr',
   'maxBytes'    : 5 * 1024**2,
   'backupCount' : 4,
