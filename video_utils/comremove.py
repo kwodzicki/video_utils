@@ -57,10 +57,12 @@ class ComRemove( object ):
       if not os.path.isdir( iniDir ):                                                   # If path does not exist
         iniDir = None                                                                   # Set iniDir to None
 
-
+    comskip_log      = kwargs.get('comskip_log', None)
+    if comskip_log is None:
+      comskip_log = config.getComskipLog( self.__class__.__name__ )
     self.iniDir      = iniDir                                                              # Set attribute 
     self.threads     = threads                                                             # Set number of threads process will use; default is number of threads in POPENPOOL
-    self.comskip_log = kwargs.get('comskip_log', None)
+    self.comskip_log = comskip_log 
     self.cpulimit    = kwargs.get('cpulimit',    None)
     self.verbose     = kwargs.get('verbose',     None)
     self.__outDir    = None
