@@ -1,5 +1,9 @@
 import logging
 import os, stat, json
+import argparse
+
+from ..version import __version__
+from ..utils.threadCheck import HALFTHREADS
 
 PKGNAME = __name__.split('.')[0]                                                        # Get root name of package 
 HOME    = os.path.expanduser('~')
@@ -21,6 +25,12 @@ screenFMT  = {
                 '%(levelname)-8s - %(asctime)s - %(name)s - %(message)s',
                 '%Y-%m-%d %H:%M:%S')
 }
+
+ROTATING_FORMAT = {
+  'maxBytes'    : 5 * 1024**2,
+  'backupCount' : 4
+}
+
 fileFMT    = {
   'level'     : logging.INFO,
   'formatter' : logging.Formatter( 
@@ -28,13 +38,12 @@ fileFMT    = {
                 '%Y-%m-%d %H:%M:%S')
 }
 
+
 plexFMT    = {
   'pidFile'     : os.path.join( APPDIR, 'Plex_DVR_Watchdog.pid'),
   'file'        : os.path.join( LOGDIR, 'Plex_DVR_Watchdog.log'),
   'transcode'   : os.path.join( LOGDIR, 'Plex_DVR_Watchdog_Transcode.log'), 
   'name'        : 'plex_dvr',
-  'maxBytes'    : 5 * 1024**2,
-  'backupCount' : 4,
   'level'       : logging.DEBUG,
   'formatter'   : logging.Formatter( 
                 '%(levelname)-.4s - %(asctime)s - %(name)s.%(funcName)-15.15s - %(message)s',
@@ -48,8 +57,6 @@ MakeMKVFMT = {
   'pidFile'     : os.path.join( APPDIR, 'MakeMKV_Watchdog.pid'),
   'file'        : os.path.join( LOGDIR, 'MakeMKV_Watchdog.log'),
   'name'        : 'MakeMKV',
-  'maxBytes'    : 5 * 1024**2,
-  'backupCount' : 4,
   'level'       : logging.DEBUG,
   'formatter'   : logging.Formatter( 
                 '%(levelname)-.4s - %(asctime)s - %(name)s.%(funcName)-15.15s - %(message)s',
@@ -73,3 +80,23 @@ plex_dvr = {
                 stat.S_IRGRP | stat.S_IWGRP  | \
                 stat.S_IROTH | stat.S_IWOTH
 }                                   # Path to a lock file to stop multiple instances from running at same time
+
+BASEPARSER = argparse.ArgumentParser( 
+  add_help        = False,
+  formatter_class = argparse.ArgumentDefaultsHelpFormatter
+)                                                                                       # Initialize base parser
+BASEPARSER.add_argument("-t", "--threads",   type   = int, default=HALFTHREADS,      help = "Set number of CPUs to use.");
+BASEPARSER.add_argument("-c", "--cpulimit",  type   = int, default=75,               help = "Set to limit CPU usage. Set to 0 to disable CPU limiting. Has no effect if cpulimit CLI is not installed.")
+BASEPARSER.add_argument("--lang",            type   = str, default='eng', nargs='+', help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using spaces; e.g., '--lage eng fra' for English and French.")
+BASEPARSER.add_argument("--no-remove",       action = "store_true",                  help = "Set to disbale removing input file after transcode. Default is to delete soruce file.")
+BASEPARSER.add_argument("--no-srt",          action = "store_true",                  help = "Set to disbale conversion of VobSub(s) to SRT")
+BASEPARSER.add_argument("--loglevel",        type   = int,                           help = "Set logging level")
+BASEPARSER.add_argument('--version',         action = 'version', version = '%(prog)s '+__version__)
+
+def getComskipLog(progName, logdir = None):
+  if logdir is None: logdir = LOGDIR
+  return os.path.join( logdir, '{}_Comskip.log'.format(progName) )
+
+def getTranscodeLog(progName, logdir = None):
+  if logdir is None: logdir = LOGDIR
+  return os.path.join( logdir, '{}_Transcoder.log'.format(progName) )

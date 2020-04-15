@@ -5,7 +5,9 @@ from datetime import timedelta
 from . import config
 from .utils.checkCLI import checkCLI
 from .utils.ffmpeg_utils import getVideoLength
+from .utils.handlers import RotatingFile
 from .utils import threadCheck
+
 try:
   COMSKIP = checkCLI( 'comskip' )
 except:
@@ -55,12 +57,14 @@ class ComRemove( object ):
       if not os.path.isdir( iniDir ):                                                   # If path does not exist
         iniDir = None                                                                   # Set iniDir to None
 
-    self.iniDir   = iniDir                                                              # Set attribute 
-    self.threads  = threads                                                             # Set number of threads process will use; default is number of threads in POPENPOOL
-    self.cpulimit = kwargs.get('cpulimit', None)
-    self.verbose  = kwargs.get('verbose',  None)
-    self.__outDir   = None
-    self.__fileExt  = None
+
+    self.iniDir      = iniDir                                                              # Set attribute 
+    self.threads     = threads                                                             # Set number of threads process will use; default is number of threads in POPENPOOL
+    self.comskip_log = kwargs.get('comskip_log', None)
+    self.cpulimit    = kwargs.get('cpulimit',    None)
+    self.verbose     = kwargs.get('verbose',     None)
+    self.__outDir    = None
+    self.__fileExt   = None
 
   ########################################################
   def removeCommercials(self, in_file, chapters = False, name = '' ):
@@ -139,7 +143,13 @@ class ComRemove( object ):
     cmd.append( '--output={}'.format(self.__outDir) );
     cmd.extend( [in_file, self.__outDir] );
     self.__log.debug( 'comskip command: {}'.format(' '.join(cmd)) );              # Debugging information
-    proc = POPENPOOL.Popen_async(cmd, threads = self.threads)
+
+    if self.comskip_log:
+      kwargs = {'stdout'             : RotatingFile( self.comskip_log ),
+                'universal_newlines' : True}
+    else:
+      kwargs = {}
+    proc = POPENPOOL.Popen_async(cmd, threads = self.threads, **kwargs)
 
     if not proc.wait( timeout = 8 * 3600 ):                                     # Wait for 8 hours for comskip to finish; this should be more than enough time
       self.__log.error('comskip NOT finished after 8 hours; killing')

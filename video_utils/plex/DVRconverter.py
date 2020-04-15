@@ -70,8 +70,6 @@ class DVRconverter(VideoConverter):
     super().__init__(
       log_dir       = logdir,
       in_place      = True,
-      no_ffmpeg_log = False,
-      transcode_log = plexFMT['transcode'],
       lang          = lang,
       remove        = not no_remove,
       subfolder     = False,

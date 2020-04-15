@@ -8,6 +8,9 @@ from email.message import EmailMessage
 
 from threading import Thread, Lock
 
+from .. import log
+from ..config import ROTATING_FORMAT
+
 HOST = 'smtp.gmail.com'  
 PORT = 465 
 
@@ -75,14 +78,25 @@ class RotatingFile( Thread ):
     super().__init__()
     self.rw         = None                                                              # Initialize read/write pipe as None
     self.callback   = kwargs.pop('callback', None)                                      # Pop off 'callback' keyword; set to None
+    for key, val in ROTATING_FORMAT.items():
+      if key not in kwargs:
+        kwargs[key] = val
+
+    formatter       = kwargs.pop('formatter', None)
     self.log        = RotatingFileHandler(*args, **kwargs)                              # Initialize rotating file handler
-    self.log.format = lambda x: x.rstrip()                                              # Set formatting
+    if isinstance(formatter, logging.Formatter):
+      self.log.setFormatter( formatter )                                                # Set formatting
+    else:
+      self.log.setFormatter( logging.Formatter( '%(asctime)s - %(message)s' ) )
 
   def __enter__(self, *args, **kwargs):
     self.start()
 
   def __exit__(self, *args, **kwargs):
     self.close()
+
+  def setFormatter(self, *args):
+    self.log.setFormatter( *args )
 
   def start(self):
     self.rw = os.pipe()                                                                 # Open a pipe
@@ -102,9 +116,11 @@ class RotatingFile( Thread ):
     '''
     with os.fdopen(self.rw[0]) as fid:                                                  # Open the read-end of pipe
       for line in iter(fid.readline, ''):                                               # Iterate over all lines
-        self.log.emit( line )                                                           # Pass line to rotating logger
+        record = logging.LogRecord('', 20, '', '', line.rstrip(), '', '')
+        self.log.emit( record )                                                         # Pass line to rotating logger
         if self.callback:                                                               # If call back is set
           self.callback( line )                                                         # Pass line to call back
+    self.close()
 
   def close(self):
     '''
@@ -137,25 +153,29 @@ class RotatingFile( Thread ):
       self.start()                                                                      # Start thread
     return self.rw[1]                                                                   # Return write-end of pipe
 
-########################################################################################
-def callbackFunc( level ):
-  log = logging.getLogger(__name__)
-  def callbackFuncWrapper( line ):
-    log.log(level, line.rstrip() )
-
-  return callbackFuncWrapper
 
 ########################################################################################
-if __name__ == "__main__":
-  log = logging.getLogger()
-  log.setLevel( 0 )
-  log.addHandler( logging.StreamHandler() )
-  log.handlers[0].setLevel(0)
-  log.handlers[0].setFormatter( logging.Formatter( '%(levelname)s %(message)s' ) )
+def initLogFile( formatDict ):
+  noHandler = True;                                                             # Initialize noHandle
+  for handler in log.handlers:                                                  # Iterate over all ha
+    if handler.get_name() == formatDict['name']:                                   # If handler name mat
+      noHandler = False;                                                        # Set no handler fals
+      break;                                                                    # Break for loop
 
-  from subprocess import Popen, STDOUT
-  x = RotatingFile('test.txt', maxBytes = 6, backupCount= 3, callback=callbackFunc(20) )
-  with x:
-    p = Popen( ['./bashtest'], stdout = x, stderr = STDOUT )
-  p.communicate()
- 
+  if noHandler:
+    logDir = os.path.dirname( formatDict['file'] );
+    if not os.path.isdir( logDir ):
+      os.makedirs( logDir )
+    rfh = RotatingFileHandler( formatDict['file'], **ROTATING_FORMAT )
+    rfh.setFormatter( formatDict['formatter'] )
+    rfh.setLevel(     formatDict['level']     )                                   # Set the logging lev
+    rfh.set_name(     formatDict['name']      )                                   # Set the log name
+    log.addHandler( rfh )                                                      # Add hander to the m
+
+    info = os.stat( formatDict['file'] );                                          # Get information abo
+    if (info.st_mode & formatDict['permissions']) != formatDict['permissions']:       # If the permissions
+      try:                                                                      # Try to
+        os.chmod( formatDict['file'], formatDict['permissions'] );                    # Set the permissions
+      except:
+        log.info('Failed to change log permissions; this may cause issues')
+

@@ -31,7 +31,7 @@ except:
 from .videotagger import getMetaData
 
 # Logging formatter
-from .config import LOGDIR, fileFMT
+from .config import getComskipLog, getTranscodeLog, fileFMT
 
 from . import POPENPOOL
 
@@ -58,8 +58,8 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   '''
   def __init__(self, 
                in_place      = False, 
-               no_ffmpeg_log = True,
                transcode_log = None,
+               comskip_log   = None,
                lang          = None, 
                threads       = None, 
                container     = 'mp4',
@@ -79,9 +79,6 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
        in_place      : Set to transcode file in place; i.e., do NOT create a 
                          new path to file such as with TV, where
                          ./Series/Season XX/ directories are created
-       no_ffmpeg_log : Set to suppress the creation of stdout and stderr log
-                        files for ffmpeg and instead pipe the output to
-                        /dev/null
        lang          : String or list of strings of ISO 639-2 codes for 
                         subtitle and audio languages to use. 
                         Default is english (eng).
@@ -124,18 +121,26 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.cpulimit = cpulimit
     self.threads  = threadCheck( threads )
 
-
     # Set up all the easy parameters first
     self.outDir        = kwargs.get('outDir', None)
-    self.logDir        = kwargs.get('logDir', LOGDIR)
+    self.logDir        = kwargs.get('logDir', None)
     self.in_place      = in_place                                                       # Set the in_place attribute based on input value
-    self.no_ffmpeg_log = no_ffmpeg_log                                                  # Set the no_ffmpeg_log attribute based on the input value
-    self.transcode_log = transcode_log
+
     self.miss_lang     = []
     self.x265          = x265
     self.remove        = remove
     self.vobsub_delete = vobsub_delete
     self.inFile       = None
+
+    if transcode_log is None:
+      self.transcode_log = getTranscodeLog(self.__class__.__name__, logdir=self.logDir)
+    else:
+      self.transcode_log = transcode_log
+
+    if comskip_log is None:
+      self.comskip_log = getComskipLog(self.__class__.__name__, logdir=self.logDir)
+    else:
+      self.comskip_log = comskip_log
 
     if lang:                                                                    # If lang is set
       self.lang = lang if isinstance(lang, (tuple,list,)) else [lang]           # Set lang attribute to lang if it is a tuple or list instance, else make lang a list
@@ -238,37 +243,20 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
        10 : No video OR no audio streams
     File Naming:
        MOVIE:
-           Title.qualifier.year.imdbID.mkv
-              Title -     Title of the movie. Only special character  
-                                                 allowed is an apostrophe ('). 
-                                                 DO NOT USE PERIODS (.) IN TITLE!
-              qualifier - Used to specify if movie is unrated, 
-                                                 extended, edition, etc. 
-              year      - Year the movie was released.
-              imdbID    - The movie's IMDB index, which starts with 
-                                                 'tt', and can be found in the URL for the
-                                                 IMDB web page. Here is an example for the 
-                                                 movie '21' where the IMDB index is after 
-                                                 title/: http://www.imdb.com/title/tt0478087/
-           If there is no data for a given field, leave it blank. 
-           For example: A Movie....mkv would be used for a movie 
-           with no qualifier, year, or IMDB index
+           tmdbID.qualifier.mkv
+              qualifier - Used to specify if movie is unrated, extended, edition, etc. 
+              tmdbID    - The movie's TMDb index. Should add tmdb to the number.
+                               Is obtained from movie page on themoviedb.com
        TV EPISODE
-           Title.imdbID.mkv
-              Title  - The title MUST starts with 'sXXeXX - '
-                        where sXX corresponds to the season number 
-                        and eXX is the episode number. For example,
-                        the first episode in a series is usually 
-                        named 'Pilot', so the file title would be 
-                        's01e01 - Pilot'. Only special character  
-                        allowed is an apostrophe (').
-                        DO NOT USE PERIODS (.) IN TITLE!
-              imdbID - The IMDB index of the episode. See imdbID under
-                        MOVIE for more information.
-           If there is no data for a given field, leave it blank. For
-           example: 'A Movie....mkv' would be used for a movie with
-           no qualifier, year, or IMDB index. The same follows for the
-           TV episodes. The only field required is the TITLE
+           tvdbID.SXXEYY.mkv
+              tvdbID - The TVDb ID for the series, in the format
+                        tvdb12345.
+              SXXEYY  - Season and episode information where
+                        SXX corresponds to the season number 
+                        and EXX is the episode number. For example,
+                        the first episode in a series would be S01E01.
+       If there is no data for a given field, leave it blank.
+       For example: tmdb1234..mkv would be used for a theatrical release.
 
     Author and History:
        Kyle R. Wodzicki     Created 29 Dec. 2016
@@ -332,34 +320,18 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.__log.info( 'Transcoding file...' )
 
     progress = FFmpegProgress( nintervals = 10 )                                        # Initialize ffmpeg progress class
-    kwargs   = {'threads' : self.threads}                                               # Initialzie keyword arguments from Popen_async method
-    if self.no_ffmpeg_log:                                                              # If creation of ffmpeg log files is disabled
-      kwargs.update(
-        {'stdout'             : PIPE, 
-         'stderr'             : STDOUT,
-         'universal_newlines' : True}
-      )                                                                                 # Start the ffmpeg command and direct all output to a PIPE and enable universal newlines; this is logging of progess can occur
-    else:                                                                               # Else
-      if self.transcode_log:
-        logFile = self.transcode_log
-      else:
-        logFile = os.path.basename(self.outFile) + '.log'                                 # Set log file path
-        logFile = os.path.join(self.logDir, logFile)
-      stderr  = RotatingFile( logFile, callback=progress.progress )
-      kwargs.update( {'stderr' : stderr} )                                              # Update keyword arguments
+    stderr   = RotatingFile( self.transcode_log, callback=progress.progress )
+    kwargs   = {'threads'            : self.threads,
+                'stderr'             : stderr,
+                'universal_newlines' : True}                                            # Initialzie keyword arguments from Popen_async method
 
     self.__log.debug('ffmpeg cmd: {}'.format(' '.join(self.ffmpeg_cmd)))
     try:
       proc = POPENPOOL.Popen_async( self.ffmpeg_cmd, **kwargs )                         # Submit command to subprocess pool
     except:
       proc = None
-
-    if proc and self.no_ffmpeg_log:                                                     # If ffmpeg log files are disabled, we want to know a little bit about what is going on
-      self.__log.debug('Applying progress function...')
-      proc.startWait( timeout = 2.0 )
-      if not proc.applyFunc( progress.progress ):                   # Apply the 'progess' function to the process to monitor ffmpeg progress
-        self.__log.warning('Failed to apply progress function')
-    proc.wait()
+    else:
+      proc.wait()
 
     self.chapterFile = self._cleanUp( self.chapterFile )                                # Clean up chapter file
 

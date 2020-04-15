@@ -21,64 +21,35 @@ if os.path.isdir(siteDir):
     sys.path.append( siteDir )
 
 from video_utils import log
-from video_utils.config import MakeMKVFMT
-from video_utils.version import __version__
+from video_utils.config import BASEPARSER,  MakeMKVFMT, getTranscodeLog, getComskipLog
 from video_utils.MakeMKV_Watchdog import MakeMKV_Watchdog
-from video_utils.utils.threadCheck import HALFTHREADS
 from video_utils.utils.pidCheck import pidRunning
+from video_utils.utils.handlers import initLogFile
 
-def _initLogFile( logLevel ):
-  noHandler = True;                                                             # Initialize noHandle
-  for handler in log.handlers:                                                  # Iterate over all ha
-    if handler.get_name() == MakeMKVFMT['name']:                                   # If handler name mat
-      noHandler = False;                                                        # Set no handler fals
-      break;                                                                    # Break for loop
-
-  if noHandler:
-    logDir = os.path.dirname( MakeMKVFMT['file'] );
-    if not os.path.isdir( logDir ):
-      os.makedirs( logDir )
-    rfh = RotatingFileHandler(MakeMKVFMT['file'],
-            backupCount = MakeMKVFMT['backupCount'],
-            maxBytes    = MakeMKVFMT['maxBytes']);                                 # Set up rotating fil
-    rfh.setFormatter( MakeMKVFMT['formatter'] );
-    rfh.setLevel(     logLevel     );                                   # Set the logging lev
-    rfh.set_name(     MakeMKVFMT['name']      );                                   # Set the log name
-    log.addHandler( rfh );                                                      # Add hander to the m
-
-    info = os.stat( MakeMKVFMT['file'] );                                          # Get information abo
-    if (info.st_mode & MakeMKVFMT['permissions']) != MakeMKVFMT['permissions']:       # If the permissions
-      try:                                                                      # Try to
-        os.chmod( MakeMKVFMT['file'], MakeMKVFMT['permissions'] );                    # Set the permissions
-      except:
-        log.info('Failed to change log permissions; this may cause issues')
+DESC = 'A CLI for running a watchdog to monitor a directory (or directories) for new files to transcode and add Plex' 
 
 if __name__ == "__main__":
 
-  parser = argparse.ArgumentParser(description="MakeMKV Watchdog",
-                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)           # Set the description of the script to be printed in the help doc, i.e., ./script -h
-  parser.add_argument("indir",                 type   = str, nargs='+',           help = "Directory(s) to watch for new MakeMKV output files"); 
-  parser.add_argument("outdir",                type   = str,                      help = "Top level directory for Plex library directories. E.g., '/mnt/plexLibs' if your library directories are '/mnt/plexLibs/Movies' and '/mnt/plexLibs/TV Shows'."); 
-  parser.add_argument("--fileExt",             type   = str, nargs='+',           help = "Set file extensions to look for in watched directories; only files with given extension(s) will be processed. Default is just '.mkv'") 
-  parser.add_argument("-t", "--threads",       type   = int, default=HALFTHREADS, help = "Set number of CPUs to use.");  
-  parser.add_argument("-c", "--cpulimit",      type   = int, default=75,          help = "Set to limit CPU usage. Set to 0 to disable CPU limiting.") 
-  parser.add_argument("--lang",                type   = str, nargs='+',           help = "Set audio and subtitle language(s) using three (3) character codes (ISO 639-2). For multiple langauges, seperate using spaces; i.e., '--lang eng fra' for Enlish and French. Default: eng for English");
-  parser.add_argument("-v", "--verbose",       type   = str, default=MakeMKVFMT['level'], help = "Set logging level");
-  parser.add_argument("--no-remove",           action = "store_true",             help = "Set to disbale removing input file after transcode. Default is to delete soruce file.");
-  parser.add_argument("--no-srt",              action = "store_true",             help = "Set to disbale conversion of VobSub(s) to SRT.");
-  parser.add_argument("--vobsub",              action = "store_true",             help = "Set to extract VobSub(s) from files.");
-  parser.add_argument("--ffmpeg_log",          action = "store_true",             help = "Set to enable logging ffmpeg stdout & stderr to file. Files will be created in '{outdir}/logs'.");
-  parser.add_argument('--version',             action = 'version', version = '%(prog)s '+__version__)
+  parser = argparse.ArgumentParser( 
+              description     = DESC,
+              parents         = [BASEPARSER],
+              formatter_class = argparse.ArgumentDefaultsHelpFormatter)           # Set the description of the script to be printed in the help doc, i.e., ./script -h
+  parser.set_defaults( loglevel = MakeMKVFMT['level'] )
+  parser.add_argument("indir",     type   = str, nargs='+', help = "Directory(s) to watch for new MakeMKV output files"); 
+  parser.add_argument("outdir",    type   = str,            help = "Top level directory for Plex library directories. E.g., '/mnt/plexLibs' if your library directories are '/mnt/plexLibs/Movies' and '/mnt/plexLibs/TV Shows'."); 
+  parser.add_argument("--fileExt", type   = str, nargs='+', help = "Set file extensions to look for in watched directories; only files with given extension(s) will be processed. Default is just '.mkv'") 
+  parser.add_argument("--vobsub",  action = "store_true",   help = "Set to extract VobSub(s) from files.");
   args = parser.parse_args();                                                   # Parse the arguments
 
   if pidRunning( MakeMKVFMT['pidFile'] ):
-    log.critical('MakeMKV_Watchdog instance already running!')
+    log.critical( '{} instance already running!'.format( parser.prog ) )
     exit(1)
 
   if (args.fileExt is not None):                                                # If user ser fileExt flag
     args.fileExt = [item for sublist in args.fileExt for item in sublist]       # Flatten the list
- 
-  _initLogFile( args.verbose )
+
+  MakeMKVFMT['level'] = args.loglevel 
+  initLogFile( MakeMKVFMT )
 
   try:
     wd = MakeMKV_Watchdog(*args.indir, 
@@ -90,7 +61,9 @@ if __name__ == "__main__":
         remove        = not args.no_remove,
         srt           = not args.no_srt,
         vobsub        = args.vobsub,
-        no_ffmpeg_log = not args.ffmpeg_log)
+        transcode_log = getTranscodeLog( parser.prog ),
+        comskip_log   = getComskipLog(   parser.prog ),
+    )
   except:
     log.exception('Something went wrong! Watchdog failed to start')
     status = 255

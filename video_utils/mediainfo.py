@@ -297,7 +297,7 @@ class MediaInfo( object ):
       None.
     Outputs:
       Returns a dictionary with information in a format for input into 
-      the HandBrakeCLI command.
+      the ffmpeg command.
     Keywords:
       x265 - Set to force x265 encoding.
     Dependencies:
