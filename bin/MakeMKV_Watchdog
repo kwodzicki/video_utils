@@ -24,7 +24,7 @@ from video_utils import log
 from video_utils.config import BASEPARSER,  MakeMKVFMT, getTranscodeLog, getComskipLog
 from video_utils.MakeMKV_Watchdog import MakeMKV_Watchdog
 from video_utils.utils.pidCheck import pidRunning
-from video_utils.utils.handlers import initLogFile
+from video_utils.utils.handlers import EMailHandler, initLogFile
 
 DESC = 'A CLI for running a watchdog to monitor a directory (or directories) for new files to transcode and add Plex' 
 
@@ -50,6 +50,10 @@ if __name__ == "__main__":
 
   MakeMKVFMT['level'] = args.loglevel 
   initLogFile( MakeMKVFMT )
+
+  email = EMailHandler( subject = '{} Update'.format(parser.prgo) )
+  if email:
+    log.addHandler( email )
 
   try:
     wd = MakeMKV_Watchdog(*args.indir, 

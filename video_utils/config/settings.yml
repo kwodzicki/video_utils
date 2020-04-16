@@ -1,0 +1,21 @@
+#####################3
+# API Keys
+TVDB_API_KEY :    # Set to string containing API key for TV Database 
+TMDB_API_KEY :    # Set to string containing API key for The Movie Database
+
+
+#####################3
+# Comskip settings
+COMSKIP_INI_DIR : # Set to string containing full path to directory containing comskip ini files
+
+#####################3
+# This section defines email inforamtion for logging
+email:
+  send_from:
+    server : smtp.gmail.com   # Gmail smtp server address; change to match service you are using
+    port   : 465              # SSL port
+    user   :                  # User name for logging into the send_from account
+    pass   :                  # Password for logging in; should be app password if using Google
+  send_to:
+    -                         # First email address to send information to
+    -                         # Second email addres to send inforamtion to, etc.

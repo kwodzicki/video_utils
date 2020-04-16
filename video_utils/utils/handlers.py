@@ -9,19 +9,61 @@ from email.message import EmailMessage
 from threading import Thread, Lock
 
 from .. import log
-from ..config import ROTATING_FORMAT
+from ..config import CONFIG, ROTATING_FORMAT
 
-HOST = 'smtp.gmail.com'  
-PORT = 465 
+EMAILNAME = 'emailer'
+
+############################################################################### 
+def sendEMail( func ):
+  '''
+  Purpose:
+    Function to act as decorator to send email using EMailHandler
+  Inputs:
+    func   : Function to wrap
+  Keywords:
+    None.
+  Returns:
+    Wrapped function
+  '''
+  def sendEMailWrapper(*args, **kwargs):
+    val = func(*args, **kwargs)
+    for handler in log.handlers:                        # Iterate over all handlers in root logger
+      if handler.get_name() == EMAILNAME:               # If the handler matches the EMAILNAME variable
+        handler.send()                                  # call send method
+        break                                           # Break for loop
+    return val                                          # Return function return value
+  return sendEMailWrapper   
 
 ############################################################################### 
 class EMailHandler( logging.Handler ):                                          
-  def __init__(self, sender, passwd, *args, **kwargs):                       
+  def __init__(self, *args, **kwargs):                       
+    maxLogs = kwargs.pop('maxLogs', 50)
+    subject = kwargs.pop('subject', None)
     super().__init__(*args, **kwargs);                                              # Initialize base class
-    self._max     = kwargs.pop('maxLogs', 50)
-    self._sender  = sender
-    self._passwd  = passwd
-    self._logs    = []
+    self._max       = maxLogs
+    self._subject   = subject
+    self._logs      = []
+    self._sendLevel = logging.CRITICAL
+    self._isValid   = True
+    self.set_name( EMAILNAME )
+
+    info = CONFIG.get('email', None)
+    if info is None: 
+      self._isValid = False
+      return
+
+    send_from = info.get('send_from', None)
+    if send_from is None: 
+      self._isValid = False
+      return
+
+    send_to   = self.parse_send_to( info.get('send_to',  None) )
+    if not send_to:
+      self._isValid = False
+  
+  ##################################                                            
+  def __bool__(self):
+    return self._isValid
 
   ##################################                                            
   def emit(self, record):                                                           # Overload the emit method                        
@@ -29,39 +71,75 @@ class EMailHandler( logging.Handler ):
       if len(self._logs) > self._max:
         self._logs.pop(0) 
       self._logs.append( self.format(record) )
+    if record.levelno >= self._sendLevel:
+      self.send()
 
-  def send(self, send_to, subject = None):
+  ##################################                                            
+  def setSendLevel(self, level):
+    '''
+    Purpose:
+      Set the level at which logs are automatically 
+      emailed. For example, if the SendLevel is set
+      to logging.WARNING, if a log with level WARNING
+      or higher is encountered, an email will be sent.
+      Note that if this level is set lower than the
+      logger level, the email my be empty.
+    Inputs:
+      level   : The logging level
+    Keywords:
+      None.
+    Returns:
+      None.
+    '''
+    if isinstance(level, int):
+      self._sendLevel = level
+   
+  ##################################                                            
+  def parse_send_to(self, send_to):
+    if isinstance(send_to, (list, tuple,)):
+      return ','.join( [s for s in send_to if s is not None] )
+    elif isinstance(send_to, str):
+      return send_to
+    return None
+ 
+  ##################################                                            
+  def send(self, subject = None):
+    if not self: return
     with self.lock:
       body = '\n'.join(self._logs)
       self._logs = []
+    if body == '': return
 
-    if isinstance(send_to, (list, tuple,)):
-      send_to = ', '.join(send_to)
-    elif not isinstance(send_to, str):
-      raise Exception('Must input string')
-    
+    email     = CONFIG['email']
+    send_from = email['send_from']
+    send_to   = self.parse_send_to( email['send_to'] ) 
     msg = EmailMessage()
-    if subject: msg['Subject'] = subject
-    msg['From']    = self._sender
-    msg['To']      = send_to 
+    if subject:
+      msg['Subject'] = subject
+    elif self._subject:
+      msg['Subject'] = self._subject
+
+    msg['From']    = send_from['user'] 
+    msg['To']      = send_to
     msg.set_content( body )
 
     try:
-      server = smtplib.SMTP_SSL(HOST, PORT)
+      server = smtplib.SMTP_SSL(send_from['server'], send_from['port'])
     except:
-      return 
+      return False
     try:
-      server.login(self._sender, self._passwd)                            
+      server.login(send_from['user'], send_from['pass'])                            
     except:
-      return
+      return False
     try:
-      server.sendmail(self._sender, send_to, msg.as_string())            
+      server.sendmail(send_from['user'], send_to, msg.as_string())            
     except:
       pass
     try:
       server.close() 
     except:
       pass
+    return True
 
 ########################################################################################
 class RotatingFile( Thread ):

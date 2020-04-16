@@ -5,7 +5,7 @@ from threading import Event
 
 from .version import __version__
 from .utils.checkCLI import checkCLI
-from .config import screenFMT
+from .config import screenFMT, DATADIR
 
 # Check for required CLIs
 for cli in ['ffmpeg', 'mediainfo']:

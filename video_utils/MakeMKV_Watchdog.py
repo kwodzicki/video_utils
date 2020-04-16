@@ -10,9 +10,11 @@ from watchdog.events import FileSystemEventHandler
 from . import isRunning
 from .videoconverter import VideoConverter
 from .plex.plexMediaScanner import plexMediaScanner
+from .utils.handlers import sendEMail
 
 TIMEOUT =  1.0
 SLEEP   = 10.0
+
 class MakeMKV_Watchdog( FileSystemEventHandler ):
   def __init__(self, *args, **kwargs):
     super().__init__()
@@ -39,7 +41,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
  
     self.Observer.start()                                                           # Start the observer
 
-    self.__runThread = Thread( target = self.__run )                                # Thread for dequeuing files and converting
+    self.__runThread = Thread( target = self._run )                                 # Thread for dequeuing files and converting
     self.__runThread.start()                                                        # Start the thread
 
   def on_created(self, event):
@@ -107,8 +109,20 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       time.sleep(SLEEP)                                                             # Sleep a few seconds seconds
       prev = curr                                                                   # Set previous size to current size
       curr = os.path.getsize(file)                                                  # Update current size
+
+  @sendEMail
+  def _process(self, file):
+    self._checkSize( file )                                                   # Wait to make sure file finishes copying/moving
+    try:        
+      out_file = self.converter.transcode( file )                             # Convert file 
+    except:
+      self.log.exception('Failed to convert file')
+    else:
+      if out_file is not None and isRunning():
+        plexMediaScanner('scan', 'refresh', 
+          section = 'TV Shows' if self.converter.metaData.isEpisode else 'Movies')
  
-  def __run(self, **kwargs):
+  def _run(self, **kwargs):
     '''
     Purpose:
       A thread to dequeue video file paths and convert them
@@ -125,17 +139,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       except:                                                                   # Catch exception
         continue                                                                # Do nothing
 
-      self._checkSize( file )                                                   # Wait to make sure file finishes copying/moving
-
-      try:        
-        out_file = self.converter.transcode( file )                             # Convert file 
-      except:
-        self.log.exception('Failed to convert file')
-      else:
-        if out_file is not None and isRunning():
-          plexMediaScanner('scan', 'refresh', 
-            section = 'TV Shows' if self.converter.metaData.isEpisode else 'Movies')
-
+      self._process( file )
       self.Queue.task_done() 
 
     self.log.info('MakeMKV watchdog stopped!')

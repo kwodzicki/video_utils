@@ -24,7 +24,7 @@ from video_utils import log
 from video_utils.config import BASEPARSER, plexFMT, getTranscodeLog, getComskipLog
 from video_utils.plex.library_watchdog import library_watchdog
 from video_utils.utils.pidCheck import pidRunning
-from video_utils.utils.handlers import initLogFile
+from video_utils.utils.handlers import EMailHandler, initLogFile
 
 DESC = 'A CLI for running a watchdog to monitor a Plex library (or libraries) for new files to convert to h264 encoded videos'
 
@@ -46,6 +46,10 @@ if __name__ == "__main__":
     exit(1)
   plexFMT['level'] = args.loglevel
   initLogFile( plexFMT )
+
+  email = EMailHandler( subject = '{} Update'.format(parser.prog) )
+  if email:
+    log.addHandler( email )
 
   try:
     wd = library_watchdog(*args.dir, 

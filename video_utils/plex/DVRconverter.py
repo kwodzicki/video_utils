@@ -1,11 +1,11 @@
 import logging
 import os
 
-from .. import isRunning#_sigintEvent, _sigtermEvent
+from .. import log, isRunning#_sigintEvent, _sigtermEvent
 from ..config import CONFIG, plexFMT
 from ..videoconverter import VideoConverter
 from ..utils.ffmpeg_utils import checkIntegrity
-from ..utils.handlers import EMailHandler
+from ..utils.handlers import sendEMail
 
 from .plexMediaScanner import plexMediaScanner
 from .utils import plexDVR_Rename
@@ -66,7 +66,6 @@ class DVRconverter(VideoConverter):
       no_remove   : If set, input file will NOT be deleted
       no_srt      : If set, no SRT subtitle files created
     '''
-    send_to = kwargs.pop('send_to', None)
     super().__init__(
       log_dir       = logdir,
       in_place      = True,
@@ -77,26 +76,9 @@ class DVRconverter(VideoConverter):
       **kwargs)
 
     self.destructive = destructive
-    self.send_to     = send_to
     self.log         = logging.getLogger(__name__)
-    if 'email' in CONFIG and self.send_to:
-      self.email = EMailHandler( *CONFIG['email'] )
-      self.log.addHandler( self.email )
-    else:
-      self.email = None
 
-  def _sendEmail( func ):
-    '''
-    Decorator for triggering email send after function runs
-    '''
-    def wrapper_sendEmail(self, *args, **kwargs):
-      val = func(self, *args, **kwargs)
-      if self.email and self.send_to:
-        self.email.send( self.send_to, subject = 'DVR Update' )
-      return val
-    return wrapper_sendEmail
-
-  @_sendEmail
+  @sendEMail
   def convert(self, inFile):
     '''
     Name:

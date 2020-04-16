@@ -1,5 +1,5 @@
 import logging
-import os, stat, json
+import os, stat, yaml
 import argparse
 
 from ..version import __version__
@@ -7,12 +7,13 @@ from ..utils.threadCheck import HALFTHREADS
 
 PKGNAME = __name__.split('.')[0]                                                        # Get root name of package 
 HOME    = os.path.expanduser('~')
+DATADIR = os.path.join( os.path.dirname(__file__) )
 APPDIR  = os.path.join( HOME,   'Library', 'Application Support', PKGNAME )
 LOGDIR  = os.path.join( APPDIR, 'Logs' )
-CONFIG  = os.path.join( HOME,   '.{}rc'.format(PKGNAME) )
+CONFIG  = os.path.join( HOME,   '.{}.yml'.format(PKGNAME) )
 try:
   with open(CONFIG, 'r') as fid:
-    CONFIG = json.load( fid )
+    CONFIG = yaml.load( fid, Loader = yaml.SafeLoader )
 except:
   CONFIG = {}
 COMSKIPINI = os.path.join( os.path.dirname( __file__ ), 'comskip.ini' )
