@@ -66,7 +66,11 @@ class TMDbMovie( BaseMovie ):
     if not self._data:
       if (len(args) == 0):
         raise Exception( "Must input movie ID or used 'data' keyword" )
-      self.URL = self.TMDb_URLMovie.format( args[0] )
+      movieID = args[0]
+      if isinstance(movieID, str):
+        if 'tmdb' in movieID:
+          movieID = movieID.replace('tmdb', '')
+      self.URL = self.TMDb_URLMovie.format( movieID )
       json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
       if json:
         info = parseInfo( json, imageURL = self.TMDb_URLImage )
@@ -88,7 +92,11 @@ class TVDbMovie( BaseMovie ):
     if not self._data:
       if (len(args) == 0):
         raise Exception( "Must input movie ID or used 'data' keyword" )
-      self.URL = self.TVDb_URLMovie.format( args[0] )
+      movieID = args[0]
+      if isinstance(movieID, str):
+        if 'tvdb' in movieID:
+          movieID = movieID.replace('tvdb', '')
+      self.URL = self.TVDb_URLMovie.format( movieID )
       json     = self._getJSON( self.URL )#, append_to_response = self.EXTRA )
       if json:
         info = parseInfo( json )

@@ -23,6 +23,7 @@ class BaseItem( BaseAPI ):
     self._isEpisode = False
     self._isPerson  = False
     self.URL        = None
+    self._data['qualifier'] = kwargs.get('qualifier', None)
 
   @property
   def isMovie(self):
@@ -50,6 +51,8 @@ class BaseItem( BaseAPI ):
     return self._data.pop(key, *args)
   def keys(self):
     return self._data.keys()
+  def get(self, *args):
+    return self._data.get(*args)
 
   def getExtra(self, *keys):
     '''

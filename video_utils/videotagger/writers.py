@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 from subprocess import Popen, STDOUT, DEVNULL
 
 from ..utils.checkCLI import checkCLI
-from .utils import download
+from .utils import downloadCover
 
 try:
   checkCLI( 'mkvpropedit' )
@@ -152,7 +152,8 @@ def mp4Tagger( file, metaData ):
     log.error('Input file is too large!')
     return 11                                                                           # Print message and return code eleven (11)
     
-  metaData = toMP4(metaData)
+  qualifier = metaData.get('qualifier', None)
+  metaData  = toMP4(metaData)
 
   if len(metaData) == 0:
     log.warning('No metadata, cannot write tags')
@@ -182,7 +183,7 @@ def mp4Tagger( file, metaData ):
     if key == 'covr' and val != '':
       log.debug('Attempting to get coverart')                                           # Debugging information
       fmt  = mp4.AtomDataType.PNG if val.endswith('png') else mp4.AtomDataType.JPEG     # Set format for the image
-      data = download( val )
+      data = downloadCover( val, text = qualifier )
       if data is not None:
         val = [ mp4.MP4Cover( data, fmt ) ]                                             # Add image to file
       else:
@@ -257,7 +258,8 @@ def mkvTagger( file, metaData ):
   if os.stat(file).st_size > sys.maxsize:                                         # If the file size is larger than the supported maximum size
     log.error('Input file is too large!'); return 11;                           # Print message and return code eleven (11)
       
-  metaData = toMKV( metaData )
+  qualifier = metaData.get('qualifier', None)
+  metaData  = toMKV( metaData )
 
   if len(metaData) == 0:
     log.warning('No metadata, cannot write tags')
@@ -272,7 +274,7 @@ def mkvTagger( file, metaData ):
   coverFile = None
   for key, val in metaData.items():
     if key == 'covr':
-      coverFile = download( val, saveDir = fileDir )
+      coverFile = downloadCover( val, saveDir = fileDir, text = qualifier )
     else:
       TargetTypeValue, tag = key
       if TargetTypeValue not in tags:      
