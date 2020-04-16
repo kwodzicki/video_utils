@@ -5,7 +5,6 @@ from .. import log, isRunning#_sigintEvent, _sigtermEvent
 from ..config import CONFIG, plexFMT
 from ..videoconverter import VideoConverter
 from ..utils.ffmpeg_utils import checkIntegrity
-from ..utils.handlers import sendEMail
 
 from .plexMediaScanner import plexMediaScanner
 from .utils import plexDVR_Rename
@@ -78,7 +77,6 @@ class DVRconverter(VideoConverter):
     self.destructive = destructive
     self.log         = logging.getLogger(__name__)
 
-  @sendEMail
   def convert(self, inFile):
     '''
     Name:

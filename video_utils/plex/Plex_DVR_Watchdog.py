@@ -9,19 +9,23 @@ from watchdog.events import FileSystemEventHandler
 
 from .. import isRunning#_sigintEvent, _sigtermEvent
 from ..config import plex_dvr
-
+from ..utils.handlers import sendEMail
 from .DVRconverter import DVRconverter
 from .utils import DVRqueue
 
-class library_watchdog( FileSystemEventHandler ):
+RECORDTIMEOUT = 86400.0                                                                 # Recording timeout set to one (1) day
+TIMEOUT       =     1.0
+SLEEP         =     1.0
+
+class Plex_DVR_Watchdog( FileSystemEventHandler ):
   def __init__(self, *args, **kwargs):
     super().__init__()
     self.log         = logging.getLogger(__name__)
     self.log.info('Starting up...')
 
-    self.recordTimeout = kwargs.get('recordTimeout', 86400.0)
-    self.recordings    = []                                                           # Initialize list to store paths of newly started DVR recordings
-    self.converting    = DVRqueue( plex_dvr['queueFile'] )                                     # Initialize DVRqueue, this is a subclass of list that, when items modified, will save pickled list to file as backup
+    self.recordTimeout = kwargs.get('recordTimeout', RECORDTIMEOUT)
+    self.recordings    = []                                                             # Initialize list to store paths of newly started DVR recordings
+    self.converting    = DVRqueue( plex_dvr['queueFile'] )                              # Initialize DVRqueue, this is a subclass of list that, when items modified, will save pickled list to file as backup
       
     self.converter = None
     self.script    = kwargs.get('script', None)
@@ -81,7 +85,7 @@ class library_watchdog( FileSystemEventHandler ):
       i           = 0                                                               # Initialize counter to zero (0)                                       
       while (i < len(self.recordings)):                                             # Iterate over all tuples in to_convert list
         if (self.recordings[i][1] == fName):                                        # If the name of the input file matches the name of the recording file
-          self.log.debug( 'Recoding moved from {} --> {}'.format(
+          self.log.debug( 'Recording moved from {} --> {}'.format(
                 os.path.join( *self.recordings[i][:2] ), file )
           )                                                                         # Log some information
           self.converting.append( file )                                            # Append to converting list; this will trigger update of queue file
@@ -120,14 +124,14 @@ class library_watchdog( FileSystemEventHandler ):
                  to transfer. Default is forever (None)
     '''
     self.log.debug('Waiting for file to finish being created')
-    prev = -1                                                                       # Set previous file size to -1
-    curr = os.path.getsize(file)                                                    # Get current file size
-    t0   = time.time()                                                              # Get current time
-    while (prev != curr) and isRunning():                                           # While sizes differ
-      if timeout and ((time.time() - t0) > timeout): return False                   # Check timeout
-      time.sleep(0.5)                                                               # Sleep 0.5 seconds
-      prev = curr                                                                   # Set previous size to current size
-      curr = os.path.getsize(file)                                                  # Update current size
+    prev = -1                                                                           # Set previous file size to -1
+    curr = os.path.getsize(file)                                                        # Get current file size
+    t0   = time.time()                                                                  # Get current time
+    while (prev != curr) and isRunning():                                               # While sizes differ
+      if timeout and ((time.time() - t0) > timeout): return False                       # Check timeout
+      time.sleep( SLEEP )                                                               # Sleep 0.5 seconds
+      prev = curr                                                                       # Set previous size to current size
+      curr = os.path.getsize(file)                                                      # Update current size
     return True
 
   def __prettyTime(self, sec):
@@ -179,6 +183,30 @@ class library_watchdog( FileSystemEventHandler ):
               )
           i += 1                                                                    # Increment i
 
+  def _runScript(self, file):
+    self.log.info('Running script : {}'.format(self.script) )
+    proc = Popen( [self.script, file], stdout=DEVNULL, stderr=STDOUT )
+    proc.communicate()
+    status = proc.returncode
+    if (status != 0):
+      self.log.error( 'Script failed with exit code : {}'.format(status) )
+
+  @sendEMail
+  def _process(self, file):
+    try:
+      self._checkSize( file )                                                 # Wait to make sure file finishes copying/moving
+    except Exception as err:
+      self.log.warning( 'Error checking file, assuming not exist: Error - {}'.format(err) )
+      return
+
+    if self.script:
+      self._runScript( file )
+    else:
+      try:        
+        status, out_file = self.converter.convert( file )                 # Convert file 
+      except:
+        self.log.exception('Failed to convert file')
+
   def __run(self):
     '''
     Purpose:
@@ -194,26 +222,9 @@ class library_watchdog( FileSystemEventHandler ):
       try:                                                                      # Try
         file = self.converting[0]                                               # Get a file from the queue; block for 0.5 seconds then raise exception
       except:                                                                   # Catch exception
-        time.sleep(1.0)
+        time.sleep(TIMEOUT)
       else:
-        try:
-          self._checkSize( file )                                                 # Wait to make sure file finishes copying/moving
-        except Exception as err:
-          self.log.warning( 'Error checking file, assuming not exist: Error - {}'.format(err) )
-        else:
-          if self.script:
-            self.log.info('Running script : {}'.format(self.script) )
-            proc = Popen( [self.script, file], stdout=DEVNULL, stderr=STDOUT )
-            proc.communicate()
-            status = proc.returncode
-            if (status != 0):
-              self.log.error( 'Script failed with exit code : {}'.format(status) )
-          else:
-            try:        
-              status, out_file = self.converter.convert( file )                 # Convert file 
-            except:
-              self.log.exception('Failed to convert file')
-
+        self._process(file)
         if isRunning():                                                         # If events not set, remove file from converting list; if either is set, then transcode was likely halted so we want to convert on next run
           self.converting.remove( file )                                        # Remove from converting list; this will tirgger update of queue file
  

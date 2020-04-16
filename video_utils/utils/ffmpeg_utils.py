@@ -128,22 +128,6 @@ def totalSeconds( *args ):
     return np.array( times ).sum( axis=1 );                                     # Conver list of numpy arrays to 2D numpy array, then compute sum of seconds across second dimension
 
 ###############################################################################
-def prettyTime( *args, timeFMT = '%H:%M:%S' ):
-    '''
-    Name:
-      prettyTime
-    Purpose:
-      A function to convert an arbitrary number of integers or floats
-      from time in seconds to a string of format 'HH:MM:SS'
-    Inputs:
-      One or more integers or floats representing time in seconds
-    Outputs:
-      Returns a list of strings
-    Keywords:
-      timeFMT  : Format string of time. Default is '%H:%M:%S'
-    '''
-    return [time.strftime( timeFMT, time.gmtime( i ) ) for i in args];          # Interate over each argument and convert to string time, returning the list
-
 class FFmpegProgress(object):
   '''
   Name:
