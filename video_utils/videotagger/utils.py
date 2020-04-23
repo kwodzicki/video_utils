@@ -43,6 +43,7 @@ def download(URL):
 
 def getFont( text, bbox ):
   bbox      = list(bbox)                                                        # Convert bbox to list
+  bbox[0]  *= TSCALE                                                            # Scale the box height by TSCALE
   bbox[1]  *= TSCALE                                                            # Scale the box height by TSCALE
   fontsize  = 1                                                                 # Set font to 1
   font      = ImageFont.truetype(TTF, size = fontsize)                          # Load font
@@ -97,7 +98,7 @@ def downloadCover( URL, saveDir = None, text = None ):
   if data is None:
     return False
 
-  if text is not None:
+  if isinstance(text, str) and text != '':
     data = addText( data, text )
 
   if saveDir is not None:

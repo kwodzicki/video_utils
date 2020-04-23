@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 import logging
 import argparse;                                                                # Import library for parsing
-from video_utils.version import __version__
+import video_utils
 from video_utils.videotagger import getMetaData
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="Write metadata to MP4 and MKV files");               # Set the description of the script to be printed in the help doc, i.e., ./script -h
   parser.add_argument("file",   type=str, help="Path to file to write tags to."); 
-  parser.add_argument("--dbID", type=str, help="IMDb id starting with tt."); 
+  parser.add_argument("--dbID", type=str, help="TVDb or TMDb ID, should start with 'tvdb' or 'tmdb', respectively"); 
   parser.add_argument('--season-episode', type=int, nargs=2, help='Season and episode number for tv show')
   parser.add_argument('-v', '--verbose',  nargs='?', default='info', help='Increase verbosity. Levels are info (default) and debug.')
-  parser.add_argument('--version',        action = 'version', version = '%(prog)s '+__version__ )
+  parser.add_argument('--version',        action = 'version', version = '%(prog)s '+video_utils.__version__ )
   
   args = parser.parse_args();                                                   # Parse the arguments
 
@@ -32,6 +32,9 @@ if __name__ == "__main__":
     logger.critical('File must be MP4 or MKV!')
     exit( 1 )
   metadata = getMetaData( args.file, dbID = args.dbID, seasonEp = args.season_episode )
+  metadata.addComment(
+    'Metadata written with {} version {}.'.format(video_utils.__name__, video_utils.__version__)
+  )
   try:
     metadata.writeTags( args.file )
   except:

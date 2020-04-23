@@ -4,8 +4,11 @@ import os, re, time
 from datetime import datetime
 from subprocess import PIPE, STDOUT
 
-# Parent classes
+from . import __name__ as __pkg_name__
+from . import __version__ as __pkg_version__
 from . import _sigintEvent, _sigtermEvent, isRunning
+
+# Parent classes
 from .mediainfo import MediaInfo
 from .comremove import ComRemove
 from .utils.handlers import RotatingFile
@@ -407,6 +410,11 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       self.metaData = metaData
 
     if self.metaData:                                                                   # If metaData is valid
+      metaData.addComment( 
+        'File converted and tagged using {} version {}'.format(
+          __pkg_name__, __pkg_version__
+        )
+      )
       outFile = self.metaData.getBasename()                                             # Get basename
       if not self.in_place:                                                             # If NOT converting file in place
         outDir  = self.metaData.getDirname( root = self.outDir )                             # Set outDir based on self.outDir and getDirname() method

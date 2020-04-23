@@ -16,7 +16,6 @@ class BaseMovie( BaseItem ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self._isMovie = True
-    self.version  = kwargs.get('version', '')
 
   def __str__(self):
     try:
@@ -43,7 +42,7 @@ class BaseMovie( BaseItem ):
       year = self.release_date.year
     except:
       year = None
-    return getBasename( title, year, self.version, self.getID(), **kwargs )
+    return getBasename( title, year, self._version, self.getID(), **kwargs )
 
   def getDirname(self, root = ''):
     mdir = replaceChars( str(self) )
@@ -62,7 +61,7 @@ class TMDbMovie( BaseMovie ):
   EXTRA = ['external_ids', 'credits', 'content_ratings', 'release_dates']
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    
+
     if not self._data:
       if (len(args) == 0):
         raise Exception( "Must input movie ID or used 'data' keyword" )
@@ -88,7 +87,7 @@ class TVDbMovie( BaseMovie ):
   EXTRA = ['external_ids', 'credits', 'content_ratings']
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    
+
     if not self._data:
       if (len(args) == 0):
         raise Exception( "Must input movie ID or used 'data' keyword" )

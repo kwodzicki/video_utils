@@ -18,13 +18,13 @@ class BaseItem( BaseAPI ):
     super().__init__(*args, **kwargs)
     self.__log      = logging.getLogger(__name__)
     self._data      = kwargs.get('data', {})
+    self._version   = kwargs.get('version', '')
     self._isMovie   = False
     self._isSeries  = False
     self._isEpisode = False
     self._isPerson  = False
     self.URL        = None
-    self._data['qualifier'] = kwargs.get('qualifier', None)
-
+ 
   @property
   def isMovie(self):
     return self._isMovie
@@ -53,6 +53,9 @@ class BaseItem( BaseAPI ):
     return self._data.keys()
   def get(self, *args):
     return self._data.get(*args)
+
+  def addComment(self, text):
+    self._data['comment'] = text
 
   def getExtra(self, *keys):
     '''
@@ -254,26 +257,30 @@ class BaseItem( BaseAPI ):
              'genre'      : self._getGenre(), 
              'rating'     : self._getRating( **kwargs ),
              'kind'       : 'episode',
-             'cover'      : self._getCover()
+             'cover'      : self._getCover(),
+             'comment'    : self._data.get('comment', ''),
+             'version'    : self._version
     }
     return data
 
   def _movieData(self, **kwargs):
-    title = '{} - {}'.format(self.title, self.version) if self.version else self.title
+    title = '{} - {}'.format(self.title, self._version) if self._version else self.title
     plots = self._getPlot()
     year  = str( self.release_date.year ) if isinstance(self.release_date, datetime) else ''
-    data  = {'year'   : year, 
-             'title'  : title,
-             'sPlot'  : plots[0],
-             'lPlot'  : plots[1],
-             'cast'   : self._getCast(),
-             'prod'   : self._getProdCompanies(), 
-             'dir'    : self._getDirectors(), 
-             'wri'    : self._getWriters(),
-             'genre'  : self._getGenre(),
-             'rating' : self._getRating( **kwargs ),
-             'kind'   : 'movie',
-             'cover'  : self._getCover()
+    data  = {'year'    : year, 
+             'title'   : title,
+             'sPlot'   : plots[0],
+             'lPlot'   : plots[1],
+             'cast'    : self._getCast(),
+             'prod'    : self._getProdCompanies(), 
+             'dir'     : self._getDirectors(), 
+             'wri'     : self._getWriters(),
+             'genre'   : self._getGenre(),
+             'rating'  : self._getRating( **kwargs ),
+             'kind'    : 'movie',
+             'cover'   : self._getCover(),
+             'comment' : self._data.get('comment', ''),
+             'version' : self._version
     }
     return data
 

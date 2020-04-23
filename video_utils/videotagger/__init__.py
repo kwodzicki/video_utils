@@ -68,7 +68,8 @@ class TMDb( BaseAPI ):
           #elif (key == 'tv_season_results'):
           #  val.append( Season( item ) )
           else:
-            print(key) 
+            pass
+            #print(key) 
       return json
     return None 
 
@@ -174,12 +175,12 @@ def getMetaData( file=None, dbID=None, seasonEp=(), version='' ):
 
   if (dbID[:4] == 'tvdb'):
     if len(seasonEp) == 1:
-      return Episode.TVDbEpisode( dbID[4:], *seasonEp[0] )
+      return Episode.TVDbEpisode( dbID, *seasonEp[0] )
     else:
-      return Movie.TVDbMovie( dbID[4:], version=version )
+      return Movie.TVDbMovie( dbID, version=version )
   elif (dbID[:4] == 'tmdb'):
     if len(seasonEp) == 1:
-      return Episode.TMDbEpisode( dbID[4:], *seasonEp[0] )
+      return Episode.TMDbEpisode( dbID, *seasonEp[0] )
     else:
-      return Movie.TMDbMovie( dbID[4:], version=version )
+      return Movie.TMDbMovie( dbID, version=version )
   return None

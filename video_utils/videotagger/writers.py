@@ -8,12 +8,15 @@ from ..utils.checkCLI import checkCLI
 from .utils import downloadCover
 
 try:
-  checkCLI( 'mkvpropedit' )
+  MKVPROPEDIT = checkCLI( 'mkvpropedit' )
 except:
   logging.getLogger(__name__).error('mkvpropedit NOT installed')
-  raise
+  MKVPROPEDIT = None
 
 freeform = lambda x: '----:com.apple.iTunes:{}'.format( x )                             # Functio
+
+TVDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by TheTVDB.com, but we are not endorsed or certified by TheTVDB.com or its affiliates. See website at https://thetvdb.com/.'
+TMDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by themoviedb.com (TMDb), but we are not endorsed or certified by TMDb or its affiliates. See website at https://themoviedb.org/.'
 
 def encoder( val ):
   if isinstance(val, (tuple, list,)):
@@ -41,6 +44,7 @@ MP4KEYS = {
   'cast'       : (freeform('Actor'),             encoder,),
   'dir'        : (freeform('Director'),          encoder,),
   'wri'        : (freeform('Writer'),            encoder,),
+  'comment'    : '\xa9cmt',
   'cover'      :  'covr'
 }
 
@@ -62,6 +66,7 @@ MKVKEYS = {
   'cast'       : (50, 'ACTOR'),
   'dir'        : (50, 'DIRECTOR'),
   'wri'        : (50, 'WRITTEN_BY'),
+  'comment'    : (50, 'COMMENT'),
   'cover'      : 'covr'
 }
 
@@ -151,10 +156,13 @@ def mp4Tagger( file, metaData ):
   if os.stat(file).st_size > sys.maxsize:                                               # If the file size is larger than the supported maximum size
     log.error('Input file is too large!')
     return 11                                                                           # Print message and return code eleven (11)
-    
-  qualifier = metaData.get('qualifier', None)
-  metaData  = toMP4(metaData)
+  
+  version = metaData.pop('version', '')
+  comment = metaData.get('comment',   '')
+  comment = ' '.join( [comment, TVDB_ATTRIBUTION, TMDB_ATTRIBUTION] ).strip()
 
+  metaData.update( {'comment' : comment } )
+  metaData  = toMP4(metaData)
   if len(metaData) == 0:
     log.warning('No metadata, cannot write tags')
     return 3
@@ -183,7 +191,7 @@ def mp4Tagger( file, metaData ):
     if key == 'covr' and val != '':
       log.debug('Attempting to get coverart')                                           # Debugging information
       fmt  = mp4.AtomDataType.PNG if val.endswith('png') else mp4.AtomDataType.JPEG     # Set format for the image
-      data = downloadCover( val, text = qualifier )
+      data = downloadCover( val, text = version )
       if data is not None:
         val = [ mp4.MP4Cover( data, fmt ) ]                                             # Add image to file
       else:
@@ -202,22 +210,65 @@ def mp4Tagger( file, metaData ):
   return 0
 
 ################################################################################
+def deleteAttachments( file, n = 10 ):
+  '''
+  Purpose:
+    Function to delete a bunch of attachments in an MKV file
+  Inputs:
+    file : Full path to file
+  Keywords:
+    n    : int, number of attachments to try to delete
+  Returns:
+    None.
+  '''
+  if not MKVPROPEDIT: return
+
+  cmd  = [MKVPROPEDIT, file]
+  for i in range(n):
+    cmd += ['--delete-attachment', str(i)] 
+  proc = Popen( cmd, stdout=DEVNULL, stderr=STDOUT )
+  proc.wait()
+
+################################################################################
 def addTarget( ele, level ):
-  tags = ET.SubElement(ele, 'Tag')
-  targ = ET.SubElement(tags, 'Targets')
-  ET.SubElement(targ, 'TargetTypeValue').text = str(level)
-  return tags
+  '''
+  Purpose:
+    Add a target level to the XML file from MKV tagging
+  Inputs:
+    ele   : Element to add tag to
+    level : Level of the tag
+  Keywords:
+    None.
+  Returns:
+    An ElementTree SbuElement instance
+  '''
+  tags = ET.SubElement(ele, 'Tag')                                                      # Create subelement named Tag
+  targ = ET.SubElement(tags, 'Targets')                                                 # Add subelement named Targets to Tag element
+  ET.SubElement(targ, 'TargetTypeValue').text = str(level)                              # Set the TargetTypeValue text
+  return tags                                                                           # Return tags subelement
 
 ################################################################################
 def addTag( ele, key, val ):
-  if isinstance(val, (list,tuple,)):
-    val = ','.join(map(str, val))
-  elif not isinstance(val, str):
-    val = str(val)
+  '''
+  Purpose:
+    Add a tag to XML element for MKV tagging 
+  Inputs:
+    ele   : Element to add tag to
+    key   : Tag name to add
+    val   : Value of the tag
+  Keywords:
+    None.
+  Returns:
+    None
+  '''
+  if isinstance(val, (list,tuple,)):                                                    # If val is an iterable type
+    val = ','.join(map(str, val))                                                       # Convert all values to string using map() and join on comma
+  elif not isinstance(val, str):                                                        # Else, if not a str instance
+    val = str(val)                                                                      # Convert to string
 
-  simple = ET.SubElement(ele, 'Simple')
-  ET.SubElement(simple, 'Name').text   = key
-  ET.SubElement(simple, 'String').text = val 
+  simple = ET.SubElement(ele, 'Simple')                                                 # Add a new subelement to ele
+  ET.SubElement(simple, 'Name').text   = key                                            # Set element Name to key
+  ET.SubElement(simple, 'String').text = val                                            # Set element string to val
 
 ################################################################################
 def mkvTagger( file, metaData ):
@@ -250,6 +301,10 @@ def mkvTagger( file, metaData ):
     Kyle R. Wodzicki     Created 18 Feb. 2018
   '''
   log = logging.getLogger(__name__);                                              # Set up a logger
+  if not MKVPROPEDIT:
+    log.warning( 'mkvpropedit not installed' )
+    return 4
+
   log.debug( 'Testing file is MKV' );                                             # Debugging information
   if not file.endswith('.mkv'):                                                   # If the input file does NOT end in '.mp4'
     log.error('Input file is NOT an MKV!!!'); return 1;                         # Print message and return code one (1)
@@ -258,44 +313,47 @@ def mkvTagger( file, metaData ):
   if os.stat(file).st_size > sys.maxsize:                                         # If the file size is larger than the supported maximum size
     log.error('Input file is too large!'); return 11;                           # Print message and return code eleven (11)
       
-  qualifier = metaData.get('qualifier', None)
+  version = metaData.pop('version', '')
+  comment = metaData.get('comment', '')
+  comment = ' '.join( [comment, TVDB_ATTRIBUTION, TMDB_ATTRIBUTION] ).strip()           # Join all comments on space and remove leading/trailing spaces
+
+  metaData.update( {'comment' : comment } )
   metaData  = toMKV( metaData )
 
   if len(metaData) == 0:
     log.warning('No metadata, cannot write tags')
     return 3
 
-  fileDir, fileBase = os.path.dirname( file ), os.path.basename( file );          # Get the directory and baseanem of the file
+  fileDir, fileBase = os.path.split( file )                                             # Get the directory and baseanem of the file
+  xmlFile           = os.path.join( fileDir, 'tags.xml' )                               # Set xml file path
 
-  log.debug('Setting basic inforamtion');                                       # Debugging information
-  top  = ET.Element('Tags')
-  tags = {}
+  log.debug('Setting basic inforamtion');                                               # Debugging information
+  top  = ET.Element('Tags')                                                             # Top-level of XML tree
+  tags = {}                                                                             # Dictionary for storing XML elements
 
   coverFile = None
-  for key, val in metaData.items():
-    if key == 'covr':
-      coverFile = downloadCover( val, saveDir = fileDir, text = qualifier )
-    else:
-      TargetTypeValue, tag = key
-      if TargetTypeValue not in tags:      
-        tags[TargetTypeValue] = addTarget( top, TargetTypeValue )
-      addTag( tags[TargetTypeValue], tag, val )
+  for key, val in metaData.items():                                                     # Iterate over all key/value pairs in metadata dictionary
+    if key == 'covr':                                                                   # If key is covr
+      coverFile = downloadCover( val, saveDir = fileDir, text = version )               # Download cover
+    else:                                                                               # Else
+      TargetTypeValue, tag = key                                                        # Get TargetTypeValue and tag from the key tuple
+      if TargetTypeValue not in tags:                                                   # If the TargetTypeValue is not in tags
+        tags[TargetTypeValue] = addTarget( top, TargetTypeValue )                       # Add it using the addTarget function
+      addTag( tags[TargetTypeValue], tag, val )                                         # Add the tag/value to the target
 
-  fileDir   = os.path.dirname( file )
-  xmlFile   = os.path.join( fileDir, 'tags.xml' )
+  ET.ElementTree(top).write( xmlFile )                                                  # Write xml data to file
 
-  ET.ElementTree(top).write( xmlFile ) 
-
-  cmd = ['mkvpropedit', file, '-t', 'all:{}'.format(xmlFile)]
+  cmd = [MKVPROPEDIT, file, '-t', 'all:{}'.format(xmlFile)]                             # Set base command for adding tags
 
   if coverFile and os.path.isfile( coverFile ):                                         # If the 'full-size cover url' is in the metaData
-    cmd += ['--attachment-name', 'Cover art']
-    cmd += ['--add-attachment',   coverFile] 
+    deleteAttachments( file )                                                           # Delete any existing attachments
+    cmd += ['--attachment-name', 'Poster']                                              # Set attachment name to Poster
+    cmd += ['--add-attachment',  coverFile]                                             # Add covert art file
 
-  log.debug('Saving tags to file');                                             # Debugging information
-   
-  proc = Popen(cmd, stdout = DEVNULL, stderr = STDOUT)
-  proc.wait()
+  log.debug('Saving tags to file');                                                     # Debugging information
+
+  proc = Popen(cmd, stdout = DEVNULL, stderr = STDOUT)                                  # Actually tag file
+  proc.wait()                                                                           # Wait for tagging to finish
   
   try:
     os.remove( xmlFile )
