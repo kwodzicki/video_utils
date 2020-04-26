@@ -69,7 +69,7 @@ def movieRename( topDir, path, metadata, imdbID, rootdir = None):
   mod  = info.pop(0)                                                            # Pop qualifier off of list (i.e., Unrated, etc.)
   info.pop(0)
   info.remove( imdbID )                                                         # Remove the IMDb id from list
-  metadata.version = mod
+  metadata.setVersion( mod )
   info.insert( 0, metadata.getBasename() )
   newDir = rootdir if rootdir is not None else os.path.dirname( topDir )
   newDir = metadata.getDirname(newDir) 

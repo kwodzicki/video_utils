@@ -57,6 +57,9 @@ class BaseItem( BaseAPI ):
   def addComment(self, text):
     self._data['comment'] = text
 
+  def setVersion(self, version):
+    self._version = version
+
   def getExtra(self, *keys):
     '''
     Purpose:

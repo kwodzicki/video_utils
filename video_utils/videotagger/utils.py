@@ -10,7 +10,7 @@ from .. import DATADIR
 TTF      = os.path.join(DATADIR, 'Anton-Regular.ttf')
 RED      = (255,   0,   0)
 WHITE    = (240, 240, 240)
-BSCALE   = 0.03
+BSCALE   = 0.05
 TSCALE   = 0.85
 SPACE    = ' '
 BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
