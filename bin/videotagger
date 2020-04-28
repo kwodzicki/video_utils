@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 import logging
-import argparse;                                                                # Import library for parsing
+import sys, argparse;                                                                # Import library for parsing
+
+from PyQt5.QtWidgets import QApplication
+
 import video_utils
-from video_utils.videotagger import getMetaData
+from video_utils.videotagger import getMetaData, gui
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="Write metadata to MP4 and MKV files");               # Set the description of the script to be printed in the help doc, i.e., ./script -h
-  parser.add_argument("file",   type=str, help="Path to file to write tags to."); 
+  parser.add_argument("file",   type=str, nargs='?', help="Path to file to write tags to."); 
   parser.add_argument("--dbID", type=str, help="TVDb or TMDb ID, should start with 'tvdb' or 'tmdb', respectively"); 
   parser.add_argument('--season-episode', type=int, nargs=2, help='Season and episode number for tv show')
   parser.add_argument('-v', '--verbose',  nargs='?', default='info', help='Increase verbosity. Levels are info (default) and debug.')
+  parser.add_argument("--gui",            action = 'store_true', help="Start GUI"); 
   parser.add_argument('--version',        action = 'version', version = '%(prog)s '+video_utils.__version__ )
   
   args = parser.parse_args();                                                   # Parse the arguments
+  print(args)
 
   logger = logging.getLogger();                                                 # Load logger on command line run
   if args.verbose == 'debug':
@@ -28,16 +33,22 @@ if __name__ == "__main__":
   screen_log.setLevel( screen_lvl );                                            # Set the screen logger level
   logger.addHandler(screen_log);                                                # Add the stream handler to the logger
 
-  if not args.file.endswith('.mp4') and not args.file.endswith('.mkv'):
-    logger.critical('File must be MP4 or MKV!')
-    exit( 1 )
-  metadata = getMetaData( args.file, dbID = args.dbID, seasonEp = args.season_episode )
-  metadata.addComment(
-    'Metadata written with {} version {}.'.format(video_utils.__name__, video_utils.__version__)
-  )
-  try:
-    metadata.writeTags( args.file )
-  except:
-    logger.critical('Failed to write tags')
-    exit(1)
+  if args.gui:
+    app = QApplication( sys.argv )
+    w   = gui.VideoTaggerGUI()
+    w.show()
+    app.exec_()
+  else:
+    if not args.file.endswith('.mp4') and not args.file.endswith('.mkv'):
+      logger.critical('File must be MP4 or MKV!')
+      exit( 1 )
+    metadata = getMetaData( args.file, dbID = args.dbID, seasonEp = args.season_episode )
+    metadata.addComment(
+      'Metadata written with {} version {}.'.format(video_utils.__name__, video_utils.__version__)
+    )
+    try:
+      metadata.writeTags( args.file )
+    except:
+      logger.critical('Failed to write tags')
+      exit(1)
   exit( 0 );
