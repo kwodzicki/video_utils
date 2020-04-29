@@ -1,16 +1,24 @@
-import os
-from PyQt5.QtWidgets import QMainWindow, QWidget, QLabel, QPushButton, QComboBox, QLineEdit, QVBoxLayout, QHBoxLayout, QGridLayout, QAction
-from PyQt5.QtGui import QPixmap
+import os, shutil
+
+from PyQt5.QtWidgets import QMainWindow, QWidget, QFileDialog, QLabel, QPushButton, QComboBox, QTextEdit, QLineEdit
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout, QAction
+from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import Qt
 
 from ..config import APPDIR
-from . import Movie, Episode, utils
+from . import Movie, Episode
+from .utils import downloadCover 
+from .writers import writeTags
+from .readers import mp4Reader
 
 HOME                = os.path.expanduser('~')
+CACHE_DIR           = os.path.join(APPDIR, 'poster_cache')
+
+EXT_FILTER          = "Videos (*.mp4 *.mkv)"
+
 SEARCH_ID_TEXT      = 'Series or Movie ID'
 SEARCH_SEASON_TEXT  = 'Season # (optional)'
 SEARCH_EPISODE_TEXT = 'Episode # (optional)' 
-CACHE_DIR           = os.path.join(APPDIR, 'poster_cache')
 
 os.makedirs(CACHE_DIR, exist_ok = True)
 
@@ -41,6 +49,12 @@ class SearchWidget( QWidget ):
     layout.addWidget( self.search_btn )
 
     self.setLayout( layout )
+
+  def _reset(self):
+    self.comboBox.setCurrentIndex(0)
+    self.dbID_box.setText('')
+    self.season_box.setText('')
+    self.episode_box.setText('')
 
   def registerFunc(self, func):
     self.search_btn.clicked.connect( func )
@@ -97,56 +111,108 @@ class SearchWidget( QWidget ):
 class MetadataWidget( QWidget ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self.cover = None
-    layout     = QGridLayout()
+    self.cover  = None
+    self.layout = QGridLayout()
+    self.row    = 0
 
-
-    label      = QLabel('Title')
-    self.title = QLineEdit()
-    self.title.setPlaceholderText( 'Movie or Episode title' )
-    layout.addWidget(label,      0, 0) 
-    layout.addWidget(self.title, 1, 0) 
-
-    label       = QLabel('Series')
-    self.series = QLineEdit()
-    self.series.setPlaceholderText( 'TV series title' )
-    layout.addWidget(label,       2, 0) 
-    layout.addWidget(self.series, 3, 0) 
-
-    label     = QLabel('Year')
-    self.year = QLineEdit()
-    self.year.setPlaceholderText( 'Year of release/airing' )
-    layout.addWidget(label,     4, 0) 
-    layout.addWidget(self.year, 5, 0) 
-
-    label       = QLabel('Poster/Coverart')
-    self.poster = QLabel()
+    self.title   = self._addField('Title',    'Movie or Episode title' )
+    self.series  = self._addField('Series',   'TV series title' )
+    self.season  = self._addField('Season',   'Season number',  colspan=2); self.row-=2
+    self.episode = self._addField('Episode',  'Episode number', colspan=2, col=2)
+    self.year    = self._addField('Year',     'Year of release/airing' )
+    self.sPlot   = self._addField('Synopsis', 'Short synopsis of movie/episode', True)
+    self.lPlot   = self._addField('Summary',  'Longer summary of movie/episode', True)
+    self.rating  = self._addField('Rating',   'Content rating' )
+    self.genre   = self._addField('Genre',    'Comma separated list of genres' )
+    self.curFile = self._addField('Current File', 'No file currently loaded', colspan=5 )
+   
+    label        = QLabel('Poster/Coverart')
+    self.poster  = QLabel()
     self.poster.setFixedSize(320, 180)
-    layout.addWidget( label,       0, 1)
-    layout.addWidget( self.poster, 1, 1, 20, 1)
+    self.layout.addWidget( label,       0, 4)
+    self.layout.addWidget( self.poster, 1, 4, 6, 1)
 
-    self.setLayout( layout )
+    self.setLayout( self.layout )
 
+  def _addField(self, label, placeholder, textedit = False, col=0, rowspan=1, colspan=4):
+    label  = QLabel( label )
+    if textedit:
+      widget = QTextEdit()
+    else:
+      widget = QLineEdit()
+    widget.setPlaceholderText( placeholder )
+    self.layout.addWidget(label,  self.row,   col, rowspan, colspan) 
+    self.layout.addWidget(widget, self.row+1, col, rowspan, colspan) 
+    self.row += 2
+    return widget
+ 
   def _updateCover(self, info):
-    cover = info.get('cover', None)
-    if cover:
-      coverFile = utils.downloadCover( cover, saveDir = CACHE_DIR )
+    self.cover = info.get('cover', None)
+    if self.cover:
+      coverFile = downloadCover( self.cover, saveDir = CACHE_DIR )
       if coverFile:
-        self.cover = coverFile
         pix = QPixmap(coverFile) 
         pix = pix.scaled(self.poster.width(), self.poster.height(), Qt.KeepAspectRatio)
         self.poster.setPixmap( pix )
     else:
       self.poster.setPixmap( QPixmap() )
 
-  def updateData(self, info):
-    self.title.setText(  info.get('title',      '') )
-    self.series.setText( info.get('seriesName', '') )
-    self.year.setText(   info.get('year',       '') )
-    #self._updateCover( info )
+  def _updateData(self, info):
+    for key, val in info.items():
+      if isinstance(val, (tuple,list)):
+        val = ','.join(val)
+      elif isinstance(val, int):
+        val = str(val)
+      info[key] = val
 
-  def writeData(self, fpath):
-    print(fpath)
+    self.title.setText(   info.get('title',      '') )
+    self.series.setText(  info.get('seriesName', '') )
+    self.season.setText(  info.get('seasonNum',  '') )
+    self.episode.setText( info.get('episodeNum', '') )
+    self.year.setText(    info.get('year',       '') )
+    self.sPlot.setText(   info.get('sPlot',      '') )
+    self.lPlot.setText(   info.get('lPlot',      '') )
+    self.rating.setText(  info.get('rating',     '') )
+    self.genre.setText(   info.get('genre',      '') )
+    self._updateCover( info )
+
+    if len(info) == 0: self.curFile.setText('')
+
+  def _writeData(self):
+    curFile = self.curFile.text()
+    if curFile == '':
+      dialog = QFileDialog()
+      curFile = dialog.getOpenFileName(directory = HOME, filter=EXT_FILTER)[0]
+      if curFile == '':
+        return
+      self.curFile.setText( curFile )
+
+    info = {'year'       : self.year.text(),
+            'title'      : self.title.text(),
+            'seriesName' : self.series.text(),
+            'seasonNum'  : self.season.text(),
+            'episodeNum' : self.episode.text(),
+            'sPlot'      : self.sPlot.toPlainText(),
+            'lPlot'      : self.lPlot.toPlainText(),
+            'rating'     : self.rating.text(),
+            'genre'      : self.genre.text().split(','),
+            'cover'      : self.cover
+    }
+
+    for key in ['seasonNum', 'episodeNum']:
+      val = info.pop(key)
+      if val: info[key] = int( val )
+    writeTags(curFile, info)
+
+  def _openFile(self, filePath):
+    if filePath.endswith('.mp4'):
+      info = mp4Reader( filePath )
+      self._updateData( info )
+    elif filePath.endswith('.mkv'):
+      print('Loading metadata from MKV file')
+    else:
+      print('Unsupported file type')
+
 
 class VideoTaggerGUI( QMainWindow ):
   def __init__(self, *args, **kwargs):
@@ -154,13 +220,15 @@ class VideoTaggerGUI( QMainWindow ):
     self.__initUI()
 
   def __initUI(self):
-    #mainMenu = self.menuBar()
-    #fileMenu = mainMenu.addMenu('File')    
-    #resetButton = QAction()
-    #resetButton.setText('Reset')
-    #resetButton.triggered.connect( self._reset )
-    #mainMenu.addAction( resetButton )
-
+    mainMenu = self.menuBar()
+    fileMenu = mainMenu.addMenu('File')    
+    openFile = QAction( '&Open File', self )
+    openFile.triggered.connect( self._openFile )
+    reset = QAction( '&Reset', self )
+    reset.triggered.connect( self._reset )
+    fileMenu.addAction( openFile )
+    fileMenu.addSeparator()
+    fileMenu.addAction( reset )
 
     self.mainLayout = QVBoxLayout()
 
@@ -170,16 +238,32 @@ class VideoTaggerGUI( QMainWindow ):
 
     self.metadataWidget = MetadataWidget()
     self.mainLayout.addWidget( self.metadataWidget )
+
+    self.saveBtn = QPushButton('Write Tags')
+    self.saveBtn.clicked.connect( self.metadataWidget._writeData )
+    self.mainLayout.addWidget( self.saveBtn )
  
     self.mainWidget = QWidget()
     self.mainWidget.setLayout( self.mainLayout )
     self.setCentralWidget( self.mainWidget )
 
   def _reset(self, *args, **kwargs):
-    self.metadataWidget.updateData( {} )
+    self.searchWidget._reset()
+    self.metadataWidget._updateData( {} )
+
+  def _openFile(self):
+    dialog = QFileDialog()
+    curFile = dialog.getOpenFileName(directory = HOME, filter=EXT_FILTER)[0]
+    if curFile == '':
+      print( 'No file selected' )
+    else:
+      self.metadataWidget._openFile( curFile )
 
   def getMetadata(self, *args, **kwargs):
     info = self.searchWidget.search(self, *args, **kwargs)
     if info:
-      self.metadataWidget.updateData( info )
+      self.metadataWidget._updateData( info )
 
+  def closeEvent(self, event):
+    shutil.rmtree( CACHE_DIR )
+    event.accept()

@@ -1,12 +1,6 @@
 import logging
 import os, re, time
 
-from .API import BaseAPI, KEYS
-from .Person import Person
-from . import Movie
-from . import Series
-from . import Episode
-
 #log = logging.getLogger(__name__)
 #log.setLevel( logging.DEBUG )
 #sh  = logging.StreamHandler()
@@ -16,6 +10,76 @@ from . import Episode
 
 SEASONEP = re.compile('[sS](\d{2,})[eE](\d{2,})')
 isID     = lambda dbID: dbID[:4] == 'tvdb' or dbID[:4] == 'tmdb'        # If tvdb or tmdb in the first four (4) characters
+
+freeform = lambda x: '----:com.apple.iTunes:{}'.format( x )                             # Functio
+
+def encoder( val ):
+  if isinstance(val, (tuple, list,)):
+    return [i.encode() for i in val]
+  elif isinstance( val, str ):
+    return val.encode()
+  else:
+    return val
+
+# A dictionary where keys are the starndard internal tags and values are MP4 tags
+# If a value is a tuple, then the first element is the tag and the seoncd is the
+# encoder function required to get the value to the correct format
+COMMON2MP4 = {
+  'year'       :  '\xa9day',
+  'title'      :  '\xa9nam',
+  'seriesName' :  'tvsh',
+  'seasonNum'  : ('tvsn', lambda x: [x]),
+  'episodeNum' : ('tves', lambda x: [x]),
+  'genre'      :  '\xa9gen',
+  'kind'       : ('stik', lambda x: [9] if x == 'movie' else [10]),
+  'sPlot'      :  'desc',
+  'lPlot'      : (freeform('LongDescription'),   encoder,),
+  'rating'     : (freeform('ContentRating'),     encoder,),
+  'prod'       : (freeform('Production Studio'), encoder,),
+  'cast'       : (freeform('Actor'),             encoder,),
+  'dir'        : (freeform('Director'),          encoder,),
+  'wri'        : (freeform('Writer'),            encoder,),
+  'comment'    : '\xa9cmt',
+  'cover'      : 'covr'
+}
+
+MP42COMMON = {}
+for key, val in COMMON2MP4.items():
+  if isinstance(val, tuple):
+    val = val[0]
+  MP42COMMON[val] = key
+
+# A dictionary where keys are the standard internal tags and values are MKV tags
+# THe first value of each tuple is the level of the tag and the second is the tag name
+# See: https://matroska.org/technical/specs/tagging/index.html
+COMMON2MKV = {
+  'year'       : (50, 'DATE_RELEASED'),
+  'title'      : (50, 'TITLE'),
+  'seriesName' : (70, 'TITLE'),
+  'seasonNum'  : (60, 'PART_NUMBER'),
+  'episodeNum' : (50, 'PART_NUMBER'),
+  'genre'      : (50, 'GENRE'),
+  'kind'       : (50, 'CONTENT_TYPE'),
+  'sPlot'      : (50, 'SUMMARY'),
+  'lPlot'      : (50, 'SYNOPSIS'),
+  'rating'     : (50, 'LAW_RATING'),
+  'prod'       : (50, 'PRODUCION_STUDIO'),
+  'cast'       : (50, 'ACTOR'),
+  'dir'        : (50, 'DIRECTOR'),
+  'wri'        : (50, 'WRITTEN_BY'),
+  'comment'    : (50, 'COMMENT'),
+  'cover'      : 'covr'
+}
+
+MKV2COMMON = {}
+for key, val in COMMON2MKV.items():
+  MKV2COMMON[val] = key
+
+from .API import BaseAPI, KEYS
+from .Person import Person
+from . import Movie
+from . import Series
+from . import Episode
 
 ###################################################################
 class TMDb( BaseAPI ):

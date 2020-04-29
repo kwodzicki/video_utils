@@ -7,68 +7,16 @@ from subprocess import Popen, STDOUT, DEVNULL
 from ..utils.checkCLI import checkCLI
 from .utils import downloadCover
 
+from . import COMMON2MP4, COMMON2MKV
+
 try:
   MKVPROPEDIT = checkCLI( 'mkvpropedit' )
 except:
   logging.getLogger(__name__).error('mkvpropedit NOT installed')
   MKVPROPEDIT = None
 
-freeform = lambda x: '----:com.apple.iTunes:{}'.format( x )                             # Functio
-
 TVDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by TheTVDB.com, but we are not endorsed or certified by TheTVDB.com or its affiliates. See website at https://thetvdb.com/.'
 TMDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by themoviedb.com (TMDb), but we are not endorsed or certified by TMDb or its affiliates. See website at https://themoviedb.org/.'
-
-def encoder( val ):
-  if isinstance(val, (tuple, list,)):
-    return [i.encode() for i in val]
-  elif isinstance( val, str ):
-    return val.encode()
-  else:
-    return val
-
-# A dictionary where keys are the starndard internal tags and values are MP4 tags
-# If a value is a tuple, then the first element is the tag and the seoncd is the
-# encoder function required to get the value to the correct format
-MP4KEYS = {
-  'year'       :  '\xa9day',
-  'title'      :  '\xa9nam',
-  'seriesName' :  'tvsh',
-  'seasonNum'  : ('tvsn', lambda x: [x]),
-  'episodeNum' : ('tves', lambda x: [x]),
-  'genre'      :  '\xa9gen',
-  'kind'       : ('stik', lambda x: [9] if x == 'movie' else [10]),
-  'sPlot'      :  'desc',
-  'lPlot'      : (freeform('LongDescription'),   encoder,),
-  'rating'     : (freeform('ContentRating'),     encoder,),
-  'prod'       : (freeform('Production Studio'), encoder,),
-  'cast'       : (freeform('Actor'),             encoder,),
-  'dir'        : (freeform('Director'),          encoder,),
-  'wri'        : (freeform('Writer'),            encoder,),
-  'comment'    : '\xa9cmt',
-  'cover'      :  'covr'
-}
-
-# A dictionary where keys are the standard internal tags and values are MKV tags
-# THe first value of each tuple is the level of the tag and the second is the tag name
-# See: https://matroska.org/technical/specs/tagging/index.html
-MKVKEYS = {
-  'year'       : (50, 'DATE_RELEASED'),
-  'title'      : (50, 'TITLE'),
-  'seriesName' : (70, 'TITLE'),
-  'seasonNum'  : (60, 'PART_NUMBER'),
-  'episodeNum' : (50, 'PART_NUMBER'),
-  'genre'      : (50, 'GENRE'),
-  'kind'       : (50, 'CONTENT_TYPE'),
-  'sPlot'      : (50, 'SUMMARY'),
-  'lPlot'      : (50, 'SYNOPSIS'),
-  'rating'     : (50, 'LAW_RATING'),
-  'prod'       : (50, 'PRODUCION_STUDIO'),
-  'cast'       : (50, 'ACTOR'),
-  'dir'        : (50, 'DIRECTOR'),
-  'wri'        : (50, 'WRITTEN_BY'),
-  'comment'    : (50, 'COMMENT'),
-  'cover'      : 'covr'
-}
 
 ########################################################################
 def toMP4( metaData ):
@@ -87,7 +35,7 @@ def toMP4( metaData ):
   keys = list( metaData.keys() )                                                        # Get list of all keys currently in dictioanry
   for key in keys:                                                                      # Iterate over all keys
     val     = metaData.pop( key )                                                       # Get value in key; poped off so no longer exists in dict
-    keyFunc = MP4KEYS.get( key, None )                                                  # Get keyFunc value from MP4KEYS; default to None
+    keyFunc = COMMON2MP4.get( key, None )                                                  # Get keyFunc value from MP4KEYS; default to None
     if keyFunc:                                                                         # If not None
       if isinstance( keyFunc, tuple ):                                                  # If keyFunc is a tuple
         key = keyFunc[0]                                                                # Get new key
@@ -112,8 +60,8 @@ def toMKV( metaData ):
   keys = list( metaData.keys() )                                                        # Get list of keys currently in dictionary
   for key in keys:                                                                      # Iterate over keys
     val = metaData.pop(key)                                                             # Get value in key; popped off so no longer exists in dict
-    if key in MKVKEYS:                                                                  # If key exists in MKVKEYS
-      metaData[ MKVKEYS[key] ] = val                                                    # Write data udner new key back into metadata
+    if key in COMMON2MKV:                                                                  # If key exists in MKVKEYS
+      metaData[ COMMON2MKV[key] ] = val                                                    # Write data udner new key back into metadata
   return metaData                                                                       # Return metadata
 
 ################################################################################
@@ -370,3 +318,14 @@ def mkvTagger( file, metaData ):
     return 6
  
   return 0
+
+def writeTags( file, metaData, **kwargs ):
+  log = logging.getLogger(__name__)
+  if file.endswith('.mp4'):
+    return mp4Tagger( file, metaData = metaData )
+  elif file.endswith('.mkv'):
+    return mkvTagger( file, metaData = metaData )
+  else:
+    log.error('Unsupported file type : {}'.format(file))
+    return False
+ 

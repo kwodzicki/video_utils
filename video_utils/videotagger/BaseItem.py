@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from .API import BaseAPI
-from .writers import mp4Tagger, mkvTagger
+from .writers import writeTags
 
 '''
 A note from the mutagen package:
@@ -317,12 +317,6 @@ class BaseItem( BaseAPI ):
     '''
     data = self.metadata( **kwargs )
     if data:
-      if file.endswith('.mp4'):
-        return mp4Tagger( file, metaData = data )
-      elif file.endswith('.mkv'):
-        return mkvTagger( file, metaData = data )
-      else:
-        self.__log.error('Unsupported file type : {}'.format(file))
-        return False
+      return writeTags( file, data, **kwargs )      
     self.__log.error('Failed to get metadata')
     return False
