@@ -12,6 +12,7 @@ from .writers import writeTags
 from .readers import mp4Reader
 
 HOME                = os.path.expanduser('~')
+HOME                = '/mnt/Media_6TB/testing'
 CACHE_DIR           = os.path.join(APPDIR, 'poster_cache')
 
 EXT_FILTER          = "Videos (*.mp4 *.mkv)"
@@ -111,7 +112,7 @@ class SearchWidget( QWidget ):
 class MetadataWidget( QWidget ):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self.cover  = None
+    self.cover  = ''
     self.layout = QGridLayout()
     self.row    = 0
 
@@ -120,11 +121,13 @@ class MetadataWidget( QWidget ):
     self.season  = self._addField('Season',   'Season number',  colspan=2); self.row-=2
     self.episode = self._addField('Episode',  'Episode number', colspan=2, col=2)
     self.year    = self._addField('Year',     'Year of release/airing' )
-    self.sPlot   = self._addField('Synopsis', 'Short synopsis of movie/episode', True)
-    self.lPlot   = self._addField('Summary',  'Longer summary of movie/episode', True)
     self.rating  = self._addField('Rating',   'Content rating' )
+    self.sPlot   = self._addField('Synopsis', 'Short synopsis of movie/episode', True); self.row -= 2
+    self.comment = self._addField('Comments', 'User comments', textedit=True, col=4, rowspan=3)
+    self.lPlot   = self._addField('Summary',  'Longer summary of movie/episode', True)
     self.genre   = self._addField('Genre',    'Comma separated list of genres' )
     self.curFile = self._addField('Current File', 'No file currently loaded', colspan=5 )
+
    
     label        = QLabel('Poster/Coverart')
     self.poster  = QLabel()
@@ -141,17 +144,23 @@ class MetadataWidget( QWidget ):
     else:
       widget = QLineEdit()
     widget.setPlaceholderText( placeholder )
-    self.layout.addWidget(label,  self.row,   col, rowspan, colspan) 
+    self.layout.addWidget(label,  self.row,   col,       1, colspan) 
     self.layout.addWidget(widget, self.row+1, col, rowspan, colspan) 
     self.row += 2
     return widget
  
   def _updateCover(self, info):
-    self.cover = info.get('cover', None)
+    pix        = None
+    self.cover = info.get('cover', '')
     if self.cover:
-      coverFile = downloadCover( self.cover, saveDir = CACHE_DIR )
-      if coverFile:
-        pix = QPixmap(coverFile) 
+      if isinstance(self.cover, bytes):
+        pix = QPixmap() 
+        pix.loadFromData( self.cover ) 
+      else:
+        coverFile = downloadCover( self.cover, saveDir = CACHE_DIR )
+        if coverFile:
+          pix = QPixmap(coverFile) 
+      if pix:
         pix = pix.scaled(self.poster.width(), self.poster.height(), Qt.KeepAspectRatio)
         self.poster.setPixmap( pix )
     else:
@@ -174,6 +183,7 @@ class MetadataWidget( QWidget ):
     self.lPlot.setText(   info.get('lPlot',      '') )
     self.rating.setText(  info.get('rating',     '') )
     self.genre.setText(   info.get('genre',      '') )
+    self.comment.setText( info.get('comment',    '') )
     self._updateCover( info )
 
     if len(info) == 0: self.curFile.setText('')
@@ -196,6 +206,7 @@ class MetadataWidget( QWidget ):
             'lPlot'      : self.lPlot.toPlainText(),
             'rating'     : self.rating.text(),
             'genre'      : self.genre.text().split(','),
+            'comment'    : self.comment.toPlainText(),
             'cover'      : self.cover
     }
 
@@ -208,6 +219,7 @@ class MetadataWidget( QWidget ):
     if filePath.endswith('.mp4'):
       info = mp4Reader( filePath )
       self._updateData( info )
+      self.curFile.setText( filePath )
     elif filePath.endswith('.mkv'):
       print('Loading metadata from MKV file')
     else:

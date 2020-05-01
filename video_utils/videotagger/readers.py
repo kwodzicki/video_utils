@@ -11,6 +11,10 @@ def mp4Reader( filePath ):
   obj  = mp4.MP4( filePath )
   info = {}
   for key, val in obj.items():
+    if isinstance(val, (tuple,list)):
+      val = [v.decode() if isinstance(v, mp4.MP4FreeForm) else v for v in val]
+      if len(val) == 1:
+        val = val[0]
     if key in MP42COMMON:
       info[ MP42COMMON[key] ] = val
   return info

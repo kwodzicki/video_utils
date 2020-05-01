@@ -45,7 +45,7 @@ class BaseAPI( object ):
   TMDb_URLSeason  = '{}/season/{}'.format(    TMDb_URLSeries, '{}' )
   TMDb_URLEpisode = '{}/episode/{}'.format(   TMDb_URLSeason, '{}' )
   TMDb_URLPerson  = '{}/person/{}'.format(    TMDb_URLBase,   '{}' )
-  TMDb_URLImage   = 'http://image.tmdb.org/t/p/original/{}'
+  TMDb_URLImage   = 'https://image.tmdb.org/t/p/original/{}'
 
   TVDb_URLBase    = 'https://api.thetvdb.com'
   TVDb_URLLogin   = '{}/login'.format( TVDb_URLBase )
