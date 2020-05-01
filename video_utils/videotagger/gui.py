@@ -17,10 +17,25 @@ CACHE_DIR           = os.path.join(APPDIR, 'poster_cache')
 
 EXT_FILTER          = "Videos (*.mp4 *.mkv)"
 
+# The following are placeholder text for search boxes
 SEARCH_ID_TEXT      = 'Series or Movie ID'
 SEARCH_SEASON_TEXT  = 'Season # (optional)'
 SEARCH_EPISODE_TEXT = 'Episode # (optional)' 
 
+# The following define lables and placeholder text for metadata entry boxes
+TITLE               = ('Title',        'Movie or Episode title')
+SERIES              = ('Series',       'TV series title') 
+SEASON              = ('Season',       'Season number')
+EPISODE             = ('Episode',      'Episode number')
+YEAR                = ('Year',         'Year of release/airing' )
+RATING              = ('Rating',       'Content rating' )
+SPLOT               = ('Synopsis',     'Short synopsis of movie/episode')
+COMMENT             = ('Comments',     'User comments')
+LPLOT               = ('Summary',      'Longer summary of movie/episode')
+GENRE               = ('Genre',        'Comma separated list of genres' )
+CURFILE             = ('Current File', 'No file currently loaded' )
+
+# Ensure cache directory exists
 os.makedirs(CACHE_DIR, exist_ok = True)
 
 class SearchWidget( QWidget ):
@@ -116,17 +131,17 @@ class MetadataWidget( QWidget ):
     self.layout = QGridLayout()
     self.row    = 0
 
-    self.title   = self._addField('Title',    'Movie or Episode title' )
-    self.series  = self._addField('Series',   'TV series title' )
-    self.season  = self._addField('Season',   'Season number',  colspan=2); self.row-=2
-    self.episode = self._addField('Episode',  'Episode number', colspan=2, col=2)
-    self.year    = self._addField('Year',     'Year of release/airing' )
-    self.rating  = self._addField('Rating',   'Content rating' )
-    self.sPlot   = self._addField('Synopsis', 'Short synopsis of movie/episode', True); self.row -= 2
-    self.comment = self._addField('Comments', 'User comments', textedit=True, col=4, rowspan=3)
-    self.lPlot   = self._addField('Summary',  'Longer summary of movie/episode', True)
-    self.genre   = self._addField('Genre',    'Comma separated list of genres' )
-    self.curFile = self._addField('Current File', 'No file currently loaded', colspan=5 )
+    self.title   = self._addField( *TITLE )
+    self.series  = self._addField( *SERIES )
+    self.season  = self._addField( *SEASON,  colspan=2); self.row-=2
+    self.episode = self._addField( *EPISODE, colspan=2, col=2)
+    self.year    = self._addField( *YEAR )
+    self.rating  = self._addField( *RATING )
+    self.sPlot   = self._addField( *SPLOT,    textedit=True); self.row -= 2
+    self.comment = self._addField( *COMMENT,  textedit=True, col=4, rowspan=3)
+    self.lPlot   = self._addField( *LPLOT,    textedit=True)
+    self.genre   = self._addField( *GENRE )
+    self.curFile = self._addField( *CURFILE, colspan=5 )
 
    
     label        = QLabel('Poster/Coverart')
