@@ -106,8 +106,10 @@ def mp4Tagger( file, metaData ):
     return 11                                                                           # Print message and return code eleven (11)
   
   version = metaData.pop('version', '')
-  comment = metaData.get('comment',   '')
-  comment = ' '.join( [comment, TVDB_ATTRIBUTION, TMDB_ATTRIBUTION] ).strip()
+  comment = [metaData.get('comment',   '')]
+  if TVDB_ATTRIBUTION not in comment[0]: comment.append( TVDB_ATTRIBUTION )             # If TVDb attribution not in comment, add it
+  if TMDB_ATTRIBUTION not in comment[0]: comment.append( TMDB_ATTRIBUTION )             # If TMDb attribution not in comment, add it
+  comment = ' '.join( comment ).strip()                                                 # Join comment list on space and remove leading/trailing white space
 
   metaData.update( {'comment' : comment } )
   metaData  = toMP4(metaData)
@@ -137,9 +139,12 @@ def mp4Tagger( file, metaData ):
   log.debug('Setting basic inforamtion')                                                # Debugging information
   for key, val in metaData.items():
     if key == 'covr' and val != '':
-      log.debug('Attempting to get coverart')                                           # Debugging information
       fmt  = mp4.AtomDataType.PNG if val.endswith('png') else mp4.AtomDataType.JPEG     # Set format for the image
-      data = downloadCover( val, text = version )
+      if os.path.isfile( val ):                                                         # If value is local file
+        with open(val, 'rb') as fid: data = fid.read()                                  # Read in data from file
+      else:
+        log.debug('Attempting to get coverart')                                         # Debugging information
+        data = downloadCover( val, text = version )                                     # Download the data
       if data is not None:
         val = [ mp4.MP4Cover( data, fmt ) ]                                             # Add image to file
       else:
@@ -253,17 +258,19 @@ def mkvTagger( file, metaData ):
     log.warning( 'mkvpropedit not installed' )
     return 4
 
-  log.debug( 'Testing file is MKV' );                                             # Debugging information
-  if not file.endswith('.mkv'):                                                   # If the input file does NOT end in '.mp4'
-    log.error('Input file is NOT an MKV!!!'); return 1;                         # Print message and return code one (1)
+  log.debug( 'Testing file is MKV' )                                                    # Debugging information
+  if not file.endswith('.mkv'):                                                         # If the input file does NOT end in '.mp4'
+    log.error('Input file is NOT an MKV!!!'); return 1                                  # Print message and return code one (1)
 
-  log.debug( 'Testing file too large' );                                          # Debugging information
-  if os.stat(file).st_size > sys.maxsize:                                         # If the file size is larger than the supported maximum size
-    log.error('Input file is too large!'); return 11;                           # Print message and return code eleven (11)
+  log.debug( 'Testing file too large' )                                                 # Debugging information
+  if os.stat(file).st_size > sys.maxsize:                                               # If the file size is larger than the supported maximum size
+    log.error('Input file is too large!'); return 11                                    # Print message and return code eleven (11)
       
   version = metaData.pop('version', '')
-  comment = metaData.get('comment', '')
-  comment = ' '.join( [comment, TVDB_ATTRIBUTION, TMDB_ATTRIBUTION] ).strip()           # Join all comments on space and remove leading/trailing spaces
+  comment = [metaData.get('comment',   '')]
+  if TVDB_ATTRIBUTION not in comment[0]: comment.append( TVDB_ATTRIBUTION )             # If TVDb attribution not in comment, add it
+  if TMDB_ATTRIBUTION not in comment[0]: comment.append( TMDB_ATTRIBUTION )             # If TMDb attribution not in comment, add it
+  comment = ' '.join( comment ).strip()                                                 # Join comment list on space and remove leading/trailing white space
 
   metaData.update( {'comment' : comment } )
   metaData  = toMKV( metaData )
@@ -282,7 +289,10 @@ def mkvTagger( file, metaData ):
   coverFile = None
   for key, val in metaData.items():                                                     # Iterate over all key/value pairs in metadata dictionary
     if key == 'covr':                                                                   # If key is covr
-      coverFile = downloadCover( val, saveDir = fileDir, text = version )               # Download cover
+      if os.path.isfile( val ):                                                         # If value is local file
+        coverFile = val                                                                 # Set coverFile to val
+      else:                                                                             # Else, try to download
+        coverFile = downloadCover( val, saveDir = fileDir, text = version )             # Download cover
     else:                                                                               # Else
       TargetTypeValue, tag = key                                                        # Get TargetTypeValue and tag from the key tuple
       if TargetTypeValue not in tags:                                                   # If the TargetTypeValue is not in tags

@@ -5,12 +5,13 @@ import argparse
 from ..version import __version__
 from ..utils.threadCheck import HALFTHREADS
 
-PKGNAME = __name__.split('.')[0]                                                        # Get root name of package 
-HOME    = os.path.expanduser('~')
-DATADIR = os.path.join( os.path.dirname(__file__) )
-APPDIR  = os.path.join( HOME,   'Library', 'Application Support', PKGNAME )
-LOGDIR  = os.path.join( APPDIR, 'Logs' )
-CONFIG  = os.path.join( HOME,   '.{}.yml'.format(PKGNAME) )
+PKGNAME  = __name__.split('.')[0]                                                        # Get root name of package 
+HOME     = os.path.expanduser('~')
+DATADIR  = os.path.join( os.path.dirname(__file__) )
+APPDIR   = os.path.join( HOME,   'Library', 'Application Support', PKGNAME )
+CACHEDIR = os.path.join( APPDIR, 'cache')
+LOGDIR   = os.path.join( APPDIR, 'Logs' )
+CONFIG   = os.path.join( HOME,   '.{}.yml'.format(PKGNAME) )
 try:
   with open(CONFIG, 'r') as fid:
     CONFIG = yaml.load( fid, Loader = yaml.SafeLoader )

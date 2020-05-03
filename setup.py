@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os, shutil, importlib
-from setuptools import setup, convert_path
+from setuptools import setup, find_packages, convert_path
 from setuptools.command.install import install
 
 NAME = "video_utils"
@@ -37,7 +37,7 @@ setup(
   author               = "Kyle R. Wodzicki",
   author_email         = "krwodzicki@gmail.com",
   version              = main_ns['__version__'],
-  packages             = setuptools.find_packages(),
+  packages             = find_packages(),
   cmdclass             = {'install' : PostInstallCommand},
   package_data         = {"" : ["*.ini", "*.ttf"]},
   include_package_data = True,

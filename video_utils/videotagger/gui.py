@@ -5,15 +5,14 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout, QAction
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import Qt
 
-from ..config import APPDIR
+from ..config import APPDIR, CACHEDIR
 from . import Movie, Episode
 from .utils import downloadCover 
 from .writers import writeTags
-from .readers import mp4Reader
+from .readers import mp4Reader, mkvReader
 
 HOME                = os.path.expanduser('~')
 HOME                = '/mnt/Media_6TB/testing'
-CACHE_DIR           = os.path.join(APPDIR, 'poster_cache')
 
 EXT_FILTER          = "Videos (*.mp4 *.mkv)"
 
@@ -36,7 +35,7 @@ GENRE               = ('Genre',        'Comma separated list of genres' )
 CURFILE             = ('Current File', 'No file currently loaded' )
 
 # Ensure cache directory exists
-os.makedirs(CACHE_DIR, exist_ok = True)
+os.makedirs(CACHEDIR, exist_ok = True)
 
 class SearchWidget( QWidget ):
   def __init__(self, *args, **kwargs):
@@ -171,8 +170,10 @@ class MetadataWidget( QWidget ):
       if isinstance(self.cover, bytes):
         pix = QPixmap() 
         pix.loadFromData( self.cover ) 
+      elif os.path.isfile( self.cover ):
+        pix = QPixmap( self.cover ) 
       else:
-        coverFile = downloadCover( self.cover, saveDir = CACHE_DIR )
+        coverFile = downloadCover( self.cover, saveDir = CACHEDIR )
         if coverFile:
           pix = QPixmap(coverFile) 
       if pix:
@@ -233,12 +234,13 @@ class MetadataWidget( QWidget ):
   def _openFile(self, filePath):
     if filePath.endswith('.mp4'):
       info = mp4Reader( filePath )
-      self._updateData( info )
-      self.curFile.setText( filePath )
     elif filePath.endswith('.mkv'):
-      print('Loading metadata from MKV file')
+      info = mkvReader( filePath )
     else:
       print('Unsupported file type')
+      return
+    self._updateData( info )
+    self.curFile.setText( filePath )
 
 
 class VideoTaggerGUI( QMainWindow ):
@@ -292,5 +294,5 @@ class VideoTaggerGUI( QMainWindow ):
       self.metadataWidget._updateData( info )
 
   def closeEvent(self, event):
-    shutil.rmtree( CACHE_DIR )
+    shutil.rmtree( CACHEDIR )
     event.accept()
