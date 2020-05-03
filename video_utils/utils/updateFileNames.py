@@ -247,4 +247,5 @@ def updateFileNames(*args, rootdir = None, dbID = None):
                 else:
                   print('Removed directory : {}'.format(path) )
             #PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
+    PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
 

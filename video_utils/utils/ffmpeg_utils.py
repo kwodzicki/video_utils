@@ -357,9 +357,9 @@ def splitOnChapter(inFile, nChap):
     return;                                                                     # Return
   
   cmd = ['ffmpeg', '-v', 'quiet', '-stats', 
-         '-ss', '', 
          '-i', inFile,
-          '-codec', 'copy', '-map', '0',
+         '-codec', 'copy', '-map', '0',
+         '-ss', '', 
          '-t', '', ''];                                                         # Set up list for command to split file
   fmt = 'split_{:03d}.' + inFile.split('.')[-1];                                # Set file name for split files
   num = 0;                                                                      # Set split file number
@@ -369,7 +369,7 @@ def splitOnChapter(inFile, nChap):
     start   = timedelta( seconds = float(chaps[s]['start_time']) + 0.05 );      # Get chapter start time
     end     = timedelta( seconds = float(chaps[e]['end_time'])   - 0.05 );      # Get chapter end time
     dur     = end - start;                                                      # Get chapter duration
-    cmd[ 5] = str(start);                                                       # Set start offset to string of start time
+    cmd[-4] = str(start);                                                       # Set start offset to string of start time
     cmd[-2] = str(dur);                                                         # Set duration to string of dur time
     cmd[-1] = os.path.join( os.path.dirname(inFile), fName );                   # Set output file
 
