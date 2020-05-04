@@ -346,7 +346,10 @@ def splitOnChapter(inFile, nChap):
   Author and History:
     Kyle R. Wodzicki     Created 01 Feb. 2018
   '''
-  if type(nChap) is not int: nChap = int(nChap);                                # Ensure that nChap is type int
+  if isinstance(nChap, (tuple,list)):
+    nChap = [int(n) for n in nChap]
+  elif type(nChap) is not int:
+    nChap = int(nChap);                                # Ensure that nChap is type int
   cmd = ['ffprobe', '-i', inFile, '-print_format', 'json', 
          '-show_chapters', '-loglevel', 'error'];                               # Command to get chapter information
   try:                                                                          # Try to...
@@ -362,10 +365,12 @@ def splitOnChapter(inFile, nChap):
          '-ss', '', 
          '-t', '', ''];                                                         # Set up list for command to split file
   fmt = 'split_{:03d}.' + inFile.split('.')[-1];                                # Set file name for split files
-  num = 0;                                                                      # Set split file number
-  for i in range(0, len(chaps), nChap):                                         # Iterate over chapter ranges
+  num =  0                                                                      # Set split file number
+  s   =  0
+  while s < len(chaps):
+    width   = nChap[num] if isinstance(nChap, (tuple,list)) else nChap
     fName   = fmt.format(num);                                                  # Set file name
-    s, e    = i, i+nChap-1
+    e       = s + width - 1
     start   = timedelta( seconds = float(chaps[s]['start_time']) + 0.05 );      # Get chapter start time
     end     = timedelta( seconds = float(chaps[e]['end_time'])   - 0.05 );      # Get chapter end time
     dur     = end - start;                                                      # Get chapter duration
@@ -379,7 +384,7 @@ def splitOnChapter(inFile, nChap):
       print('FFmpeg had an error!');                                            # Print message
       return;                                                                   # Return
     num += 1;                                                                   # Increment split number
-
+    s    = e + 1
 #if __name__ == "__main__":
 #  import argparse;                                                              # Import library for parsing
 #  parser = argparse.ArgumentParser(description="Split on Chapter");             # Set the description of the script to be printed in the help doc, i.e., ./script -h

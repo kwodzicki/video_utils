@@ -70,5 +70,6 @@ if __name__ == "__main__":
         os.makedirs( newDir, exist_ok = True )
       newFile = [metadata.getBasename()] + video['file_info'] + audio['file_info']
       newPath = os.path.join( newDir, '.'.join(newFile) + ext )
+      logger.info('Renaming file: {} ---> {}'.format(args.file, newPath))
       os.rename( args.file, newPath )
   exit( 0 );

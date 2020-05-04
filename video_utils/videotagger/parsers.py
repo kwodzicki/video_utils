@@ -14,9 +14,10 @@ TMDb2Stnd = {'first_air_date'     : 'air_date'}
 PARENTH   = re.compile( r'(\s+\([^\)]+\))$' )                           # Pattern to find any (xxx) data at and of string
 
 def standardize( info, **kwargs ):
-  tvdb = kwargs.get('TVDb', False)                                      # IF the TVDb keyword is set
-  keys = TVDb2Stnd if tvdb else TMDb2Stnd                               # Set the keys dictionary based on tvdb
-  for key in info.keys():                                               # Iterate over all keys in info
+  tvdb     = kwargs.get('TVDb', False)                                      # IF the TVDb keyword is set
+  keys     = TVDb2Stnd if tvdb else TMDb2Stnd                               # Set the keys dictionary based on tvdb
+  infoKeys = list( info.keys() ) 
+  for key in infoKeys:                                               # Iterate over all keys in info
     if (key in keys):                                                   # If key is in keys
       info[ keys[key] ] = info.pop(key)                                 # Pop key from dict and re-add as new standard key
   if tvdb:                                                              # If tvdb then 
