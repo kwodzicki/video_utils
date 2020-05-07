@@ -141,8 +141,12 @@ class Chapter( object ):
   def time_base(self, val):
     self._data['time_base'] = val                                                       # Set time_base to new value
     self._num, self._den = map(int, val.split('/'))                                     # Get new numerator and denominator
-    self.start_time = self.start_time                                                   # Set start_time to current start_time; will trigger conversion of start
-    self.end_time   = self.end_time                                                     # Set end_time to current end_time; will trigger conversion of end
+    start_time = self.start_time
+    if isinstance(start_time, float):
+      self.start_time = start_time                                                   # Set start_time to current start_time; will trigger conversion of start
+    end_time   = self.end_time                                                     # Set end_time to current end_time; will trigger conversion of end
+    if isinstance(end_time, float):
+      self.end_time   = end_time                                                     # Set end_time to current end_time; will trigger conversion of end
 
   @property
   def start(self):
@@ -578,12 +582,10 @@ def getChapters(inFile):
          '-show_chapters', '-loglevel', 'error']                                        # Command to get chapter information
   try:                                                                                  # Try to...
     chaps = str(check_output( cmd ), 'utf-8')                                           # Get chapter information from ffprobe
-    print(chaps[-1])
-    chaps = [ Chapter(chap) for chap in json.loads( chaps )['chapters'] ]               # Parse the chapter information
   except:                                                                               # On exception
     print('Failed to get chapter information')                                          # Print a message
     return None                                                                         # Return
-  return chaps
+  return [ Chapter(chap) for chap in json.loads( chaps )['chapters'] ]               # Parse the chapter information
 
 ###############################################################################
 def partialExtract( inFile, outFile, startOffset, duration, chapterFile = None ):
@@ -611,7 +613,7 @@ def partialExtract( inFile, outFile, startOffset, duration, chapterFile = None )
   cmd += ['-i', inFile]                                                                 # Set input file
   if chapterFile:                                                                       # If chapter file specified
     cmd += ['-i', chapterFile, '-map_chapters', '1']                                    # Add chapter file to command
-  cmd += ['-codec', 'copy', '-map', '0']                                                # Set codec to copy and map stream to all
+  cmd += ['-codec', 'copy']                                                             # Set codec to copy and map stream to all
   cmd += ['-ss', '0', '-t',  str( duration ) ]                                          # Set start time and duration for output  file
   cmd += [outFile]                                                                      # Set up list for command to split file
   proc = Popen(cmd, stderr=DEVNULL)                                                     # Write errors to /dev/null
