@@ -4,9 +4,8 @@ from datetime import timedelta
 
 from . import config
 from .utils.checkCLI import checkCLI
-from .utils.ffmpeg_utils import getVideoLength
+from .utils.ffmpeg_utils import getVideoLength, FFMetaData
 from .utils.handlers import RotatingFile
-from .utils import threadCheck
 
 try:
   COMSKIP = checkCLI( 'comskip' )
@@ -193,50 +192,44 @@ class ComRemove( object ):
       Boolean, True if success, False if failed
     '''
     self.__log.info('Generating metadata file')
-    chpFMT      = '[CHAPTER]\nTIMEBASE=1/1000\nSTART={}\nEND={}\ntitle={}\n'
+
+    showSeg     = 'Show Segment \#{}'
+    comSeg      = 'Commercial Break \#{}'
+    segment     = 1
+    commercial  = 1
+    segStart    = 0.0                                                                   # Initial start time of the show segment; i.e., the beginning of the recording
 
     fDir, fBase = os.path.split( in_file )                                              # Split file path to get directory path and file name
     fName, fExt = os.path.splitext( fBase )                                             # Split file name and extension
-    metaFile    = os.path.join( fDir, '{}.chap'.format(fName) )                 # Generate file name for chapter metadata
+    metaFile    = os.path.join( fDir, '{}.chap'.format(fName) )                         # Generate file name for chapter metadata
 
     fileLength  = getVideoLength(in_file)
-    segment     = 1
-    commercial  = 1
 
-    mid         = open(metaFile, 'w')                                                   # Open metadata file for writing
-    mid.write( ';FFMETADATA1\n' )                                                       # Write header to file
-
-    segStart    = timedelta( seconds = 0.0 );                                      # Initial start time of the show segment; i.e., the beginning of the recording
-    with open(edl_file, 'r') as fid:                                             # Open edl_file for reading
-      info        = fid.readline();                                                  # Read first line from the edl file
-      while info:                                                                 # While the line is NOT empty
-        comStart, comEnd = info.split()[:2];                                      # Get the start and ending times of the commercial
-        comStart   = timedelta( seconds = float(comStart) );                      # Get start time of commercial as a time delta
-        comEnd     = timedelta( seconds = float(comEnd) );                        # Get the end time of the commercial as a time delta
-        if comStart.total_seconds() > 1.0:                                        # If the start of the commercial is NOT near the very beginning of the file
+    ffmeta      = FFMetaData()
+    with open(edl_file, 'r') as fid:                                                    # Open edl_file for reading
+      info = fid.readline();                                                            # Read first line from the edl file
+      while info:                                                                       # While the line is NOT empty
+        comStart, comEnd = map(float, info.split()[:2])                                 # Get the start and ending times of the commercial as float
+        if comStart > 1.0:                                                              # If the start of the commercial is NOT near the very beginning of the file
           # From segStart to comStart is NOT commercial
-          sTime    = int(segStart.total_seconds() * 1000)
-          eTime    = int(comStart.total_seconds() * 1000)
-          mid.write( chpFMT.format(sTime, eTime, 'Show Segment \#{}'.format(segment)) )
-          self.__log.debug( 'Show segment {} - {} to {} micros'.format(segment, sTime, eTime) ) 
-          # From comStart to comEnd is commercail
-          sTime    = eTime
-          eTime    = int(comEnd.total_seconds() * 1000)
-          mid.write(chpFMT.format(sTime, eTime, 'Commercial Break \#{}'.format(commercial)) )
-          self.__log.debug( 'Commercial {} - {} to {} micros'.format(commercial, sTime, eTime) ) 
+          title = showSeg.format(segment)
+          ffmeta.addChapter( segStart, comStart, title ) 
+          self.__log.debug( '{} - {:0.2f} to {:0.2f} s'.format(title, segStart, comStart) ) 
+          # From comStart to comEnd is commercial
+          title = comSeg.format(commercial)
+          ffmeta.addChapter( comStart, comEnd, title )
+          self.__log.debug( '{} - {:0.2f} to {:0.2f} s'.format(title, comStart, comEnd) ) 
           # Increment counters
           segment    += 1
           commercial += 1
-        segStart = comEnd;                                                        # The start of the next segment of the show is the end time of the current commerical break 
-        info     = fid.readline();                                                # Read next line from edl file
+        segStart = comEnd                                                               # The start of the next segment of the show is the end time of the current commerical break 
+        info     = fid.readline()                                                       # Read next line from edl file
 
-    dt = (fileLength - segStart).total_seconds()                                    # Time difference, in seconds, between segment start and end of file
-    if (dt >= 5.0):                                                                 # If the time differences is greater than a few seconds
-      sTime = int(segStart.total_seconds()   * 1000)
-      eTime = int(fileLength.total_seconds() * 1000) 
-      mid.write( chpFMT.format(sTime, eTime, 'Show Segment \#{}'.format(segment)) )
+    if (fileLength - segStart) >= 5.0:                                                                 # If the time differences is greater than a few seconds
+      ffmeta.addChapter( segStart, fileLength, showSeg.format(segment) )
  
-    mid.close()
+    ffmeta.save( metaFile )
+
     return True 
 
   ########################################################

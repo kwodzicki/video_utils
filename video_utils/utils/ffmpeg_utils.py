@@ -7,15 +7,253 @@ from subprocess import Popen, check_output, PIPE, STDOUT, DEVNULL
 from .. import _sigintEvent, _sigtermEvent
 from .. import POPENPOOL
 
-_progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' )                      # Regex pattern for locating file duration in ffmpeg ouput 
-_durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' )                 # Regex pattern for locating file processing location
-_cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' )                          # Regex pattern for extracting crop information
-_resPat  = re.compile( r'(\d{3,5}x\d{3,5})' )                                   # Regex pattern for video resolution
+_progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' )                              # Regex pattern for locating file duration in ffmpeg ouput 
+_durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' )                         # Regex pattern for locating file processing location
+_cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' )                                  # Regex pattern for extracting crop information
+_resPat  = re.compile( r'(\d{3,5}x\d{3,5})' )                                           # Regex pattern for video resolution
 _durPat  = re.compile( r'Duration: ([^,]*)' )
-_info    = 'Estimated Completion Time: {}'                                     # String formatter for conversion progress
+_info    = 'Estimated Completion Time: {}'                                              # String formatter for conversion progress
 
-_toSec   = np.array( [3600, 60, 1], dtype = np.float32 );                       # Array for conversion of hour/minutes/seconds to total seconds
-_chunk   = np.full( (128, 4), np.nan );                                         # Base numpy chunk
+_toSec   = np.array( [3600, 60, 1], dtype = np.float32 )                                # Array for conversion of hour/minutes/seconds to total seconds
+_chunk   = np.full( (128, 4), np.nan )                                                  # Base numpy chunk
+
+TIME_BASE   = '1/1000000000'                                                            # Default time_base for chapters
+PREROLL     = -1.0                                                                      # Padding before beginning of chapter
+POSTROLL    =  1.0                                                                      # Padding after end of chapter
+
+HEADERFMT   = ';FFMETADATA{}' + os.linesep                                              # Format for FFMETADATA file header
+METADATAFMT = '{}={}' + os.linesep                                                      # Format string for a FFMETADATA metadata tag
+CHAPTERFMT  = ['[CHAPTER]', 'TIMEBASE={}', 'START={}', 'END={}', 'title={}', '']        # Format of CHAPTER block in FFMETADATA file
+CHAPTERFMT  = os.linesep.join( CHAPTERFMT )                                             # Join CHAPTER block format list on operating system line separator
+
+class FFMetaData( object ):
+  def __init__(self, version = 1):
+    self.__log     = logging.getLogger(__name__)
+    self._version  = version
+    self._metadata = {}
+    self._chapters = []
+    self._chapter  = 1
+ 
+  def addMetadata(self, **kwargs):
+    '''
+    Purpose:
+      Method to add new metadata tags to FFMetaData file
+    Inputs:
+      None.
+    Keywords:
+      Any key/value pair where key is a valid metadata tag and value is
+      the value for the tag. 
+    Returns:
+      None.
+    '''
+    self._metadata.update( kwargs )
+
+  def addChapter(self, *args, **kwargs):
+    '''
+    Purpose:
+      Method to add chapter marker to FFMetaData file
+    Inputs:
+      If one (1) input:
+        Must be Chapter instance
+      If three (3) inputs:
+        start  : Start time of chapter (float or datetime.timedelta)
+        end    : End time of chapter (float or datetime.timedelta)
+        title  : Chapter title (str)
+    Keywords:
+      time_base : String of form 'num/den’, where num and den are integers. 
+                  If the time_base is missing then start/end times are assumed
+                 to be in nanosecond. Ignored if NOT three (3) inputs.
+    Returns:
+      None.
+    '''
+    if len(args) == 1:
+      chapter = args[0]
+    elif len(args) == 3:
+      if isinstance(args[0], timedelta):
+        start = arg[0].total_seconds()
+      if isinstance(args[1], timedelta):
+        end   = args[1].total_seconds()
+
+      chapter   = Chapter()
+      time_base = kwargs.get('time_base', TIME_BASE)
+      if isinstance(time_base, str):                                                    # If is string
+        num, den = map(int, time_base.split('/'))                                       # Get the numberator and denominator as integers
+        factor   = den / num                                                            # Do den/num to get factor to go from seconds to time_base
+      else:
+        raise Exception( "time_base must be a string of format 'num/den'!" )
+      chapter.time_base = time_base 
+      chapter.start     = round( args[0] * factor )                                     # Get total seconds from timedelta, apply factor, then convert to integer
+      chapter.end       = round( args[1] * factor )                                     # Do same for end time
+      chapter.title     = args[2]
+    else:
+      raise Exception( "Incorrect number of arguments!" )
+
+    if re.match('Chapter\s\d?', chapter.title):                                         # If chapter title matches generic title
+      chapter.title = 'Chapter {:02d}'.format(self._chapter)                            # Reset chapter number title
+
+    self._chapters.append( chapter.toFFMetaData() )                                     # Append tuple of information to _chapters attribute
+    self._chapter += 1
+
+  def save(self, filePath):
+    '''
+    Purpose:
+      Method to write ffmetadata to file
+    Inputs:
+      filePath  : Full path of file to write to
+    Keywords:
+      None.
+    Returns:
+      Returns the filePath input
+    '''
+    with open(filePath, 'w') as fid:                                            # Open file for writing
+      fid.write( HEADERFMT.format( self._version ) )                       # Write header to file
+
+      for key, val in self._metadata.items():                                   # Iterate over all key/value pairs in metadata dictionary
+        fid.write( METADATAFMT.format(key, val) )                          # Write metadata
+
+      fid.write( os.linesep )                                                   # Add space between header/metadata and chapter(s)
+      for info in self._chapters:                                               # Iterate over all chapters
+        fid.write( info )                                                       # Write the chapter info
+        fid.write( os.linesep )                                                 # Write extra space between chapters
+
+    self._chapters = []
+    self._chapter = 1
+    return filePath                                                             # Return file path
+
+###############################################################################
+class Chapter( object ):
+  def __init__(self, chapter={}):
+    self._data     = chapter
+    time_base      = self.time_base
+    start          = self.start
+    end            = self.end
+    self.time_base = time_base
+    self.start     = start
+    self.end       = end
+
+  def __repr__(self):
+    return '<{} : {}s --> {}s>'.format(self.title, self.start_time, self.end_time)    
+
+  @property
+  def time_base(self):
+    return self._data.get('time_base', TIME_BASE)
+  @time_base.setter
+  def time_base(self, val):
+    self._data['time_base'] = val                                                       # Set time_base to new value
+    self._num, self._den = map(int, val.split('/'))                                     # Get new numerator and denominator
+    self.start_time = self.start_time                                                   # Set start_time to current start_time; will trigger conversion of start
+    self.end_time   = self.end_time                                                     # Set end_time to current end_time; will trigger conversion of end
+
+  @property
+  def start(self):
+    return self._data.get('start', 0)
+  @start.setter
+  def start(self, val):
+    self._data['start']      = val
+    self._data['start_time'] = self.base2seconds( val )
+
+  @property
+  def end(self):
+    return self._data.get('end', 0)
+  @end.setter
+  def end(self, val):
+    self._data['end']      = val
+    self._data['end_time'] = self.base2seconds( val )
+
+  @property
+  def start_time(self):
+    return self._data.get('start_time', 0)
+  @start_time.setter
+  def start_time(self, val):
+    self._data['start_time'] = val
+    self._data['start']      = self.seconds2base( val )
+
+  @property
+  def end_time(self):
+    return self._data.get('end_time', 0)
+  @end_time.setter
+  def end_time(self, val):
+    self._data['end_time'] = val
+    self._data['end']      = self.seconds2base( val )
+
+  @property
+  def title(self):
+    key = 'tags'
+    if key in self._data:
+      return self._data[key].get('title', '')
+  @title.setter
+  def title(self, val):
+    key  = 'tags'
+    tags = self._data.get(key, None)
+    if not isinstance(tags, dict):
+      self._data[key] = {}
+    self._data[key]['title'] = val
+
+  def _convertTimebase(self, inInt, inFloat, time_base):
+    '''
+    Purpoe:
+      Method to convert to new time_base
+    Inputs:
+      inInt     : Value of time in time_base units
+      inFloat   : Value of time in seconds
+      time_base : str contianing new time_base
+    Keywords:
+      None.
+    Returns:
+      (inInt, inFloat) where inInt is in requested time_base
+    '''
+    if time_base != self.time_base:                                                     # If requested time_base NOT match time_base
+      num, den = map(int, time_base.split('/'))                                         # Get numerator and denominator of new time_base
+      factor   = (self._num * den) / (self._den * num)                                  # Cross multiply original time_base with new time_base
+      return  round(inInt * factor), inFloat                                            # Convert integer time to new base, return float
+    return inInt, inFloat
+
+  def toFFMetaData(self):
+    '''Method that returns information in format for FFMETADATA file'''
+    return CHAPTERFMT.format(self.time_base, self.start, self.end, self.title)
+
+  def base2seconds(self, val):
+    '''Method that converts value in time_base units to seconds'''
+    return val * self._num / self._den
+
+  def seconds2base(self, val):
+    '''Method that converts value in seconds to time_base units'''
+    return round( val * self._den / self._num )
+
+  def getStart(self, time_base = None):
+    '''Method to return chapter start time in time_base and seconds units'''
+    if time_base:
+      return self._convertTimebase( *self.getStart(), time_base )
+    return self.start, self.start_time
+
+  def getEnd(self, time_base = None):
+    '''Method to return chapter end time in time_base and seconds units'''
+    if time_base:
+      return self._convertTimebase( *self.getEnd(), time_base )
+    return self.end, self.end_time
+
+  def addOffset(self, offset, flag = 2):
+    '''
+    Purpose:
+      To adjust the start, end, or both times
+    Inputs:
+      offset  : float specifying offset time in seconds
+    Keywords:
+      flag    : Set to: 0 - to add offset to start time,
+                        1 - to add offset to end time,
+                        2 - (default) add offset to start and end
+    Returns:
+      None, updates internal attributes
+    '''
+    if isinstance(offset, timedelta):
+      offset = offset.total_seconds()
+    if flag == 2:                                                                       # If flag is 2
+      self.start_time += offset                                                         # offset start time
+      self.end_time   += offset                                                         # Offset end time
+    elif flag == 1:                                                                     # If flag is 1
+      self.end_time   += offset                                                         # Offset end_time
+    elif flag == 0:                                                                     # If flag is 0
+      self.start_time += offset                                                         # Offset start time
 
 ###############################################################################
 def cropdetect( infile, dt = 20, threads = POPENPOOL.threads):
@@ -124,8 +362,8 @@ def totalSeconds( *args ):
     Keywords:
       None.
     '''
-    times = [np.array(arg.split(':'), dtype=np.float32)*_toSec for arg in args];# Iterate over all arugments, splitting on colon (:), converting to numpy array, and converting each time element to seconds
-    return np.array( times ).sum( axis=1 );                                     # Conver list of numpy arrays to 2D numpy array, then compute sum of seconds across second dimension
+    times = [np.array(arg.split(':'), dtype=np.float32)*_toSec for arg in args]         # Iterate over all arugments, splitting on colon (:), converting to numpy array, and converting each time element to seconds
+    return np.array( times ).sum( axis=1 )                                              # Conver list of numpy arrays to 2D numpy array, then compute sum of seconds across second dimension
 
 ###############################################################################
 class FFmpegProgress(object):
@@ -273,7 +511,7 @@ def getVideoLength(in_file):
     dur = hh*3600.0 + mm*60.0 + ss
   else:
     dur = 86400.0
-  return timedelta( seconds = dur )
+  return dur
 
 ###############################################################################
 def checkIntegrity(filePath):
@@ -325,7 +563,65 @@ def _testFile():
     proc.communicate()                                                          
 
 ###############################################################################
-def splitOnChapter(inFile, nChap):
+def getChapters(inFile):
+  '''
+  Purpose:
+    Function for extract chapter information from video
+  Inputs:
+    inFile      : Path of file to extract chapter information from
+  Keywords:
+    None.
+  Returns:
+    List of Chapter objects if chapters exist, None otherwise
+  '''
+  cmd = ['ffprobe', '-i', inFile, '-print_format', 'json', 
+         '-show_chapters', '-loglevel', 'error']                                        # Command to get chapter information
+  try:                                                                                  # Try to...
+    chaps = str(check_output( cmd ), 'utf-8')                                           # Get chapter information from ffprobe
+    print(chaps[-1])
+    chaps = [ Chapter(chap) for chap in json.loads( chaps )['chapters'] ]               # Parse the chapter information
+  except:                                                                               # On exception
+    print('Failed to get chapter information')                                          # Print a message
+    return None                                                                         # Return
+  return chaps
+
+###############################################################################
+def partialExtract( inFile, outFile, startOffset, duration, chapterFile = None ):
+  '''
+  Purpose:
+    Function for extracting video segement
+  Inputs:
+    inFile      : Path of file to extract segment from
+    outFile     : Path of file to extract segment to
+    startOffset : float or timedelta object specifying segment start time in input file.
+                   If float, units must be seconds.
+    duration    : float or timedelta object specifying segment duration
+                   If float, units must be seconds.
+  Keywords:
+    chapterFile : Path to ffmetadata file specifying chapters for new segment
+  Returns:
+    True on successful extraction, False otherwise
+  '''
+  if not isinstance(startOffset, timedelta):                                            # Ensure startOffset is timedelta
+    startOffset = timedelta(seconds = startOffset)
+  if not isinstance(duration, timedelta):                                               # Ensure duration is timedelta
+    duration    = timedelta(seconds = duration)
+  cmd  = ['ffmpeg', '-y', '-v', 'quiet', '-stats']                                      # Base command
+  cmd += ['-ss', str( startOffset ), '-t',  str( duration )]                            # Set starting read position and read for durtation for input file
+  cmd += ['-i', inFile]                                                                 # Set input file
+  if chapterFile:                                                                       # If chapter file specified
+    cmd += ['-i', chapterFile, '-map_chapters', '1']                                    # Add chapter file to command
+  cmd += ['-codec', 'copy', '-map', '0']                                                # Set codec to copy and map stream to all
+  cmd += ['-ss', '0', '-t',  str( duration ) ]                                          # Set start time and duration for output  file
+  cmd += [outFile]                                                                      # Set up list for command to split file
+  proc = Popen(cmd, stderr=DEVNULL)                                                     # Write errors to /dev/null
+  proc.communicate();                                                                   # Wait for command to complete
+  if proc.returncode != 0:                                                              # If return code is NOT zero
+    return False                                                                        # Return
+  return True
+
+###############################################################################
+def splitOnChapter(inFile, nChapters):
   '''
   Name:
     splitOnChapter
@@ -336,8 +632,8 @@ def splitOnChapter(inFile, nChap):
     same number of chapters, one can split the file into
     individual episode files.
   Inputs:
-    inFile  : Full path to the file that is to be split.
-    nChaps  : The number of chapters in each episode.
+    inFile    : Full path to the file that is to be split.
+    nChapters : The number of chapters in each episode.
   Outputs:
     Outputs n files, where n is equal to the total number
     of chapters in the input file divided by nChaps.
@@ -346,45 +642,54 @@ def splitOnChapter(inFile, nChap):
   Author and History:
     Kyle R. Wodzicki     Created 01 Feb. 2018
   '''
-  if isinstance(nChap, (tuple,list)):
-    nChap = [int(n) for n in nChap]
-  elif type(nChap) is not int:
-    nChap = int(nChap);                                # Ensure that nChap is type int
-  cmd = ['ffprobe', '-i', inFile, '-print_format', 'json', 
-         '-show_chapters', '-loglevel', 'error'];                               # Command to get chapter information
-  try:                                                                          # Try to...
-    chaps = str(check_output( cmd ), 'utf-8')                                   # Get chapter information from ffprobe
-    chaps = json.loads( chaps )['chapters']                                     # Parse the chapter information
-  except:                                                                       # On exception
-    print('Failed to get chapter information');                                 # Print a message
-    return;                                                                     # Return
-  
-  cmd = ['ffmpeg', '-v', 'quiet', '-stats', 
-         '-i', inFile,
-         '-codec', 'copy', '-map', '0',
-         '-ss', '', 
-         '-t', '', ''];                                                         # Set up list for command to split file
-  fmt = 'split_{:03d}.' + inFile.split('.')[-1];                                # Set file name for split files
-  num =  0                                                                      # Set split file number
-  s   =  0
-  while s < len(chaps):
-    width   = nChap[num] if isinstance(nChap, (tuple,list)) else nChap
-    fName   = fmt.format(num);                                                  # Set file name
-    e       = s + width - 1
-    start   = timedelta( seconds = float(chaps[s]['start_time']) + 0.05 );      # Get chapter start time
-    end     = timedelta( seconds = float(chaps[e]['end_time'])   - 0.05 );      # Get chapter end time
-    dur     = end - start;                                                      # Get chapter duration
-    cmd[-4] = str(start);                                                       # Set start offset to string of start time
-    cmd[-2] = str(dur);                                                         # Set duration to string of dur time
-    cmd[-1] = os.path.join( os.path.dirname(inFile), fName );                   # Set output file
+  chapters = getChapters( inFile )                                                      # Get all chapters from file
+  if not chapters: return                                                               # If no chapters, return
 
-    proc = Popen(cmd, stderr=DEVNULL)                                           # Write errors to /dev/null
-    proc.communicate();                                                         # Wait for command to complete
-    if proc.returncode != 0:                                                    # If return code is NOT zero
-      print('FFmpeg had an error!');                                            # Print message
-      return;                                                                   # Return
-    num += 1;                                                                   # Increment split number
-    s    = e + 1
+  if isinstance(nChapters, (tuple,list)):                                               # If nChapters is eterable
+    nChapters = [int(n) for n in nChapters]                                             # Ensure all values are integers
+  elif type(nChapters) is not int:                                                      # Else
+    nChapters = int(nChapters);                                                         # Ensure that nChap is type int
+  
+  fileDir, fileBase = os.path.split(inFile)                                             # Get input file directory and base name
+  fileBase, fileExt = os.path.splitext(fileBase)                                        # Get input file name and extension
+
+  ffmeta   = FFMetaData()                                                               # Initialize FFMetaData instance
+  splitFMT = 'split_{:03d}'+fileExt                                                     # Set file name format for split files
+  chapName = 'split.chap'                                                               # Set file name for chapter metadata file
+  num      = 0                                                                          # Set split file number
+  sID      = 0                                                                          # Set chater starting number
+  while sID < len(chapters):                                                            # While chapters left
+    width    = nChapters[num] if isinstance(nChapters, (tuple,list)) else nChapters     # Get number of chapters to process; i.e., width of video segment
+    eID      = sID + width                                                              # Set chapter ending index
+    preroll  = PREROLL  if sID > 0 else 0.0                                             # Set local preroll
+    postroll = POSTROLL if eID < len(chapters) else 0.0                                 # Set local postroll
+    chaps    = chapters[sID:eID]                                                        # Subset chapters
+    start    = chaps[ 0].start_time                                                     # Get chapter start time
+    end      = chaps[-1].end_time                                                       # Get chapter end time
+    startD   = timedelta(seconds = start + preroll)                                     # Set start time for segement with preroll adjustment
+    dur      = timedelta(seconds = end   + postroll) - startD                           # Set segment duration with postroll adjustment
+    nn       = len(chaps)                                                               # Determine number of chapers; may be less than width if use fixed width
+    for i in range(nn):                                                                 # Iterate over chapter subset
+      if i == 0:                                                                        # If first chapter
+        chaps[i].addOffset(-start, 0)                                                   # Set chapter start offset to zero
+        chaps[i].addOffset(-start-preroll,1)                                            # Set chapter end offset to PREROLL greater than start to compensate for pre-roll
+      elif i == (nn-1):                                                                 # If on last chapter
+        chaps[i].addOffset(-start-preroll, 0)                                           # Adjust starting
+        chaps[i].end_time = dur.total_seconds()                                         # Set end_time to segment duration
+      else:                                                                             # Else
+        chaps[i].addOffset( -start-preroll )                                            # Adjust start and end times compenstating for pre-roll
+      ffmeta.addChapter( chaps[i] )
+
+    splitName = splitFMT.format(num)                                                    # Set file name
+    splitFile = os.path.join( fileDir, splitName )                                      # Set output segement file path
+    chapFile  = os.path.join( fileDir, chapName)                                        # Set segment chapter file
+    ffmeta.save(chapFile)                                                               # Create the FFMetaData file
+    if not partialExtract( inFile, splitFile, startD, dur, chapterFile=chapFile ):      # Try to extract segment
+      break                                                                             # Return on error
+    num += 1                                                                            # Increment split number
+    sID  = eID                                                                          # Set sID to eID
+  os.remove( chapFile )                                                                 # Remove the chapter file
+
 #if __name__ == "__main__":
 #  import argparse;                                                              # Import library for parsing
 #  parser = argparse.ArgumentParser(description="Split on Chapter");             # Set the description of the script to be printed in the help doc, i.e., ./script -h
@@ -445,3 +750,4 @@ def combine_mp4_files(outFile, *args):
 #  parser.add_argument('output', help='Name of the output file')
 #  args = parser.parse_args()
 #  combine_mp4_files( args.output, *args.inputs );
+
