@@ -36,14 +36,6 @@ video\_utils.utils.pidCheck module
    :undoc-members:
    :show-inheritance:
 
-video\_utils.utils.rename2Plex module
--------------------------------------
-
-.. automodule:: video_utils.utils.rename2Plex
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 video\_utils.utils.subprocManager module
 ----------------------------------------
 

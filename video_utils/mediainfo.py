@@ -7,11 +7,12 @@ cmd  = ['mediainfo', '--version']
 try:
   proc = subproc.Popen( cmd, stdout = subproc.PIPE, stderr = subproc.PIPE );
 except:
-  del proc
   MediaInfoLib = None
 else:
   stdout, stderr = proc.communicate()
   MediaInfoLib = re.findall( b'v(\d+(?:.\d+)+)', stdout )[0].decode().split('.'); # Find all instances of version string and get numbers
+  del proc, stdout, stder
+del cmd
 
 if not MediaInfoLib:
   OUTPUT_FMT = None

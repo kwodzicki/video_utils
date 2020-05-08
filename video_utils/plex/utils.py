@@ -56,8 +56,8 @@ def plexDVR_Scan( recorded, no_remove = False, movie = False ):
     after call to os.fork()
   '''
   log = logging.getLogger(__name__);
-  if (os.environ['USER'].upper() != 'PLEX'):
-    log.error("Not running as user 'plex'; current user : {}. Skipping Plex Library Scan".format(os.environ['USER']) )
+  if (os.environ.get('USER', '').upper() != 'PLEX'):
+    log.error("Not running as user 'plex'; current user : {}. Skipping Plex Library Scan".format(os.environ.get('USER','')) )
     return 2
  
   try:
@@ -356,8 +356,8 @@ def getPlexLibraries( cmd, env = os.environ ):
   '''
   log      = logging.getLogger(__name__)                                        # Get logger
   plexLibs = {}                                                                 # Initialize plexLibs to empty dictionary
-  if (os.environ['USER'].upper() != 'PLEX'):
-    log.error("Not running as user 'plex'; current user : {}. Could NOT get Plex Libraries".format(os.environ['USER']))
+  if (os.environ.get('USER', '').upper() != 'PLEX'):
+    log.error("Not running as user 'plex'; current user : {}. Could NOT get Plex Libraries".format(os.environ.get('USER', '')))
     return plexLibs
 
   cmd      = cmd + ['--list']                                                   # Set cmd

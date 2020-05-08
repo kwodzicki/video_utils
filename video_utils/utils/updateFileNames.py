@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 import os, re, shutil
 
-from imdb import IMDb
+try:
+  from imdb import IMDb
+except:
+  imdb = None
+  print('imdbpy not installed, things will break!')
+else:
+  imdb = IMDb()
+
 from ..videotagger import TMDb
 from ..videotagger import TVDb
 from ..videotagger.Movie import TMDbMovie
@@ -10,7 +17,6 @@ from ..plex.plexMediaScanner import plexMediaScanner as PMS
 
 IMDBID   = re.compile( '\.(tt\d+)\.' )
 SEASONEP = re.compile( '[sS](\d{2,})[eE](\d{2,})' )
-imdb     = IMDb()
 tmdb     = TMDb()
 tvdb     = TVDb()
 
