@@ -1,0 +1,9 @@
+mutagen
+soundfile
+pillow
+numpy
+scipy
+requests
+psutil
+watchdog
+pyYAML
