@@ -7,10 +7,7 @@ from .version import __version__
 from .utils.checkCLI import checkCLI
 from .config import screenFMT, DATADIR
 
-# Check for required CLIs
-for cli in ['ffmpeg', 'mediainfo']:
-  checkCLI( cli )
-
+    
 __doc__     = "Collection of utilities to manipulate video files; " + \
   "namely transcoding, subtitle extraction, audio aligning/downmixing, "+\
   "and metadata editing."
@@ -22,6 +19,13 @@ log.addHandler( logging.StreamHandler() );
 log.handlers[0].setFormatter( screenFMT['formatter'] )
 log.handlers[0].setLevel( screenFMT['level'] );            # Set the format tot the screen format
 log.handlers[0].set_name( screenFMT['name'] );
+
+# Check for required CLIs
+for cli in ['ffmpeg', 'mediainfo']:
+  try:
+    checkCLI( cli )
+  except Exception as err
+    log.critical( err )
 
 # Set up event and link event set to SIGINT and SIGTERM
 _sigintEvent  = Event()
