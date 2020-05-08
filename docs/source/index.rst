@@ -10,6 +10,7 @@ Welcome to video_utils's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   naming/index
 
 Indices and tables
 ==================

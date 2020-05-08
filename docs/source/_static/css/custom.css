@@ -1,0 +1,33 @@
+@import url("default.css");
+
+.black {
+	color: black;
+}
+
+.purple {
+	color: purple;
+}
+
+.blue {
+	color: blue;
+}
+
+.dodgerblue {
+	color: dodgerblue;
+}
+
+.brown {
+	color: brown;
+}
+
+.red {
+	color: red;
+}
+
+.salmon {
+	color: darksalmon;
+}
+
+.gold {
+	color: darkgoldenrod;
+}
