@@ -4,17 +4,23 @@ import subprocess as subproc
 from xml.etree import ElementTree as ET
 
 cmd  = ['mediainfo', '--version']
-proc = subproc.Popen( cmd, stdout = subproc.PIPE, stderr = subproc.PIPE );
-stdout, stderr = proc.communicate()
-MediaInfoLib = re.findall( b'v(\d+(?:.\d+)+)', stdout )[0].decode().split('.'); # Find all instances of version string and get numbers
-del cmd, proc, stdout, stderr;                                                  # Remove unneccesary variables
+try:
+  proc = subproc.Popen( cmd, stdout = subproc.PIPE, stderr = subproc.PIPE );
+except:
+  del proc
+  MediaInfoLib = None
+else:
+  stdout, stderr = proc.communicate()
+  MediaInfoLib = re.findall( b'v(\d+(?:.\d+)+)', stdout )[0].decode().split('.'); # Find all instances of version string and get numbers
 
-if int(MediaInfoLib[0]) > 17:                                                   # If the major version is greater than 17
-  output_fmt = 'OLDXML';                                                        # Set the output format to OLDXML
+if not MediaInfoLib:
+  OUTPUT_FMT = None
+elif int(MediaInfoLib[0]) > 17:                                                   # If the major version is greater than 17
+  OUTPUT_FMT = 'OLDXML';                                                        # Set the output format to OLDXML
 elif (int(MediaInfoLib[0]) == 17) and (int(MediaInfoLib[1]) >= 10):             # Else, if the major version is 17 and the minor version is greater or equal to 10
-  output_fmt = 'OLDXML';                                                        # Set the output format to OLDXML
+  OUTPUT_FMT = 'OLDXML';                                                        # Set the output format to OLDXML
 else:                                                                           # Else
-  output_fmt = 'XML';                                                           # Set output format to XML
+  OUTPUT_FMT = 'XML';                                                           # Set output format to XML
 
 
 class MediaInfo( object ):
@@ -49,8 +55,8 @@ class MediaInfo( object ):
         the xml tags have changes in newer versions.
     '''
     super().__init__(**kwargs);
-    self.__log     = logging.getLogger(__name__);
-    self.cmd     = ['mediainfo', '--Full', '--Output={}'.format(output_fmt) ];  # The base command for mediainfo; just add [self.inFile]
+    self.__log  = logging.getLogger(__name__);
+    self.cmd    = ['mediainfo', '--Full', '--Output={}'.format(OUTPUT_FMT) ];  # The base command for mediainfo; just add [self.inFile]
     self.inFile = inFile;
 
   ################################################################################

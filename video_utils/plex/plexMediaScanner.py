@@ -31,8 +31,8 @@ def plexMediaScanner( *args, **kwargs ):
     Returns status code; 0 is successful scan
   '''
   log = logging.getLogger(__name__);
-  if (os.environ['USER'].upper() != 'PLEX'):
-    log.error("Not running as user 'plex'; current user : {}. Skipping Plex Library Scan".format(os.environ['USER']) )
+  if (os.environ.get('USER', '').upper() != 'PLEX'):
+    log.error("Not running as user 'plex'; current user : {}. Skipping Plex Library Scan".format(os.environ.get('USER', '')) )
     return 2
   elif (_scanner is None):
     log.critical( "Did NOT find the 'Plex Media Scanner' command! Returning!")

@@ -4,11 +4,12 @@ from subprocess import call, check_output, DEVNULL, STDOUT;
 
 from ..utils.checkCLI import checkCLI
 
+CLIName = 'mkvextract'
 try:
-  checkCLI( 'mkvextract' )
+  CLI = checkCLI( CLIName )
 except:
-  logging.getLogger(__name__).error( 'mkvextract is NOT installed' )
-  raise 
+  logging.getLogger(__name__).error( '{} is NOT installed'.format(CLIName) )
+  CLI = None 
 
 
 def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
@@ -29,6 +30,7 @@ def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
        1 - VobSub(s) already exist
        2 - No VobSub(s) to extract
        3 - Error extracting VobSub(s).
+      10 - mkvextract not found/installed
   Keywords:
     None.
   Dependencies:
@@ -38,10 +40,14 @@ def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
   '''
   log     = logging.getLogger(__name__);
   files   = []                                                                  # List to stroe all files created during extraction
+  if CLI is None:
+    log.warning( '{} CLI not found; cannot extract!'.format(CLIName) )
+    return 10, files
+
   if text_info is None: return 2, files;                                        # If text info has not yet been defined, return
 
   status  = 0;                                                                  # Default status to zero (0)
-  extract = ['mkvextract', 'tracks', in_file];                                  # Initialize list to store command for extracting VobSubs from MKV files
+  extract = [CLI, 'tracks', in_file];                                  # Initialize list to store command for extracting VobSubs from MKV files
 
   for i in range( len(text_info) ):                                             # Iterate over tags in dictionary making sure they are in numerical order
     id   = text_info[i]['mkvID'];                                               # Get track ID
@@ -60,8 +66,8 @@ def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
   else:  
     while True:                                                                 # Loop forever
       try:  
-        tmp = check_output(['pgrep', 'mkvextract']);                            # Check for instance of mkvextract
-        log.info('Waiting for a mkvextract instance to finish...');             # logging info
+        tmp = check_output(['pgrep', CLIName]);                                     # Check for instance of mkvextract
+        log.info('Waiting for a {} instance to finish...'.format(CLIName));         # logging info
         time.sleep(15);                                                         # If pgrep return (i.e., no error thrown), then sleep 15 seconds
       except:  
         log.info('Extracting VobSubs...');                                      # logging info
