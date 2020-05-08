@@ -25,6 +25,10 @@ author = 'Kyle R. Wodzicki'
 
 # -- General configuration ---------------------------------------------------
 
+# Explicitly set the master_doc name as Read the Docs tries to use
+# contents.
+master_doc = 'index'
+
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
