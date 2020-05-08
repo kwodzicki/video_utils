@@ -24,7 +24,7 @@ log.handlers[0].set_name( screenFMT['name'] );
 for cli in ['ffmpeg', 'mediainfo']:
   try:
     checkCLI( cli )
-  except Exception as err
+  except Exception as err:
     log.critical( err )
 
 # Set up event and link event set to SIGINT and SIGTERM
