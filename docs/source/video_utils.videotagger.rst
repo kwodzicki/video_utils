@@ -52,14 +52,6 @@ video\_utils.videotagger.Series module
    :undoc-members:
    :show-inheritance:
 
-video\_utils.videotagger.gui module
------------------------------------
-
-.. automodule:: video_utils.videotagger.gui
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 video\_utils.videotagger.parsers module
 ---------------------------------------
 
