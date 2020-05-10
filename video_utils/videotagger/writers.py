@@ -104,7 +104,7 @@ def mp4Tagger( file, metaData ):
   if os.stat(file).st_size > sys.maxsize:                                               # If the file size is larger than the supported maximum size
     log.error('Input file is too large!')
     return 11                                                                           # Print message and return code eleven (11)
-  
+
   version = metaData.pop('version', '')
   comment = [metaData.get('comment',   '')]
   if TVDB_ATTRIBUTION not in comment[0]: comment.append( TVDB_ATTRIBUTION )             # If TVDb attribution not in comment, add it

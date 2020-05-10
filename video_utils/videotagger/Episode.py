@@ -98,19 +98,37 @@ class TVDbEpisode( BaseEpisode ):
         self.Series = args[0]
       else:
         self.Series = TVDbSeries( args[0] )
+      dvdOrder = kwargs.get('dvdOrder', False)                                          # Get aireOrder keyword; False is default
 
       self.URL = self.TVDb_URLEpisode.format( self.Series.URL, 'query' )
-      json     = self._getJSON( self.URL, airedSeason=args[1], airedEpisode=args[2] )
-      if json is not None and ('data' in json):
-        if isinstance( json['data'], dict ):
-          json = json['data']
-        else:
-          json = json['data'][0]
+      if dvdOrder:                                                                      # If dvdOrder is set in keywords
+        json = self._getJSON( self.URL, dvdSeason=args[1], dvdEpisode=args[2] )         # Search using supplied season/episode as dvd season/episode
+      else:                                                                             # Else, we use dvdOrder
+        json = self._getJSON( self.URL, airedSeason=args[1], airedEpisode=args[2] )     # Search using supplied season/episode as aired season/episode
 
+      if json is not None and ('data' in json):                                         # If returned json is valid and has data key
+        ref = json['data'][0]                                                           # Set ref to first element of data list
+        if len(json['data']) > 1:                                                       # If more than one result in data list
+          for key, val in ref.items():                                                  # Iterate over key/value pairs in reference dictionary
+            if isinstance(val, tuple):                                                  # If the value is a tuple instance
+              ref[key] = list(val)                                                      # Convert to list
+            elif not isinstance(val, list):                                             # Else, if it is not a list
+              ref[key] = [val]                                                          # Convert to list
+          for extra in json['data'][1:]:                                                # Iterate over elements 1 to end of the result list
+            for key in ref.keys():                                                      # Iterate over the keys in the reference dictionary
+              extraVal = extra.get(key, None)                                           # Try to get value of key in the extra dictionary; return None as default
+              if extraVal is not None:                                                  # If the extra value is NOT None
+                if isinstance(extraVal, tuple):                                         # If value is tuple
+                  extraVal = list(extraVal)                                             # Convert to list
+                elif not isinstance(extraVal, list):                                    # Else, if not list
+                  extraVal = [extraVal]                                                 # Convert to list
+                ref[key] += extraVal                                                    # Add the extra value to the value in the reference dictionary
+        json = ref                                                                      # Set json to reference dictionary
+ 
         actors = self._getJSON( self.Series.URL + '/actors' )
         if actors is not None and 'errors' not in actors:
           json['credits'] = {'cast' : actors['data']}
-        info = parseInfo(json, **self.KWARGS)
+        info = parseInfo(json, dvdOrder=dvdOrder, **self.KWARGS)
         if info is not None: 
           self._data.update( info )
 

@@ -186,7 +186,7 @@ class TVDb( BaseAPI ):
     return None 
 
 ###################################################################
-def getMetaData( file=None, dbID=None, seasonEp=(), version='' ):
+def getMetaData( file=None, dbID=None, seasonEp=(), version='', **kwargs ):
   '''
   Purpose:
     Function to get Movie or Episode object based on
@@ -239,12 +239,12 @@ def getMetaData( file=None, dbID=None, seasonEp=(), version='' ):
 
   if (dbID[:4] == 'tvdb'):
     if len(seasonEp) == 1:
-      return Episode.TVDbEpisode( dbID, *seasonEp[0] )
+      return Episode.TVDbEpisode( dbID, *seasonEp[0], **kwargs )
     else:
-      return Movie.TVDbMovie( dbID, version=version )
+      return Movie.TVDbMovie( dbID, version=version, **kwargs )
   elif (dbID[:4] == 'tmdb'):
     if len(seasonEp) == 1:
-      return Episode.TMDbEpisode( dbID, *seasonEp[0] )
+      return Episode.TMDbEpisode( dbID, *seasonEp[0], **kwargs )
     else:
-      return Movie.TMDbMovie( dbID, version=version )
+      return Movie.TMDbMovie( dbID, version=version, **kwargs )
   return None
