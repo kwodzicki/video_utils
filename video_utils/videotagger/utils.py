@@ -93,7 +93,7 @@ def addText( fp, text ):
   data.seek(0)                                                                  # Seek to beginning of data
   return data.read()                                                            # Return bytes
 
-def downloadCover( URL, saveDir = None, text = None ):
+def downloadCover( videoPath, URL, text = None ):
   data = download( URL )
   if data is None:
     return False
@@ -101,12 +101,9 @@ def downloadCover( URL, saveDir = None, text = None ):
   if isinstance(text, str) and text != '':
     data = addText( data, text )
 
-  if saveDir is not None:
-    if not os.path.isdir( saveDir ):
-      os.makedirs( saveDir )
-    saveFile = os.path.join( saveDir, URL.split('/')[-1] )
-    with open( saveFile, 'wb' ) as fid:
-      fid.write( data )
-    return saveFile
-  else:
-    return data
+  imageExt  = os.path.splitext( URL       )[1]
+  imagePath = os.path.splitext( videoPath )[0] + imageExt
+  
+  with open( imagePath, 'wb' ) as fid:
+    fid.write( data )
+  return imagePath, data

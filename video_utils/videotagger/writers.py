@@ -19,6 +19,29 @@ TVDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by TheTV
 TMDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by themoviedb.com (TMDb), but we are not endorsed or certified by TMDb or its affiliates. See website at https://themoviedb.org/.'
 
 ########################################################################
+def _updateComment( comment ):
+  '''
+  Purpose:
+    Method to append TVDb and TMDb attribution information to comment
+  Inputs:
+    comment : str, list, or tuple containing comment from user
+  Keywords:
+    None.
+  Returns:
+    str with TVDb and TMDb attribution appended.
+  '''
+  if isinstance(comment, tuple):                                                        # If comment is tuple
+    comment = list( comment )                                                           # Convert to list
+  elif not isinstance(comment, list):                                                   # Else, if not list
+    comment = [comment]                                                                 # Convert to list
+
+  for attrib in [ TVDB_ATTRIBUTION, TMDB_ATTRIBUTION ]:                                 # Iterate over TVDb and TMDb attributions
+    if not any( [attrib in c for c in comment] ):
+      comment.append( attrib )                                                          # If TVDb attribution not in comment, add it
+  return ' '.join( comment ).strip()                                                    # Join comment list on space and remove leading/trailing white space and return
+
+
+########################################################################
 def toMP4( metaData ):
   '''
   Purpose:
@@ -45,6 +68,7 @@ def toMP4( metaData ):
       metaData[key] = val                                                               # Write encoded data under new key back into metadata
   return metaData                                                                       # Return metadata
 
+########################################################################
 def toMKV( metaData ):
   '''
   Purpose:
@@ -106,11 +130,7 @@ def mp4Tagger( file, metaData ):
     return 11                                                                           # Print message and return code eleven (11)
 
   version = metaData.pop('version', '')
-  comment = [metaData.get('comment',   '')]
-  if TVDB_ATTRIBUTION not in comment[0]: comment.append( TVDB_ATTRIBUTION )             # If TVDb attribution not in comment, add it
-  if TMDB_ATTRIBUTION not in comment[0]: comment.append( TMDB_ATTRIBUTION )             # If TMDb attribution not in comment, add it
-  comment = ' '.join( comment ).strip()                                                 # Join comment list on space and remove leading/trailing white space
-
+  comment = _updateComment( metaData.get('comment',   '') )
   metaData.update( {'comment' : comment } )
   metaData  = toMP4(metaData)
   if len(metaData) == 0:
@@ -144,7 +164,7 @@ def mp4Tagger( file, metaData ):
         with open(val, 'rb') as fid: data = fid.read()                                  # Read in data from file
       else:
         log.debug('Attempting to get coverart')                                         # Debugging information
-        data = downloadCover( val, text = version )                                     # Download the data
+        _, data = downloadCover( file, val, text = version )                            # Download the data
       if data is not None:
         val = [ mp4.MP4Cover( data, fmt ) ]                                             # Add image to file
       else:
@@ -267,11 +287,7 @@ def mkvTagger( file, metaData ):
     log.error('Input file is too large!'); return 11                                    # Print message and return code eleven (11)
       
   version = metaData.pop('version', '')
-  comment = [metaData.get('comment',   '')]
-  if TVDB_ATTRIBUTION not in comment[0]: comment.append( TVDB_ATTRIBUTION )             # If TVDb attribution not in comment, add it
-  if TMDB_ATTRIBUTION not in comment[0]: comment.append( TMDB_ATTRIBUTION )             # If TMDb attribution not in comment, add it
-  comment = ' '.join( comment ).strip()                                                 # Join comment list on space and remove leading/trailing white space
-
+  comment = _updateComment( metaData.get('comment',   '') )
   metaData.update( {'comment' : comment } )
   metaData  = toMKV( metaData )
 
@@ -292,7 +308,7 @@ def mkvTagger( file, metaData ):
       if os.path.isfile( val ):                                                         # If value is local file
         coverFile = val                                                                 # Set coverFile to val
       else:                                                                             # Else, try to download
-        coverFile = downloadCover( val, saveDir = fileDir, text = version )             # Download cover
+        coverFile, _ = downloadCover( file, val, text = version )                       # Download cover
     else:                                                                               # Else
       TargetTypeValue, tag = key                                                        # Get TargetTypeValue and tag from the key tuple
       if TargetTypeValue not in tags:                                                   # If the TargetTypeValue is not in tags
@@ -318,24 +334,31 @@ def mkvTagger( file, metaData ):
   except:
     pass
 
-  try:
-    os.remove( coverFile )
-  except:
-    pass
-  
   if (proc.returncode != 0): 
     log.error('Failed to save tags to file!');                                  # Log an error
     return 6
  
   return 0
 
+########################################################################
 def writeTags( file, metaData, **kwargs ):
+  '''
+  Purpose:
+    Function that acts as wrapper for mp4Tagger and mkvTagger
+  Inputs:
+    file     : Full path of file to write tags to
+    metaData : Dictionary with tag/values to write
+  Keywords:
+    Various; passed directory to mp4Tagger or mkvTagger
+  Returns:
+    True if tags written, False otherwise
+  '''
   log = logging.getLogger(__name__)
+
   if file.endswith('.mp4'):
     return mp4Tagger( file, metaData = metaData )
   elif file.endswith('.mkv'):
     return mkvTagger( file, metaData = metaData )
-  else:
-    log.error('Unsupported file type : {}'.format(file))
-    return False
- 
+
+  log.error('Unsupported file type : {}'.format(file))
+  return False
