@@ -90,6 +90,7 @@ class TVDbEpisode( BaseEpisode ):
       None.
     '''
     super().__init__(*args, **kwargs)
+    self.__log  = logging.getLogger(__name__)
     self.KWARGS = {'TVDb' : True, 'imageURL' : self.TVDb_URLImage}
     if not self._data:
       if (len(args) < 3):
@@ -98,13 +99,18 @@ class TVDbEpisode( BaseEpisode ):
         self.Series = args[0]
       else:
         self.Series = TVDbSeries( args[0] )
-      dvdOrder = kwargs.get('dvdOrder', False)                                          # Get aireOrder keyword; False is default
+      airedOrder = kwargs.get('airedOrder', False)                                      # Get aireOrder keyword; False is default
 
-      self.URL = self.TVDb_URLEpisode.format( self.Series.URL, 'query' )
-      if dvdOrder:                                                                      # If dvdOrder is set in keywords
+      self.URL = self.TVDb_URLEpisode.format( self.Series.URL, 'query' )                # Build base URL for getting episode information
+      json     = None                                                                   # Default json to None
+      if airedOrder is False:                                                           # If airedOrder is False
         json = self._getJSON( self.URL, dvdSeason=args[1], dvdEpisode=args[2] )         # Search using supplied season/episode as dvd season/episode
-      else:                                                                             # Else, we use dvdOrder
-        json = self._getJSON( self.URL, airedSeason=args[1], airedEpisode=args[2] )     # Search using supplied season/episode as aired season/episode
+        if json is None:                                                                # If json is None, something broke
+          self.__log.warning('TVDb search based on DVD order failed, falling back to aired order')
+     
+      if json is None:                                                                  # If JSON is None here, then either airedOrder was set OR dvdOrder search failed
+        airedOrder = True
+        json       = self._getJSON(self.URL, airedSeason=args[1], airedEpisode=args[2]) # Search using supplied season/episode as aired season/episode
 
       if json is not None and ('data' in json):                                         # If returned json is valid and has data key
         ref = json['data'][0]                                                           # Set ref to first element of data list
@@ -128,7 +134,7 @@ class TVDbEpisode( BaseEpisode ):
         actors = self._getJSON( self.Series.URL + '/actors' )
         if actors is not None and 'errors' not in actors:
           json['credits'] = {'cast' : actors['data']}
-        info = parseInfo(json, dvdOrder=dvdOrder, **self.KWARGS)
+        info = parseInfo(json, airedOrder=airedOrder, **self.KWARGS)
         if info is not None: 
           self._data.update( info )
 

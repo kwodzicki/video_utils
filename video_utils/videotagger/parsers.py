@@ -26,7 +26,7 @@ def standardize( info, **kwargs ):
     if (key in keys):                                                                   # If key is in keys
       info[ keys[key] ] = info.pop(key)                                                 # Pop key from dict and re-add as new standard key
   if tvdb:                                                                              # If tvdb then 
-    key  = 'dvdOrder' if kwargs.get('dvdOrder', False) else 'airedOrder'                # Set key to 'airedOrder' or 'dvdOrder' based on dvdOrder keyword; 'dvdOrder' by default
+    key  = 'airedOrder' if kwargs.get('airedOrder', False) else 'dvdOrder'              # Set key to 'airedOrder' or 'dvdOrder' based on airedOrder keyword; 'dvdOrder' by default
     keys = TVDbOrder[key]                                                               # Get keys for converting ordering to internal format
     for key in infoKeys:                                                                # Iterate over keys in infoKeys
       if key in keys:                                                                   # If the key is in the keys dictionary

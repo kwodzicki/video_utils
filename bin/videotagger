@@ -20,7 +20,7 @@ def tagFile( args ):
   if not args.path.endswith('.mp4') and not args.path.endswith('.mkv'):
     logger.critical('File must be MP4 or MKV!')
     return False
-  metadata = getMetaData( args.path, dbID = args.dbID, seasonEp = args.season_episode, dvdOrder=args.dvdOrder )
+  metadata = getMetaData( args.path, dbID=args.dbID, seasonEp=args.season_episode, airedOrder=args.airedOrder )
   metadata.addComment(
     'Metadata written with {} version {}.'.format(video_utils.__name__, video_utils.__version__)
   )
@@ -50,7 +50,7 @@ if __name__ == "__main__":
   parser.add_argument('--season-episode', type=int, nargs=2, help='Season and episode number for tv show')
   parser.add_argument('-v', '--verbose',  nargs='?', default='info', help='Increase verbosity. Levels are info (default) and debug.')
   parser.add_argument("--rename", type=str, help="Top-level path for rename; note that 'Movies' or 'TV Shows' will be placed below this directory, with files below that.")
-  parser.add_argument("--dvdOrder",       action = 'store_true', help='Set if the season/episode number corresponds to dvd ordering on TVDb. Default is to use DVD ordering')
+  parser.add_argument("--airedOrder",     action = 'store_true', help='Set if the season/episode number corresponds to aired ordering on TVDb. Default is to use DVD ordering')
   parser.add_argument("--gui",            action = 'store_true', help="Start GUI"); 
   parser.add_argument('--version',        action = 'version', version = '%(prog)s '+video_utils.__version__ )
   
