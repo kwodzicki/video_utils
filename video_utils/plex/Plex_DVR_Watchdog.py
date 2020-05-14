@@ -18,6 +18,10 @@ TIMEOUT       =     1.0
 SLEEP         =     1.0
 
 class Plex_DVR_Watchdog( FileSystemEventHandler ):
+  """
+  Class to watch for, and convert, new DVR recordings
+
+  """
   def __init__(self, *args, **kwargs):
     super().__init__()
     self.log         = logging.getLogger(__name__)
@@ -45,10 +49,8 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
     self.__purgeThread.start()                                                      # Start timer thread
 
   def on_created(self, event):
-    '''
-    Purpose:
-      Method to handle events when file is created.
-    '''
+    """Method to handle events when file is created."""
+
     if event.is_directory: return                                                   # If directory; just return
     if ('.grab' in event.src_path):                                                 # If '.grab' is in the file path, then it is a new recording! 
       with self.__Lock:                                                               # Acquire Lock so other events cannot change to_convert list at same time
@@ -58,27 +60,25 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
       self.checkRecording( event.src_path )                                     # Check if new file is a DVR file (i.e., file has been moved)
 
   def on_moved(self, event):
-    '''
-    Purpose:
-      Method to handle events when file is moved.
-    '''
+    """Method to handle events when file is moved."""
+
     if (not event.is_directory):
       self.checkRecording( event.dest_path )         # If not a directory and the destination file was a recording (i.e.; checkRecordings)
 
   def checkRecording(self, file):
-    '''
-    Purpose:
-      A method to check that newly created file is 
-      a DVR recording
-    Input:
-      file : Path to newly created file from event
-              in on_created() method
-    Outputs:
-      Boolean : True if file is a recording (i.e., it's just been moved) or
-                 False if it is not
-    Keywords:
-      None.
-    '''
+    """
+    A method to check that newly created file is a DVR recording
+
+    Arguments:
+      file (str): Path to newly created file from event in on_created() method
+
+    Keyword arguments:
+      None
+
+    Returns:
+      bool: True if file is a recording (i.e., it's just been moved), False otherwise
+    """
+
     with self.__Lock:                                                                 # Acquire Lock so other events cannot change to_convert list at same time
       t           = time.time()
       fDir, fName = os.path.split( file )                                           # Split file source path
@@ -105,24 +105,28 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
       return False                                                                  # If made it here, then file is NOT DVR recording, return False
 
   def join(self):
-    '''
+    """
     Method to wait for the watchdog Observer to finish.
+
     The Observer will be stopped when _sigintEvent or _sigtermEvent is set
-    '''
+    """
+ 
     self.Observer.join()                                                            # Join the observer thread
 
   def _checkSize(self, file, timeout = None):
-    '''
-    Purpose:
-      Method to check that file size has stopped changing
-    Inputs:
-      file   : Full path to a file
-    Outputs:
-      True if file size is NOT changing, False if timeout
+    """
+    Method to check that file size has stopped changing
+
+    Arguments:
+      file (str): Full path to a file
+
     Keywords:
-      timeout : Float specifying how long to wait for file
-                 to transfer. Default is forever (None)
-    '''
+      timeout (float): Specify how long to wait for file to transfer. Default is forever (None)
+
+    Returns:
+      bool: True if file size is NOT changing, False if timeout
+    """
+
     self.log.debug('Waiting for file to finish being created')
     prev = -1                                                                           # Set previous file size to -1
     curr = os.path.getsize(file)                                                        # Get current file size
@@ -148,17 +152,19 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
     return ' '.join( text )
 
   def __purgeRecordings(self):
-    '''
-    Purpose:
-      To remove files from the recordings list that are more than
-      self.recordTimeout seconds old. Run as a threading.Timer
-    Inputs:
-      None.
-    Keywords:
-      None.
-    Outputs:
-     None.
-    '''
+    """
+    To remove files from the recordings list that are more than self.recordTimeout seconds old. 
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
+    Returns:
+      None
+    """
+
     while True:                                                                     # Infinite loop
       if self.__stop.wait( timeout = 10800.0 ): return                              # Wait for __stop event to be set; if wait() returns True, then event has been set, so we exit method (i.e., kill thread)
 
@@ -208,16 +214,18 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
         self.log.exception('Failed to convert file')
 
   def __run(self):
-    '''
-    Purpose:
-      A thread to dequeue video file paths and convert them
-    Inputs:
-      None.
-    Outputs:
-      None.
-    Keywords:
-      None.
-    '''
+    """
+    A thread to dequeue video file paths and convert them
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
+    Returns:
+      None
+    """
     while isRunning():                                                          # While the kill event is NOT set
       try:                                                                      # Try
         file = self.converting[0]                                               # Get a file from the queue; block for 0.5 seconds then raise exception

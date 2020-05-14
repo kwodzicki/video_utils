@@ -20,41 +20,39 @@ _year_pattern   = re.compile( r'\(([0-9]{4})\)' );                              
 
 ################################################################################
 def plexDVR_Scan( recorded, no_remove = False, movie = False ):
-  '''
-  Name:
-    plexDVR_Scan
-  Purpose:
-    A python function that will try to scan a specific directory
-    so that newly DVRed/transcoded files will be added.
+  """
+  Function that will try to scan a directory for newly DVRed/transcoded files.
 
-    When Plex records, it saves the file in a temporary folder. When
-    recording finishes, that folder is then moved to the proper 
-    location and the recording added to the library; however, the
-    transoded file will NOT be added. 
+  When Plex records, it saves the file in a temporary folder. When
+  recording finishes, that folder is then moved to the proper 
+  location and the recording added to the library; however, the
+  transoded file will NOT be added. 
 
-    This function will attempt
-    to scan just the specific season directory (or full TV library
-    as last resort) to add transcoded file. 
+  This function will attempt
+  to scan just the specific season directory (or full TV library
+  as last resort) to add transcoded file. 
 
-    After the scan is complete, pending the no_remove keyword,
-    the original recording file fill be removed. It is NOT removed
-    first because then Plex will see the transcoded file as a new
-    file and NOT a duplicate (I think)
-  Inputs:
-    recorded : Full path to the DVRd file; i.e., the file that 
-                 Plex recoded data to, should be a .ts file.
-                 This file MUST be in its final location, that
-                 is in the directory AFTER Plex moves it when
+  After the scan is complete, pending the no_remove keyword,
+  the original recording file fill be removed. It is NOT removed
+  first because then Plex will see the transcoded file as a new
+  file and NOT a duplicate (I think)
+
+  Arguments:
+    recorded (str): Full path to the DVRd file; i.e., the file that Plex recoded data to, should be a .ts file.
+                 This file MUST be in its final location, that is in the directory AFTER Plex moves it when
                  recording is complete.
+
+  Keyword arguments:
+    no_remove (bool): Set to True to keep the original file
+    movie     (bool):  Set if scanning for movie
+
   Outputs:
     None
-  Keywords:
-    no_remove  : Set to True to keep the original file
-    movie      : Set if scanning for movie
+
   Note:
-    This function is intened to be run as a child process, i.e., 
-    after call to os.fork()
-  '''
+    This function is intened to be run as a child process, i.e., after call to os.fork()
+  """ 
+
   log = logging.getLogger(__name__);
   if (os.environ.get('USER', '').upper() != 'PLEX'):
     log.error("Not running as user 'plex'; current user : {}. Skipping Plex Library Scan".format(os.environ.get('USER','')) )
@@ -132,19 +130,19 @@ def plexDVR_Scan( recorded, no_remove = False, movie = False ):
 
 ################################################################################
 def plexFile_Info( in_file ):
-  '''
-  Name:
-    plexFile_Info
-  Purpose:
-    A python function to extract series, season/episode, and episode title
-    information from a file path
-  Inputs:
-    in_file : Full path to the file to rename
+  """ 
+  Function to extract series, season/episode, and episode title information from a file path
+
+  Arguments:
+    in_file (str): Full path to the file to rename
+
+  Keyword arguments:
+    None.
+
   Outputs:
     Returns series name, season/episode or date, episode title, and file extension
-  Keywords:
-    None.
-  '''
+  """
+
   log               = logging.getLogger(__name__);
   log.debug( 'Getting information from file name' );
 
@@ -184,20 +182,20 @@ def plexFile_Info( in_file ):
 
 ################################################################################
 def plexDVR_Rename( in_file, hardlink = True ):
-  '''
-  Name:
-    plexDVR_Rename
-  Purpose:
-    A python function to rename Plex DVR files to match 
-    file nameing convetion for video_utils package
-  Inputs:
-    in_file : Full path to the file to rename
+  """ 
+  Function to rename Plex DVR files to match file nameing convetion.
+
+  Arguments:
+    in_file (str): Full path to the file to rename
+
+  Keyword arguments:
+    hardlink (bool): if set to True, will rename input file, else
+               creates hard link to file. Default is to hard link
+
   Outputs:
     Returns path to renamed file and tuple with parsed file information
-  Keywords:
-    hardlink  : Boolean, if set to True, will rename input file, else
-               creates hard link to file. Default is to hard link
-  '''
+  """
+
   log     = logging.getLogger(__name__)
   fileDir = os.path.dirname(  in_file )
   title, year, seasonEp, episode, ext = plexFile_Info( in_file )
@@ -242,6 +240,15 @@ def plexDVR_Rename( in_file, hardlink = True ):
 
 ################################################################################
 class DVRqueue( list ):
+  """
+  Sub-class of list that writes list to pickled file on changes
+
+  This class acts to backup a list to file on disc so that DVR can
+  remember where it was in the event of a restart/power off. Whenever
+  the list is modified via the append, remove, etc methods, data are
+  written to disc.
+  """
+
   def __init__(self, file):
     super().__init__()
     self.__file = file
@@ -289,16 +296,19 @@ class DVRqueue( list ):
 
 ################################################################################
 def getPlexMediaScanner( ):
-  '''
-  Purpose:
-    Function to get full path to the Plex Media Scanner command
-  Inputs:
+  """ 
+  Function to get full path to the Plex Media Scanner command
+
+  Arguments:
     None.
-  Keywords:
+
+  Keyword arguments:
     None.
+
   Outputs:
     Returns list containing full path to Plex Media Scanner command
-  '''
+  """
+
   log = logging.getLogger(__name__);
   log.debug( "Trying to locate '{}'".format( _plex_scanner ) );
 
@@ -341,25 +351,27 @@ def getPlexMediaScanner( ):
   return cmd, myenv 
 
 ################################################################################
-def getPlexLibraries( cmd, env = os.environ ):
-  '''
-  Purpose:
-    Function to get list of plex libraries from the Plex Media Scanner CLI.
-  Inputs:
-    cmd    : Full path to the Plex Media Scanner CLI (list, 1-element)
-  Keywords:
-    env    : Environment for running Plex Media Scanner CLI.
-             Default os os.environ
+def getPlexLibraries( cmd, env = None ):
+  """ 
+  Function to get list of plex libraries from the Plex Media Scanner CLI.
+
+  Arguments:
+    cmd (list): Full path to the Plex Media Scanner CLI (list, 1-element)
+
+  Keyword arguments:
+    env (dict):  Environment for running Plex Media Scanner CLI. Default is os.environ.
+
   Ouputs:
-    Returns dictionary of Plex Libraries where key is library name and
-    value is library number.
-  '''
+    Returns dictionary of Plex Libraries where key is library name and value is library number.
+  """
+
   log      = logging.getLogger(__name__)                                        # Get logger
   plexLibs = {}                                                                 # Initialize plexLibs to empty dictionary
   if (os.environ.get('USER', '').upper() != 'PLEX'):
     log.error("Not running as user 'plex'; current user : {}. Could NOT get Plex Libraries".format(os.environ.get('USER', '')))
     return plexLibs
 
+  if env is None: env = os.environ
   cmd      = cmd + ['--list']                                                   # Set cmd
   kwargs   = {'universal_newlines' : True, 'env' : env}                         # Set keyword arguments for call to check_output() function
   output   = None
@@ -384,20 +396,20 @@ def getPlexLibraries( cmd, env = os.environ ):
 
 ################################################################################
 def parseCommands( cmd_list ):
-  '''
-  Name:
-    parseCommands
-  Purpose:
-    A python function to parse out the arguments from a string
-  Inputs:
-    cmd_list : List of strings contiaining output from a call to 
-               'pgrep -fa Plex Media Server'
-  Outputs:
-    Returns list of lists, where sub-lists contain all arguments
-    from pgrep output
-  Keywords:
+  """ 
+  Function to parse out the arguments from a string
+
+  Arguments:
+    cmd_list (list): List of strings contiaining output from a call to 'pgrep -fa Plex Media Server'
+
+  Keyword arguments:
     None.
-  '''
+
+  Outputs:
+    Returns list of lists, where sub-lists contain all arguments from pgrep output
+
+  """ 
+
   cmds = [];                                                                    # Initialze list for all commands
   for cmd in cmd_list:                                                          # Iterate over all cmds in the command list
     args = _splt_pattern.findall( cmd );                                        # Split arguments; should return list of tuples
@@ -409,21 +421,20 @@ def parseCommands( cmd_list ):
 
 ################################################################################
 def parse_cmd_lib_dirs( lines ):
-  '''
-  Name:
-    parse_cmd_lib_dirs
-  Purpose:
-    A python function to parse out the Plex Media Server command
-    parent directory and LD_LIBRARY_PATH (if exists) path
-  Inputs:
-    lines   : List of strings contiaining output from a call to 
-               'pgrep -fa Plex Media Server'
+  """ 
+  Function to parse 'Plex Media Server' command directory and LD_LIBRARY_PATH path.
+
+  Arguments:
+    lines (list): List of strings contiaining output from a call to 'pgrep -fa Plex Media Server'
+
+  Keyword arguments:
+    None.
+
   Outputs:
     Returns the command parent directory and LD_LIBRARY_PATH.
     in that order. If either/both NOT found, None is returned.
-  Keywords:
-    None.
-  '''
+  """ 
+
   for line in lines:                                                            # Iterate over all the lines in the list
     lib_path = _LD_pattern.findall( line );                                     # Attempt to find the LD_LIBRARY_PATH value in the string
     if len(lib_path) == 1:                                                      # If it is found

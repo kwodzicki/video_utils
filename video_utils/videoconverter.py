@@ -32,24 +32,19 @@ from . import POPENPOOL
 _sePat = re.compile( r'[sS](\d{2,})[eE](\d{2,})' );                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
 class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
-  '''
-  Name:
-     VideoConverter
-  Purpose:
-     A python class for converting video files h264 encoded files
-     in either the MKV or MP4 container. Video files must be
-     decodeable by the handbrake video software. All
-     audio tracks that will be passed through and AAC format stereo
-     downmixes of any mulit-channel audio tracks will be created for
-     better compatability. The H264 video code will be used for all
-     files with resolutions of 1080P and lower, while H265 will be
-     used for all videos with resolution greater than 1080P. 
-     The H265 codec can be enabled for lower resolution videos.
+  """
+  For converting video files h264 encoded files in either the MKV or MP4 container.
+
+  Video files must be decodeable by the ffmpeg video software.
+  All audio tracks will be passed through to the output file
+  The x264 video code will be used for all files with resolutions of 1080P and lower,
+  while x265 will be used for all videos with resolution greater than 1080P. 
+  The x265 codec can be enabled for lower resolution videos.
+
   Dependencies:
      ffmpeg, mediainfo
-  Author and History:
-     Kyle R. Wodzicki     Created 24 Jul. 2017
-  '''
+  """
+
   def __init__(self, 
                in_place      = False, 
                transcode_log = None,
@@ -64,41 +59,42 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
                srt           = False,
                vobsub_delete = False,
                **kwargs):
-    '''
-    Keywords:
-       outDir       : Path to output directory. Optional input. 
+    """
+    Keyword arguments:
+       outDir   (str): Path to output directory. Optional input. 
                         DEFAULT: Place output file(s) in source directory.
-       logDir       : Path to log file directory. Optional input.
+       logDir  (str): Path to log file directory. Optional input.
                         DEFAULT: Place log file(s) in source directory.
-       in_place      : Set to transcode file in place; i.e., do NOT create a 
+       in_place (bool): Set to transcode file in place; i.e., do NOT create a 
                          new path to file such as with TV, where
                          ./Series/Season XX/ directories are created
        lang          : String or list of strings of ISO 639-2 codes for 
                         subtitle and audio languages to use. 
                         Default is english (eng).
-       threads       : Set number of threads to use. Default is to use half
+       threads  (int): Set number of threads to use. Default is to use half
                         of total available.
-       cpulimit      : Set to percentage to limit cpu usage to. This value
+       cpulimit (int): Set to percentage to limit cpu usage to. This value
                         is multiplied by number of threads to use.
                         DEFAULT: 75 per cent.
                         TO DISABLE LIMITING - set to 0.
-       remove        : Set to True to remove mkv file after transcode
-       vobsub        : Set to extract VobSub file(s). If SRT is set, then
+       remove (bool): Set to True to remove mkv file after transcode
+       vobsub (bool): Set to extract VobSub file(s). If SRT is set, then
                         this keyword is also set. Setting this will NOT
                         enable downloading from opensubtitles.org as the
                         subtitles for opensubtitles.org are SRT files.
-       srt           : Set to convert the extracted VobSub file(s) to SRT
+       srt  (bool): Set to convert the extracted VobSub file(s) to SRT
                         format. Also enables opensubtitles.org downloading 
                         if no subtitles are found in the input file.
-       vobsub_delete : Set to delete VobSub file(s) after they have been 
+       vobsub_delete (bool): Set to delete VobSub file(s) after they have been 
                         converted to SRT format. Used in conjunction with
                         srt keyword.
-      username       : User name for opensubtitles.org
-      userpass       : Password for opensubtitles.org. Recommend that
+      username (str): User name for opensubtitles.org
+      userpass (str): Password for opensubtitles.org. Recommend that
                         this be the md5 hash of the password and not
                         the plain text of the password for slightly
                         better security
-    '''
+    """
+
     super().__init__(**kwargs);
     self.__log = logging.getLogger( __name__ );                                   # Set log to root logger for all instances
     self.container = container
@@ -190,71 +186,44 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
         metaData          = None,
         chapters          = False, 
         removeCommercials = False):
-    '''
-    Name:
-       transcode
-    Purpose:
-       A python function to get information about an MKV file produced
-       by the MakeMKV program and convert the file to a an MP4 with
-       x264 or x265 encoding. This function calls many functions to set
-       up options to be fed into the HandBrakeCLI command to transcode
-       the file. A non-exhaustive list of options chosen are:
-            - Set quality rate factor for x264/x265 based on video 
-               resolution and the recommended settings found here:
-                   https://handbrake.fr/docs/en/latest/workflow/
-                   adjust-quality.html
-            - Used variable frame rate, which 'preserves the source timing
-            - Uses x264 codec for all video 1080P or lower, uses x265 for
-               video greater than 1080P, i.e., 4K content.
-            - Copy any audio streams with more than two (2) channels 
-            - Generate an AAC encoded Dolby Pro Logic II downmix of
-               streams with more then two (2) channels channels.
-            - Generate an AAC encoded stream for any streams with two (2)
-               or fewer channels
-            - Extract VobSub subtitle file(s) from the mkv file.
-            - Convert VobSub subtitles to SRT files.
-       This program will accept both movies and TV episodes, however,
-       movies and TV episodes must follow specific naming conventions 
-       as specified under in the 'File Naming' section below.
-    Inputs:
-       inFile  : Full path to MKV file to covert. Make sure that the file names
+    """
+    Actually transcode a file
+
+    Designed mainly with MKV file produced by MakeMKV in mind, this method
+    acts to setup options to be fed into the ffmpeg CLI to transcode
+    the file. A non-exhaustive list of options chosen are:
+      - Set quality rate factor for x264/x265 based on video resolution and the recommended settings found here: https://handbrake.fr/docs/en/latest/workflow/adjust-quality.html
+      - Used variable frame rate, which 'preserves the source timing
+      - Uses x264 codec for all video 1080P or lower, uses x265 for video greater than 1080P, i.e., 4K content.
+      - Copy any audio streams with more than two (2) channels 
+      - Extract VobSub subtitle file(s) from the mkv file.
+      - Convert VobSub subtitles to SRT files.
+    This program will accept both movies and TV episodes, however,
+    movies and TV episodes must follow specific naming conventions 
+    as specified under in the 'File Naming' section below.
+
+    Arguments:
+       inFile (str): Full path to MKV file to covert. Make sure that the file names
                follow the following formats for movies and TV shows:
-    Outputs:
+
+    Keyword arguments:
+       log_file (str): File to write logging information to
+       metaData (dict): Pass in result from previous call to getMetaData
+       chapters (bool) : Set if commericals are to be marked with chapters.
+                     Default is to cut commericals out of video file
+       removeCommercials (bool): Set to remove/mark commercial segments in file
+
+    Returns:
        Outputs a transcoded video file in the MP4 container and
        subtitle files, based on keywords used. Also returns codes 
        to signal any errors.
-    Keywords:
-       log_file  : File to write logging information to
-       metaData  : Pass in result from previous call to getMetaData
-       chapters  : Set if commericals are to be marked with chapters.
-                     Default is to cut commericals out of video file
-       removeCommercials : Set to remove/mark commercial segments in file
-    Return:
-        Check .transcode_status
-        0 : Everything finished cleanly
-        1 : Output file exists
-        5 : comskip failed
-       10 : No video OR no audio streams
-    File Naming:
-       MOVIE:
-           tmdbID.qualifier.mkv
-              qualifier - Used to specify if movie is unrated, extended, edition, etc. 
-              tmdbID    - The movie's TMDb index. Should add tmdb to the number.
-                               Is obtained from movie page on themoviedb.com
-       TV EPISODE
-           tvdbID.SXXEYY.mkv
-              tvdbID - The TVDb ID for the series, in the format
-                        tvdb12345.
-              SXXEYY  - Season and episode information where
-                        SXX corresponds to the season number 
-                        and EXX is the episode number. For example,
-                        the first episode in a series would be S01E01.
-       If there is no data for a given field, leave it blank.
-       For example: tmdb1234..mkv would be used for a theatrical release.
-
-    Author and History:
-       Kyle R. Wodzicki     Created 29 Dec. 2016
-    '''
+       Check .transcode_status
+         -  0 : Everything finished cleanly
+         -  1 : Output file exists
+         -  5 : comskip failed
+         - 10 : No video OR no audio streams
+    """
+ 
     if _sigtermEvent.is_set(): return False                                             # If _sigterm has been called, just quit
 
     _sigintEvent.clear()                                                                # Clear the 'global' kill event that may have been set by SIGINT
@@ -364,10 +333,20 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
   ##############################################################################
   def file_info( self, inFile, metaData = None):
-    '''
-    Function to extract some information from the input file name and set up
-    some output file variables.
-    '''
+    """
+    Extract some information from the input file name and set up some output file variables.
+    
+    Arguments:
+      inFile (str): Full path of file
+
+    Keyword arguments:
+      metaData (dict): Metadata for file; if none entered, will attempt to get
+        metadata from TMDb or TVDb
+
+    Returns:
+      None
+    """
+
     if not isRunning(): return False
     self.__log.info('Setting up some file information...');
 
@@ -422,37 +401,36 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
   ##############################################################################    
   def get_subtitles( self ):
-    '''
-    Name:
-        get_subtitles
-    Purpose:
-        A python function to get subtitles for a movie/tv show via 
-        extracting VobSub(s) from the input file and converting them
-        to SRT file(s) OR downloadig them from opensubtitles.org.
-        If a file fails to convert, the VobSub files are 
-        removed and the program attempts to download if SRTs are 
-        requested. If some languages requested were not found in 
-        the input file, a download is attempted. If no subtitles
-        in input file, a download is attempted. 
-    Inputs:
-    one.
-    Outputs:
-        updates vobsub_status and creates/updates list of VobSubs that failed
-        vobsub2srt conversion.
-        Returns codes for success/failure of extraction. Codes are as follows:
-           0 - Completed successfully.
-           1 - VobSub(s) and SRT(s) already exist
-           2 - Error extracting VobSub(s).
-           3 - VobSub(s) are still being extracted.
-    Keywords:
-        None.
+    """
+    Try to get subtitles through various means
+
+
+    Get subtitles for a movie/tv show via extracting VobSub(s) from the input
+    file and converting them to SRT file(s) OR downloadig them from opensubtitles.org.
+    If a file fails to convert, the VobSub files are removed and the program attempts
+    to download if SRTs are requested. If some languages requested were not found in 
+    the input file, a download is attempted. If no subtitles in input file, a download
+    is attempted. 
+
+    Arguments:
+      None
+
+    Keyword arguments:
+        None
+
+    Returns:
+      Updates vobsub_status and creates/updates list of VobSubs that failed
+      vobsub2srt conversion.
+      Return codes for success/failure of extraction. Codes are as follows:
+        - 0 : Completed successfully.
+        - 1 : VobSub(s) and SRT(s) already exist
+        - 2 : Error extracting VobSub(s).
+        - 3 : VobSub(s) are still being extracted.
+
     Dependencies:
-        mediainfo  - A CLI for getting information from a file
-        mkvextract - A CLI for extracting streams for an MKV file.
-        vobsub2srt - A CLI for converting VobSub images to SRT
-    Author and History:
-        Kyle R. Wodzicki     Created 30 Dec. 2016
-    '''
+      - mkvextract : A CLI for extracting streams for an MKV file.
+      - vobsub2srt : A CLI for converting VobSub images to SRT
+    """ 
 
     if not isRunning(): return
 
@@ -528,7 +506,8 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
   ##############################################################################
   def _cleanUp(self, *args):
-    ''' Method to delete arbitrary number of files, catching exceptions'''
+    """Method to delete arbitrary number of files, catching exceptions"""
+
     for arg in args:
       if arg and os.path.isfile( arg ):
         try:
@@ -539,16 +518,19 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
   ##############################################################################
   def _ffmpeg_command(self, outFile): 
-    '''
-    Purpose
-      A method to generate full ffmpeg command list
-    Inputs:
-      outFile  : Full output file path that ffmpeg will create
-    Outputs:
-      Returns list containing full ffmpeg command to run
-    Keywords:
-      None.
-    '''
+    """
+    A method to generate full ffmpeg command list
+
+    Arguments:
+      outFile (str): Full output file path that ffmpeg will create
+
+    Keyword arguments:
+      None
+
+    Returns:
+      list: Full ffmpeg command to run
+    """
+
     cmd = self._ffmpeg_base( )                                                  # Call method to generate base command for ffmpeg
 
     cropVals  = cropdetect( self.inFile, threads = self.threads )               # Attempt to detect cropping
@@ -585,29 +567,26 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   ##############################################################################
   def _ffmpeg_base(self, strict = 'experimental',
        max_muxing_queue_size = 2048):
-    '''
-    Purpose
-      A method to generate basic ffmpeg command
-    Inputs:
-      None.
-    Outputs:
-      Returns list containing command
-    Keywords:
-      strict :  Specify how strictly to follow the standards.
-                Possible values:
-                   ‘very’
-                       strictly conform to an older more strict version of the spec or reference software 
-                   ‘strict’
-                       strictly conform to all the things in the spec no matter what consequences 
-                   ‘normal’
-                   ‘unofficial’
-                       allow unofficial extensions 
-                   ‘experimental’
-                       allow non standardized experimental things, experimental (unfinished/work in progress/not well tested) decoders and encoders. Note: experimental decoders can pose a security risk, do not use this for decoding untrusted input. 
-      max_muxing_queue_size : Should not have to change; see https://trac.ffmpeg.org/ticket/6375
+    """
+    A method to generate basic ffmpeg command
+
+    Arguments:
+      None
+
+    Keywords arguments:
+      strict (str): Specify how strictly to follow the standards.
+        Possible values:
+          - ‘very’ : strictly conform to an older more strict version of the spec or reference software 
+          - ‘strict’ : strictly conform to all the things in the spec no matter what consequences 
+          - ‘normal’
+          - ‘unofficial’ : allow unofficial extensions 
+          - ‘experimental’ : allow non standardized experimental things, experimental (unfinished/work in progress/not well tested) decoders and encoders. Note: experimental decoders can pose a security risk, do not use this for decoding untrusted input. 
+      max_muxing_queue_size (int): Should not have to change; see https://trac.ffmpeg.org/ticket/6375
+
     Returns:
       List containing base ffmpeg command for converting
-    '''
+    """
+
     cmd  = ['ffmpeg', '-nostdin', '-i', self.inFile]
     if os.path.isfile(self.chapterFile):                                        # If the chapter file exits
       self.__log.info( 'Adding chapters from file : {}'.format(self.chapterFile) )
@@ -623,37 +602,37 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
   ##############################################################################
   def _videoKeys(self):
-    '''
-    Name:
-      _videoKeys
-    Purpose:
-      A generator method to produce next ordered key from video_info
-      attribute
-    Inputs:
-      None.
-    Outputs:
-      Key for the video_info attribute
+    """
+    A generator method to produce next ordered key from video_info attribute
+
+    Arguments:
+      None
+
     Keywords:
-      None.
-    '''
+      None
+
+    Returns:
+      str: Key for the video_info attribute
+    """
+
     for i in range( len(self.video_info['order']) ):                            # Iterate over all values in the 'order' tuple
       yield self.video_info['order'][i];                                        # Yield the key
 
   ##############################################################################
   def _audioKeys(self):
-    '''
-    Name:
-      _audioKeys
-    Purpose:
-      A generator method to produce next ordered key from audio_info
-      attribute
-    Inputs:
+    """
+    A generator method to produce next ordered key from audio_info attribute
+
+    Arguments:
+      None
+
+    Keyword arguments:
       None.
-    Outputs:
-      Key for the audio_info attribute
-    Keywords:
-      None.
-    '''
+
+    Returns:
+      str: Key for the audio_info attribute
+    """
+
     for i in range( len(self.audio_info['order']) ):                            # Iterate over all values in the 'order' tuple
       yield self.audio_info['order'][i];                                        # Yield the key
 
@@ -664,16 +643,16 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
   ##############################################################################
   def _being_converted( self, file ):  
-    '''Method to check if file is currently being convert'''
+    """Method to check if file is currently being convert"""
+
     s0 = os.path.getsize( file )                                                # Get size of output file
     time.sleep(0.5)                                                             # Wait half a second
     return (s0 != os.path.getsize(file))                                        # Check that size of file has changed
 
   ##############################################################################
   def _init_logger(self, log_file = None):
-    '''
-    Function to set up the logger for the package
-    '''
+    """Function to set up the logger for the package"""
+
     if self.__fileHandler:                                                      # If there is a file handler defined
       self.__fileHandler.flush();                                               # Flush output to handler
       self.__fileHandler.close();                                               # Close the handler

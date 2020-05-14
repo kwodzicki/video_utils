@@ -25,36 +25,25 @@ else:                                                                           
 
 
 class MediaInfo( object ):
+  """Class that acts as wrapper for mediainfo CLI"""
   def __init__( self, inFile = None, **kwargs ):
-    '''
-    Name:
-       mediainfo
-    Purpose:
-       A python function to act as a wrapper for the 
-       mediainfo CLI. The mediainfo command is run
-       with full output to XML format. The XML data
-       returned is then parsed into a dictionary
-       using the xml.etree library.
-    Inputs:
-       file  : Full path to the file to get inforamtion
-                 from.
-    Outputs:
-       Returns a dictionary of parsed information
-       from the mediainfo CLI. The dictionary is
-       arrange by information type (i.e., General
-       Video, Audio, Text), with all the same keys
-       as are present in the mediainfo command.
-    Keywords:
-       None.
-    Dependencies:
-      re, subprocess, xml
-    Author and History:
-       Kyle R. Wodzicki     Created 12 Sep. 2017
-       
-      Modified 14 Dec. 2018 by Kyle R. Wodzicki
-        Changes mediainfo output type from XML to OLDXML as
-        the xml tags have changes in newer versions.
-    '''
+    """
+    Initialize MediaInfo class
+
+    The mediainfo CLI is run with full output to XML format. The XML data
+    returned is then parsed into a dictionary using the xml.etree library.
+
+    Arguments:
+       None
+
+    Keyword arguments:
+       inFile (str): Path of file to run mediainfo on
+       Various others...
+
+    Returns:
+      MediaInfo object
+    """
+
     super().__init__(**kwargs);
     self.__log  = logging.getLogger(__name__);
     self.cmd    = ['mediainfo', '--Full', '--Output={}'.format(OUTPUT_FMT) ];  # The base command for mediainfo; just add [self.inFile]
@@ -80,37 +69,37 @@ class MediaInfo( object ):
 
   ##############################################################################
   def __getitem__(self, key):
-    '''Method for easily getting key from mediainfo; acts a dict'''
+    """Method for easily getting key from mediainfo; acts a dict"""
+
     return self.__mediainfo[key]
 
   ##############################################################################
   def __setitem__(self, key, value):
-    '''Method for easily setting key in mediainfo; acts a dict'''
+    """Method for easily setting key in mediainfo; acts a dict"""
+
     self.__mediainfo[key] = value
 
   ##############################################################################
   def get(self, *args):
-    '''Method for geting mediainfo keys; acts a dict'''
+    """Method for geting mediainfo keys; acts a dict"""
+
     return self.__mediainfo.get(*args)
 
   ##############################################################################
   def keys(self):
-    '''Method for geting mediainfo keys; acts a dict'''
+    """Method for geting mediainfo keys; acts a dict"""
+
     return self.__mediainfo.keys();
 
   ##############################################################################
   def videoSize(self):
-    '''
-    Purpose:
-      Method to get dimensions of video
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """ 
+    Method to get dimensions of video
+
     Returns:
-      Tuple containing video (width, height) if video stream exists.
-      None otherwise.
-    '''
+      tuple: Video (width, height) if video stream exists. None otherwise.
+    """
+
     tmp = self.get('Video', [])
     if len(tmp) > 0:
       try:
@@ -121,13 +110,14 @@ class MediaInfo( object ):
 
   ##############################################################################
   def isValidFile(self):
-    '''
-    Purpose:
-      Method to check if file is valid. This is done by checking
-      that the size of the first video stream is less than the size
-      of the file. This many not work in all cases, but seems to be
-      true for MPEGTS files.
-    '''
+    """ 
+    Check if file is valid.
+
+    This is done by checking that the size of the first video stream is less than
+    the size of the file. This many not work in all cases, but seems to be
+    true for MPEGTS files.
+    """
+
     if self.__mediainfo:
       try:
         fileSize   = self.__mediainfo['General'][0]['File_size'  ]
@@ -140,7 +130,8 @@ class MediaInfo( object ):
 
   ##############################################################################
   def __parse_output(self):
-    ''' Method that will run when the file attribute is changed'''
+    """Method that will run when the file attribute is changed"""
+
     self.__log.info('Running mediainfo command...');                              # If verbose is set, print some output
     xmlstr = subproc.check_output( self.cmd  + [self.inFile] );                # Run the command
     root   = ET.fromstring( xmlstr );                                           # Parse xml tree
@@ -194,36 +185,23 @@ class MediaInfo( object ):
 
   ################################################################################
   def get_audio_info( self, language = None ):
-    '''
-    Name:
-      get_audio_info
-    Purpose:
-      A python function for getting audio stream information from a video
-      file using information from the mediainfo command and parsing it 
-      into a dictionary in a format that allows for input in the the 
-      HandBrakeCLI command for transcoding.
-    Inputs:
-      language   : A scalar or list containing language(s) for audio tracks.
-                    Must be ISO 639-2 codes.
-    Outputs:
-      Returns a dictionary with information in a format for input into 
-      the HandBrakeCLI command.
-    Keywords:
-      downmix : Toggles downmix if no mono/stereo tracks found.
-                 Default is to only copy tracks from source
-      PLII    : Toggles downmix format; If True (default), will use
-                 Dolby Pro Logic II, if False, will use Dolby Pro Logic
-    Dependencies:
-      logging
-    Author and History:
-      Kyle R. Wodzicki     Created 30 Dec. 2016
-      
-      Modified 29 Jul. 2017 by Kyle R. Wodzicki
-        Added some code to remove duplicate downmixed audio streams 
-        that have the same language. Code follows a large comment block.
-      Modified 14 Dec. 2018 by Kyle R. Wodzicki
-        Cleans up some code and comments.
-    '''
+    """ 
+    Get audio stream information from a video
+
+    Audio stream information is obtained using information from the mediainfo
+    command and parsing it into a dictionary in a format that allows for input
+    into ffmpeg command for transcoding.
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      language (str,list): Language(s) for audio tracks. Must be ISO 639-2 codes.
+
+    Returns:
+      dict: Information in a format for input into the ffmpeg command.
+    """
+
     self.__log.info('Parsing audio information...');                              # If verbose is set, print some output
     if self.__mediainfo is None:         
       self.__log.warning('No media information!');                                # Print a message
@@ -289,39 +267,36 @@ class MediaInfo( object ):
 
   ################################################################################
   def get_video_info( self, x265 = False ):
-    '''
-    Name:
-      get_video_info
-    Purpose:
-      A python function for getting video stream information from a video file
-      using information from the mediainfo command and parsing it into a 
-      dictionary in a format that allows for input in the the HandBrakeCLI 
-      command for transcoding. Rate factors for different resolutions are the 
-      mid-points from the ranges provided by 
-      https://handbrake.fr/docs/en/latest/workflow/adjust-quality.html
-         RF 18-22 for 480p/576p Standard Definition
-         RF 19-23 for 720p High Definition
-         RF 20-24 for 1080p Full High Definition
-         RF 22-28 for 2160p 4K Ultra High Definition
-      The settings used in this program are as follows
-         22 -  480p/576p
-         23 -  720p
-         24 - 1080p
-         26 - 2060p
-    Inputs:
-      None.
-    Outputs:
-      Returns a dictionary with information in a format for input into 
-      the ffmpeg command.
-    Keywords:
-      x265 - Set to force x265 encoding.
-    Dependencies:
-      logging
-    Author and History:
-      Kyle R. Wodzicki     Created 30 Dec. 2016
-      Modified 14 Dec. 2018 by Kyle R. Wodzicki
-        Cleans up some code and comments.
-    '''     
+    """
+    Get video stream information from a video
+
+    Video stream information is obtained using information from the mediainfo
+    command and parsing it into a dictionary in a format that allows for input
+    into ffmpeg command for transcoding.
+
+    Rate factors for different resolutions are the mid-points from the ranges provided by 
+    https://handbrake.fr/docs/en/latest/workflow/adjust-quality.html
+      - RF 18-22 for 480p/576p Standard Definition
+      - RF 19-23 for 720p High Definition
+      - RF 20-24 for 1080p Full High Definition
+      - RF 22-28 for 2160p 4K Ultra High Definition
+
+    Rate factors used in this program are as follows
+      - 22 :  480p/576p
+      - 23 :  720p
+      - 24 : 1080p
+      - 26 : 2060p
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      x265 (bool): Set to force x265 encoding.
+
+    Returns:
+      dict: Information in a format for input into the ffmpeg command.
+    """
+     
     self.__log.info('Parsing video information...');                              # If verbose is set, print some output
     if self.__mediainfo is None:       
       self.__log.warning('No media information!');                                # Print a message
@@ -411,38 +386,31 @@ class MediaInfo( object ):
 
   ################################################################################
   def get_text_info( self, language ):
-    '''
-    Name:
-      get_text_info
-    Purpose:
-      A method for getting text stream information from a
-      video file using information from the mediainfo command and 
-      parsing it into a dictionary in a format that allows for use 
-      in either the the vobsub_extract or ccextract functions to extract 
-      the text to  individual files and/or convert the text to SRT format.
-    Inputs:
-      language   : A scalar or list containing language(s) for audio tracks.
-                    Must be ISO 639-2 codes.
+    """
+    Get text stream information from a video
+
+    Video stream information is obtained using information from the mediainfo
+    command and parsing it into a dictionary in a format for use in either the
+    :meth:`video_utils.subtitles.vobsub_extract` or 
+    :meth:`video_utils.subtitles.ccextract` functions to extract the text to
+    individual files and/or convert the text to SRT format.
+
+    Arguments:
+      language (str,list): Language(s) for text streams.Must be ISO 639-2 codes.
                     Note that language selection is not currently
                     available for mpeg transport streams with CC
                     muxed into video as mediainfo gives no information
                     on CC languagues (20190217)
-    Outputs:
-      Returns a dictionary where each entry contains the 3 different
-      language strings, the output extension to be used on the
-      subtitle file, and the  MKV ID used to identify tracks in 
-      MKVToolNix for each text stream of interest. Returns None if NO 
-      text streams found.
-    Keywords:
+    Keyword arguments:
       None
-    Dependencies:
-      logging
-    Author and History:
-      Kyle R. Wodzicki     Created 13 Jan. 2017
-      
-      Modified 14 Dec. 2018 by Kyle R. Wodzicki
-        Cleans up some code and comments.
-    ''' 
+
+    Returns:
+      Dictionary containing the 3 different language strings, the output
+      extension to be used on the subtitle file, and the MKV ID used
+      to identify tracks in MKVToolNix for each text stream of interest.
+      Returns None if NO text streams found.
+    """
+
     self.__log.info('Parsing text information...');                               # If verbose is set, print some output
     if self.__mediainfo is None:       
       self.__log.warning('No media information!');                                # Print a message
@@ -459,13 +427,8 @@ class MediaInfo( object ):
 
   ##############################################################################
   def __parse_vobsub(self, language):
-    '''
-    Name:
-      __parse_vobsub
-    Purpose:
-      A private method for parsing text information for vobsub
-      subtitle format
-    '''
+    """A private method for parsing text information for vobsub subtitle format"""
+
     j, n_elems, info = 0, [], [];                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
     for lang in language:                                                         # Iterate over all languages
       for track in self.__mediainfo['Text']:                                             # Iterate over all text information
@@ -522,21 +485,18 @@ class MediaInfo( object ):
 
   ##############################################################################
   def __parse_mpegTS(self, language):
-    '''
-    Name:
-      __parse_mpegTS
-    Purpose:
-      A private method for parsing text information for CC 
-      in mpeg transport stream data recorded by Plex DVR;
+    """
+    Parse text information for CC in mpeg transport stream data recorded by Plex DVR
 
-
-      Note (20190219): while this method will parse information 
-      from all the text streams in the file, the ccextract
+    Note: 
+      (20190219) - While this method will parse information from all the 
+      text streams in the file, the ccextract
       function currently only extracts the first CC stream as
       there is not clear documentation on how to extract 
       specific streams and mediainfo does not return any
       language information for the streams
-      '''
+    """
+
     j, n_elems, info = 0, [], [];                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
     for lang in language:                                                         # Iterate over all languages
       for track in self.__mediainfo['Text']:                                             # Iterate over all text information

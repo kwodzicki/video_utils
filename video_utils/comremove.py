@@ -29,17 +29,20 @@ class ComRemove( object ):
 
   ########################################################
   def __init__(self, **kwargs):
-    '''
-    Keywords:
-      iniDir   : Path to directory containing .ini files for
+    """
+    Initialize the COmRemove class
+
+    Keyword arguments:
+      iniDir (str): Path to directory containing .ini files for
                    comskip settigs. If set, will try to find
                    .ini file with same name as TV show series,
                    falling back to comskip.ini if not found.
                    Default is to use .ini included in pacakge.
-      threads  : Number of threads comskip is allowed to use
-      cpulimit : Set limit of cpu usage per thread
-      verbose  : Depricated
-    ''' 
+      threads (int): Number of threads comskip is allowed to use
+      cpulimit (int): Set limit of cpu usage per thread
+      verbose  (bool): Depricated
+    """
+
     super().__init__( **kwargs );
     self.__log = logging.getLogger(__name__);
 
@@ -69,21 +72,24 @@ class ComRemove( object ):
 
   ########################################################
   def removeCommercials(self, in_file, chapters = False, name = '' ):
-    '''
-    Purpose:
-      Main method for commercial identification and removal.
-    Inputs:
-      in_file  : Full path of file to run commercial removal on
-    Outputs:
-      boolean
-    Kewords:
-      chapters : Set for non-destructive commercial 'removal'.
+    """
+    Main method for commercial identification and removal.
+
+    Arguments:
+      in_file (str): Full path of file to run commercial removal on
+
+    Keword arguments:
+      chapters (bool): Set for non-destructive commercial 'removal'.
                   If set, will generate .chap file containing
                   Show segment and commercial break chapter info
                   for FFmpeg.
-      name     : Name of series or movie (Plex convention). Required
+      name    (str): Name of series or movie (Plex convention). Required
                   if trying to use specific comskip.ini file
-    '''
+
+    Returns:
+      bool
+    """
+
     self.__outDir  = os.path.dirname( in_file )                                     # Store input file directory in attribute
     self.__fileExt = in_file.split('.')[-1]                                         # Store Input file extension in attrubute
     edl_file     = None
@@ -113,17 +119,22 @@ class ComRemove( object ):
 
   ########################################################
   def comskip(self, in_file, name = ''):
-    '''
-    Purpose:
-      Method to run the comskip CLI to locate commerical breaks
-      in the input file
-    Inputs:
-      in_file : Full path of file to run comskip on
-    Outputs:
-      Returns path to .edl file produced by comskip IF the 
+    """
+    Method to run the comskip CLI to locate commerical breaks in the input file
+
+    Arguments:
+      in_file (str): Full path of file to run comskip on
+
+    Keywords arguments:
+      name    (str): Name of series or movie (Plex convention). Required
+                  if trying to use specific comskip.ini file
+
+    Returns:
+      str: Returns path to .edl file produced by comskip IF the 
       comskip runs successfully. If comskip does not run
       successfully, then None is returned.
-    '''
+    """
+
     if not COMSKIP:
       self.__log.info('comskip utility NOT found!')
       return None 
@@ -180,17 +191,21 @@ class ComRemove( object ):
 
   ########################################################
   def comchapter(self, in_file, edl_file):
-    '''
-    Purpose:
-      Method to create an ffmpeg metadata file that
-      contains chatper information marking commercials.
-      These metadata will be written to in_file
-    Inputs:
-      in_file  : Full path of file to run comskip on
-      edl_file : Full path of .edl file produced by
-    Outputs:
-      Boolean, True if success, False if failed
-    '''
+    """
+    Create an ffmpeg metadata file containing chatper information for commercials.
+
+    The edl file created by comskip is parsed into an FFMETADATA file. This
+    file can then be passed to ffmpeg to created chapters in the output file
+    marking show and commercial segments.
+
+    Arguments:
+      in_file (str): Full path of file to run comskip on
+      edl_file (str): Full path of .edl file produced by
+
+    Returns:
+      bool: True if success, False if failed
+    """
+
     self.__log.info('Generating metadata file')
 
     showSeg     = 'Show Segment \#{}'
@@ -234,17 +249,17 @@ class ComRemove( object ):
 
   ########################################################
   def comcut(self, in_file, edl_file):
-    '''
-    Purpose:
-      Method to create intermediate files that do NOT 
-      contain comercials.
-    Inputs:
-      in_file  : Full path of file to run comskip on
-      edl_file : Full path of .edl file produced by
-    Outputs:
-      Returns list of file paths for the intermediate 
-      files created if successful. Else, returns None.
-    '''
+    """
+    Method to create intermediate files that do NOT contain comercials.
+
+    Arguments:
+      in_file (str): Full path of file to run comskip on
+      edl_file (str): Full path of .edl file produced by
+
+    Returns:
+      list: File paths for the intermediate files created if successful. Else, returns None.
+    """
+
     self.__log.info('Cutting out commercials')
     cmdBase  = self._comcut + [in_file];                                        # Base command for splitting up files
     tmpFiles = [];                                                              # List for all temporary files
@@ -286,18 +301,18 @@ class ComRemove( object ):
 
   ########################################################
   def comjoin(self, tmpFiles):
-    '''
-    Purpose:
-      Method to join intermediate files that do NOT 
-      contain comercials into one file.
-    Inputs:
-      tmpFiles : List containing full paths of 
-                 intermediate files to join
-    Outputs:
+    """
+    Method to join intermediate files that do NOT contain comercials into one file.
+
+    Arguments:
+      tmpFiles (list): Full paths of intermediate files to join
+
+    Returns:
       Returns path to continous file created by joining
       intermediate files if joining is successful. Else
       returns None.
-    '''
+    """
+
     self.__log.info( 'Joining video segments into one file')
     inFiles = '|'.join( tmpFiles );
     inFiles = 'concat:{}'.format( inFiles );
@@ -320,21 +335,23 @@ class ComRemove( object ):
 
   ########################################################
   def check_size(self, in_file, cut_file):
-    '''
-    Purpose:
-      To check that the file with no commercials
-      is a reasonable size; i.e., check if too much
-      has been removed. If the file size is sane,
-      then just replace the input file with the 
-      cut file (one with no commercials). If the
-      file size is NOT sane, then the cut file is
-      removed and the original input file is saved
-    Inputs:
-      in_file  : Full path of file to run comskip on
-      cut_file : Full path of file with NO commercials
-    Authors:
-      Barrowed from https://github.com/ekim1337/PlexComskip
-    '''
+    """
+    Check that the file with no commercials is a reasonable size
+
+    A check to see if too much has been removed. If the file size is sane,
+    then just replace the input file with the cut file (one with no commercials).
+    If the file size is NOT sane, then the cut file is removed and the original 
+    input file is saved.
+    Borrowed from https://github.com/ekim1337/PlexComskip
+
+    Arguments:
+      in_file (str): Full path of file to run comskip on
+      cut_file (str): Full path of file with NO commercials
+
+    Returns:
+      None
+    """
+
     self.__log.debug( "Running file size check to make sure too much wasn't removed");
     in_file_size  = os.path.getsize( in_file  );
     cut_file_size = os.path.getsize( cut_file );
@@ -379,16 +396,19 @@ class ComRemove( object ):
 
   ########################################################
   def _getIni( self, name = '' ):
-    '''
-    Purpose:
-      Method to get name of .ini file to use for commercial removal
-    Inputs:
+    """
+    Method to get name of .ini file to use for commercial removal
+
+    Arguments:
       None.
-    Keywords:
-      name   : Plex formatted TV series or Movie name.
+
+    Keyword arguments:
+      name (str): Plex formatted TV series or Movie name.
+
     Returns:
-      Path to Comskip INI file to use for commercial removal
-    '''
+      str: Path to Comskip INI file to use for commercial removal
+    """
+
     if self.iniDir:                                                                     # If the iniDir is defined
       if name != '':                                                                    # If name not empty
         ini = os.path.join( self.iniDir, '{}.ini'.format(name) )                        # Define path
@@ -401,15 +421,15 @@ class ComRemove( object ):
 
   ########################################################
   def __size_fmt(self, num, suffix='B'):
-    '''
-    Purpose:
-      Private method for determining the size of 
-      a file in a human readable format
-    Inputs:
-      num  : An integer number file size
-    Authors:
-      Barrowed from https://github.com/ekim1337/PlexComskip
-    '''
+    """
+    Private method for determining the size of a file in a human readable format
+      
+    Borrowed from https://github.com/ekim1337/PlexComskip
+
+    Arguments:
+      num (int) : File size
+    """
+
     for unit in ['','K','M','G','T','P','E','Z']:
       if abs(num) < 1024.0:
         return "{:3.1f}{}{}".format(num, unit, suffix)

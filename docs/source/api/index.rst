@@ -1,5 +1,5 @@
-video_utils
-===========
+API Reference
+=============
 
 .. toctree::
    :maxdepth: 4

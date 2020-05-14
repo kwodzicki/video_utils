@@ -11,13 +11,9 @@ from .utils import plexDVR_Rename
 
 
 class DVRconverter(VideoConverter): 
-  '''
-  DVRconverter
-
-  Purpose:
-    A class to combine the VideoConverter and ComRemove classes for
-    post-processing Plex DVR recordings
-  '''
+  """
+  A class to combine the VideoConverter and ComRemove classes for post-processing Plex DVR recordings
+  """
   def __init__(self,
      logdir      = None, 
      lang        = None,
@@ -26,45 +22,32 @@ class DVRconverter(VideoConverter):
      no_remove   = False,
      no_srt      = False,
      **kwargs):
-    '''
-    Name:
-      __init__ 
-    Purpose:
-      Method to initialize class and superclasses along with
-      a few attributes
-    Inputs:
-      None.
-    Keywords:
-      logdir      : Directory for any extra log files
-      threads     : Number of threads to use for comskip and transcode
-      cpulimit    : Percentage to limit cpu usage to
-      lang        : Language for audio/subtitles
-      verbose     : Increase verbosity
-      destructive : If set, will cut commercials out of file. Note that
+    """
+    Method to initialize class and superclasses along with a few attributes
+    
+    Arguments:
+      None
+
+    Keyword arguments:
+      logdir      (str) : Directory for any extra log files
+      threads     (int) : Number of threads to use for comskip and transcode
+      cpulimit    (int) : Percentage to limit cpu usage to
+      lang        (list): Language for audio/subtitles
+      verbose     (bool): Increase verbosity
+      destructive (bool): If set, will cut commercials out of file. Note that
                      commercial identification is NOT perfect, so this could
                      lead to missing pieces of content. 
                      By default, will add chapters to output file marking
                      commercial breaks. This enables easy skipping, and does
                      not delete content if commercials misidentified
-      no_remove   : If set, input file will NOT be deleted
-      no_srt      : If set, no SRT subtitle files created
+      no_remove (bool): If set, input file will NOT be deleted
+      no_srt    (bool): If set, no SRT subtitle files created
       Any other keyword argument is ignored
 
-   Keywords:
-      logdir      : Directory for any extra log files
-      threads     : Number of threads to use for comskip and transcode
-      cpulimit    : Percentage to limit cpu usage to
-      lang        : Language for audio/subtitles
-      verbose     : Increase verbosity
-      destructive : If set, will cut commercials out of file. Note that
-                     commercial identification is NOT perfect, so this could
-                     lead to missing pieces of content. 
-                     By default, will add chapters to output file marking
-                     commercial breaks. This enables easy skipping, and does
-                     not delete content if commercials misidentified
-      no_remove   : If set, input file will NOT be deleted
-      no_srt      : If set, no SRT subtitle files created
-    '''
+    Returns:
+      None
+    """
+
     super().__init__(
       log_dir       = logdir,
       in_place      = True,
@@ -78,22 +61,24 @@ class DVRconverter(VideoConverter):
     self.log         = logging.getLogger(__name__)
 
   def convert(self, inFile):
-    '''
-    Name:
-      convert
-    Purpose:
-      Method to actually post process Plex DVR files.
-      This method does a few things:
-        - Renames file to match convenction set by video_utils package
-        - Attempts to remove commercials using comskip
-        - Transcodes to h264
-    Inputs:
-      inFile  : Path to file to process
-    Outputs:
-      Returns success of transocde
-    Keywords:
-      None.
-    '''
+    """
+    Method to actually post process Plex DVR files.
+
+    This method does a few things:
+      - Renames file to match convenction set by video_utils package
+      - Attempts to remove commercials using comskip
+      - Transcodes to h264
+
+    Arguments:
+      inFile (str) : Path to file to process
+
+    Keyword Arguments:
+      None
+
+    Returns:
+      int: Returns success of transocde
+    """
+
     inFile       = os.path.realpath( inFile )                                       # Get real input file path 
     out_file     = None                                                             # Set out_file to None
     info         = None

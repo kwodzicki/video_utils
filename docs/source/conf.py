@@ -36,6 +36,7 @@ master_doc = 'index'
 # ones.
 extensions = [
 'sphinx.ext.autodoc',
+'sphinx.ext.napoleon',
 'sphinx_rtd_theme'
 ]
 
@@ -47,6 +48,7 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+#add_module_names = False
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -57,7 +59,7 @@ html_theme         = 'sphinx_rtd_theme'
 html_theme_path    = [sphinx_rtd_theme.get_html_theme_path()]
 html_theme_options = {
   'display_version'  : False,
-  'navigation_depth' : 2
+  'navigation_depth' : 4
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
