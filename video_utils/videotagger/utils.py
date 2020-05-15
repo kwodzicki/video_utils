@@ -16,9 +16,36 @@ SPACE    = ' '
 BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
 
 def replaceChars( string, repl = ' ', **kwargs ):
+  """
+  Replace invalid path characters; '&' replaced with 'and'
+
+  Arguments:
+    string (str): String to replace characters in
+
+  Keyword arguments:
+    repl (str): String to replace bad characters with; default is space (' ')
+    **kwargs
+
+  Returns:
+    str: String with ad values replaced by repl value
+  """
+
   return BADCHARS.sub( repl, string ).replace('&', 'and')
  
 def download(URL):
+  """
+  Download data from URL
+
+  Arguments:
+    URL (str): Full URL of data to download
+
+  Keyword arguments:
+    None.
+
+  Returns:
+    bytes: Data downloaded from file; None if failed
+  """
+
   log  = logging.getLogger(__name__)
   data = None
   log.debug('Attempting to open URL: {}'.format(URL))
@@ -42,6 +69,28 @@ def download(URL):
   return data
 
 def getFont( text, bbox ):
+  """
+  Determine font size for movie version
+
+  This function determines the font size to use when adding movie version
+  information to a poster. The font size is determined by iteratively 
+  increasing the font size until the text will no longer fit inside the
+  specified box. The font size is the decremented slightly to ensure it
+  fits. Space is also added between letters to ensure that the text
+  spans most of the box horizontally.
+
+  Arguments:
+    text (str): Text to add to the movie poster
+    bbox (iterable): Dimensions of the box (width,height) to write text in
+
+  Keyword arguments:
+    None
+
+  Returns:
+    tuple: Input text (may be updated with extra space between characters) and a
+      pillow ImageFont font object.
+  """
+
   bbox      = list(bbox)                                                        # Convert bbox to list
   bbox[0]  *= TSCALE                                                            # Scale the box height by TSCALE
   bbox[1]  *= TSCALE                                                            # Scale the box height by TSCALE
@@ -68,6 +117,22 @@ def getFont( text, bbox ):
   return text, font                                                             # Return text and font
 
 def addText( fp, text ):
+  """
+  Add text to image object
+
+  This function adds a text string to a pillow Image object
+
+  Arguments:
+    fp (file, bytes): Path to a file to read in or bytes of file
+    text (str): String to add to image
+
+  Keyword arguments:
+    None
+
+  Returns:
+    bytes: Image data
+  """
+
   if isinstance(fp, bytes):                                                     # If input is a bytes instance
     fileObj = BytesIO()                                                         # Create bytes IO object
     fileObj.write( fp )                                                         # Write bytes
@@ -94,16 +159,31 @@ def addText( fp, text ):
   return data.read()                                                            # Return bytes
 
 def downloadCover( videoPath, URL, text = None ):
-  data = download( URL )
-  if data is None:
-    return False
+  """
+  Wrapper function to download artwork and add version text
 
-  if isinstance(text, str) and text != '':
-    data = addText( data, text )
+  Arguments:
+    videoPath (str): Path to video file artwork is for
+    URL (str): URL of artwork to download
 
-  imageExt  = os.path.splitext( URL       )[1]
-  imagePath = os.path.splitext( videoPath )[0] + imageExt
+  Keyword arguments:
+    text (str): Text to add to artwork; typically is movie version
+
+  Returns:
+    tuple: Path to downloaded image on local disc, and bytes for image data
+  """
+
+  data = download( URL )                                                                # Download data from URL
+  if data is None:                                                                      # If data is None
+    return False                                                                        # Return False
+
+  if isinstance(text, str) and text != '':                                              # If text is string instance and NOT empty
+    data = addText( data, text )                                                        # Add text to image data
+
+  imageExt  = os.path.splitext( URL       )[1]                                          # Get image extension
+  imagePath = os.path.splitext( videoPath )[0] + imageExt                               # Set image path
   
-  with open( imagePath, 'wb' ) as fid:
-    fid.write( data )
-  return imagePath, data
+  with open( imagePath, 'wb' ) as fid:                                                  # Open imagePath in binary write mode
+    fid.write( data )                                                                   # Write data to file
+
+  return imagePath, data                                                                # Return path to file and image bytes

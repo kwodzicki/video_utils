@@ -14,28 +14,54 @@ values per key are supported.
 '''
 
 class BaseItem( BaseAPI ):
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
+  """Extends the BaseAPI class for use in Episdode, Movie, Person, etc classes"""
+
+  def __init__(self, *args, data = {}, version = '', **kwargs):
+    """
+    Initialize the class
+
+    Arguments:
+      *args: Various, none used; passed to super()
+
+    Keyword arguments:
+      data (dict): Metadata to initialize class with
+      version (str): Release version such as 'Extended Edition'; only relevant for movies
+      **kwargs: arbitrary arguments
+    """
+
+    super().__init__(*args, **kwargs)                                                   # Initialize parent class(es)
     self.__log      = logging.getLogger(__name__)
-    self._data      = kwargs.get('data', {})
-    self._version   = kwargs.get('version', '')
+    self._data      = data
+    self._version   = version
     self._isMovie   = False
     self._isSeries  = False
     self._isEpisode = False
     self._isPerson  = False
+    self._tmdb      = False                                                             # Flag specifying if data from TMDb or TVDb
     self.URL        = None
  
   @property
   def isMovie(self):
+    """bool: Identifies object as movie"""
+
     return self._isMovie
+
   @property
   def isSeries(self):
+    """bool: Identifies object as TV series"""
+
     return self._isSeries
+
   @property
   def isEpisode(self):
+    """bool: Identifies object as episode"""
+
     return self._isEpisode
+
   @property
   def isPerson(self):
+    """bool: Identifies object as person"""
+
     return self._isPerson
 
   def __contains__(self, key):
@@ -55,25 +81,54 @@ class BaseItem( BaseAPI ):
     return self._data.get(*args)
 
   def addComment(self, text):
+    """
+    Add a user comment to metadata information
+
+    Arguements:
+      text (str): Comment to add
+
+    Keyword arguments:
+      None
+
+    Returns:
+      None
+    """
+
     self._data['comment'] = text
 
   def setVersion(self, version):
+    """
+    Set version of file (i.e., Extended Edition); only valid for movies.
+
+    Arguements:
+      version (str): Movie version
+
+    Keyword arguments:
+      None
+
+    Returns:
+      None
+    """
+
     self._version = version
 
-  def getExtra(self, *keys):
-    '''
-    Purpose:
-      Method to get extra information from an api 
-    Inputs:
-      List of keys for API call
-    Keywords:
-      None.
+  def getExtra(self, *args):
+    """
+    Method to get extra information from an api 
+
+    Arguments:
+      *args (list): Keys for API call
+
+    Keyword arguments:
+      None
+
     Returns:
-      Dictionary of extra information
-    '''
+      dict: Extra information
+    """
+
     if self.URL:                                                                        # If URL is defined
       extra = {}                                                                        # Initialize extra as empty dictionary
-      for key in keys:                                                                  # Iterate over each key
+      for key in args:                                                                  # Iterate over each key
         if (key not in self._data):                                                     # If the key does NOT already exist in object
           URL  = '{}/{}'.format(self.URL, key)                                          # Build URL
           json = self._getJSON(URL)                                                     # Get JSON data
@@ -82,53 +137,65 @@ class BaseItem( BaseAPI ):
       return extra                                                                      # Return extra
     return None
 
-  def getID(self, external = None):
-    '''
-    Purpose:
-      Method to get ID of object, or external ID of object
-    Inputs:
-      None.
-    Keywords:
-      external : Set to external ID key. Will return None if
-                  not found
+  def getID(self, external = None, **kwargs):
+    """
+    Method to get ID of object, or external ID of object
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      external (str): Set to external ID key. Will return None if not found
+      **kwargs: Various accepted, none used
+
     Returns:
       Return the item ID or None if not found
-    '''
-    if external:
-      if ('external_ids' in self._data):
-        return self._data['external_ids'].get(external, None)
-      else:
-        self.__log.debug('No external IDs found!')
-      pass
+    """
 
-    return self._data.get('id', None)
+    if external:                                                                        # If external keyword set
+      if ('external_ids' in self._data):                                                # If external_ids in the _data dictionary
+        return self._data['external_ids'].get(external, None)                           # Get the external id and return it; return None if the ID does not exist
+      self.__log.debug('No external IDs found!')                                        # Log some debug information
+      return None                                                                       # Return None
+
+    fmt = 'tmdb{}' if self._tmdb else 'tvdb{}'                                          # Set format base on _tmdb attribute
+    ID  = self._data.get('id', None)                                                    # Get id from data or None if no id
+    if ID:                                                                              # If ID
+      return fmt.format( ID )                                                           # Return formatted id
+    return ID                                                                           # Return ID
 
   def _getDirectors(self):
-    '''
-    Purpose:
-      Method to get list of director(s)
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Method to get list of director(s)
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
     Returns:
       List of srings containing director(s)
-    '''
+    """
+
     if self.crew is not None:
       return [i['name'] for i in self.crew if i.job == 'Director']
     return ['']
 
   def _getWriters(self):
-    '''
-    Purpose:
-      Method to get list of writer(s)
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Method to get list of writer(s)
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
     Returns:
       List of srings containing writer(s)
-    '''
+    """
+
     if self.crew is not None:
       persons = []
       for person in self.crew:
@@ -138,32 +205,37 @@ class BaseItem( BaseAPI ):
     return ['']
 
   def _getCast(self):
-    '''
-    Purpose:
-      Method to get list of cast members
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Method to get list of cast members
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
     Returns:
       List of srings containing cast members
-    '''
+    """
+
     if self.cast is not None:
       return [i.name for i in self.cast]
     return ['']
 
   def _getRating( self, **kwargs ):
-    '''
-    Purpose:
-      Method to iterate over release dates to extract rating
-    Inputs:
-      None.
-    Keywords:
-      country  : The country of release to get rating from.
-                  Default is US
+    """
+    Method to iterate over release dates to extract rating
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      country (str): The country of release to get rating from. Default is US.
+      **kwargs: Other arguments are accepted but ignored for compatability
     Returns:
       String containing rating
-    '''
+    """
+
     rating = ''                                                                         # Default rating is emtpy string
     country = kwargs.get('country', 'US')                                               # Get country from kwargs, default to US
     if 'release_dates' in self:                                                         # If 'release_dates' key in self
@@ -178,31 +250,37 @@ class BaseItem( BaseAPI ):
     return rating                                                                       # Return rating
 
   def _getGenre(self):
-    '''
-    Purpose:
-      Method to get list of genre(s) 
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Method to get list of genre(s) 
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
     Returns:
       List of strings containing genre(s)
-    '''
+    """
+
     if self.genres is not None:
       return [i['name'] for i in self.genres]
     return ['']
 
   def _getProdCompanies(self, **kwargs):
-    '''
-    Purpose:
-      Method to get list of production company(s) 
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Method to get list of production company(s) 
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
     Returns:
       List of strings containing production company(s)
-    '''
+    """
+
     if self.production_companies is not None:
       return [i['name'] for i in self.production_companies]
     return ['']
@@ -227,16 +305,19 @@ class BaseItem( BaseAPI ):
     return sPlot, lPlot 
 
   def _getCover( self, **kwargs ):
-    '''
-    Purpose:
-      Method to get URL of poster
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Method to get URL of poster
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      **kwargs
+
     Returns:
       URL to poster if exists, else empty string
-    '''
+    """
+
     if self.filename is not None:
       return self.filename
     elif self.poster_path is not None:
@@ -288,16 +369,19 @@ class BaseItem( BaseAPI ):
     return data
 
   def metadata(self, **kwargs):
-    '''
-    Purpose:
-      Method to get metadata in internal, standard format
-    Inputs:
-      None.
-    Keywords:
-      Various.
+    """
+    Method to get metadata in internal, standard format
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      **kwargs
+
     Returns:
-      Dictionary of metadata in internal, standard format
-    '''
+      dict: Metadata in internal, standard format
+    """
+
     if self.isEpisode:
       return self._episodeData(**kwargs)
     elif self.isMovie:
@@ -305,16 +389,19 @@ class BaseItem( BaseAPI ):
     return None
 
   def writeTags( self, file, **kwargs ):
-    '''
-    Purpose:
-      Method to write metadata to file
-    Inputs:
-      file   : Path to video file to write metadata to
-    Keywords:
-      Various.
+    """"
+    Method to write metadata to file
+
+    Arguments:
+      file (str): Path to video file to write metadata to
+
+    Keyword arguments:
+      **kwargs
+
     Returns:
-      True if tags written, False otherwise
-    '''
+      bool: True if tags written, False otherwise
+    """
+
     data = self.metadata( **kwargs )
     if data:
       return writeTags( file, data, **kwargs )      

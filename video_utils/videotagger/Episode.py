@@ -9,11 +9,38 @@ from .utils import replaceChars
 SEFMT = 'S{:02d}E{:02d} - {}' 
 
 def getBasename(seasonNum, episodeNum, title, ID = '', **kwargs):
-  basename = SEFMT.format(seasonNum, episodeNum, title)
-  basename = '{:.50}.{}'.format( basename, ID )
-  return replaceChars( basename, **kwargs )
+  """
+  Helper function for getting basename
+
+  This function is used for generating basenames from both TMDbEpisode
+  and TVDbEpisode so that names can be truncated to 50 characters
+  and invalid characters can be replaced
+
+  Arguments:
+    seasonNum (int): Episode season number
+    episodeNum (int): Episode number
+    title (str): Episode title
+
+  Keyword arguments:
+    ID (str): Series ID
+    **kwargs: Passed to the :meth:`video_utils.videotagger.utils.replaceChars` function
+
+  Returns:
+    str: Episode base name
+  """
+
+  basename = SEFMT.format(seasonNum, episodeNum, title)                                 # Format base name using season/episode number and title
+  basename = '{:.50}.{}'.format( basename, ID )                                         # Clip the 
+  return replaceChars( basename, **kwargs )                                             # Replace invalid chars and return
 
 class BaseEpisode( BaseItem ):
+  """
+  Base object for episode information from TMDb or TVDb
+
+  Provides methods that are used in both TMDbEpisode and TVDbEpisode
+  objects for cleaner code.
+  """
+
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self._isEpisode = True
@@ -25,38 +52,79 @@ class BaseEpisode( BaseItem ):
     return '<{} ID: {}; Title: {}>'.format( self.__class__.__name__, self.id, self )
 
   def getBasename(self, **kwargs):
+    """
+    Get file name in semi-Plex convention
+
+    This method returns file name in semi-Plex convention for
+    the given episode based on season/episode number and name.
+    The series ID from whichever database the metadata were
+    obtained is included.
+    Note that the series name is NOT included.
+
+    Example:
+
+        >>> ep = Episode.TVDbEpisode(269782, 1, 1)
+        >>> print( ep.getBasename() )
+        'S01E01 - Pilot.tvdb269782'
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      **kwargs: Any accepted, all ignored
+
+    Returns:
+      str: File name in semi-Plex convention
+    """
+
     ID    = self.Series.getID()
     title = self.title.replace('.', '_')
     return getBasename( self.season_number, self.episode_number, title, ID, **kwargs )  
 
   def getDirname(self, root = ''):
-    '''
-    Keywords:
-      root    : Root directory
-    '''
+    """
+    Get directory structure in Plex convention
+
+    This method returns directory structure in the Plex convention for
+    the given episode based on series name and season.
+
+    Example:
+
+        >>> ep = Episode.TVDbEpisode(269782, 1, 1)
+        >>> print( ep.getDirname() )
+        'TV Shows/Friends with Better Lives (2014)/Season 01'
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      root (str): Root directory, is prepended to path
+
+    Returns:
+      str: Directory structure in Plex convention
+    """
+
     series = replaceChars( str(self.Series) )
     season = 'Season {:02d}'.format( self.season_number ) 
     return os.path.join( root, 'TV Shows', series, season )
 
-  def getID(self, **kwargs):
-    ID = super().getID( **kwargs )
-    if kwargs.get('external', None) is None:
-      if isinstance(self, TMDbEpisode):
-        return 'tmdb{}'.format( ID )
-      else:
-        return 'tvdb{}'.format( ID )
-    return ID
-
 class TMDbEpisode( BaseEpisode ):
+  """Object for episode information from TMDb"""
+
   EXTRA = ['external_ids', 'credits']
   def __init__(self, *args, **kwargs):
-    '''
-    Inputs:
-      series    : The series ID from themoviedb.com, OR a Series object. 
-    Keywords:
-      None.
-    '''
+    """
+    Arguments:
+      seriesID (int, TMDbSeries): The series ID from themoviedb.com, OR a Series object. 
+      seasonNum (int): Season number of episode
+      episodeNum (int): Episode number of episode
+ 
+    Keyword arguments:
+      **kwargs: Various, none used
+    """
+
     super().__init__(*args, **kwargs)
+
     if not self._data:
       if (len(args) < 3):
         raise Exception( "Must input series ID or object and season and episode number" )
@@ -82,16 +150,24 @@ class TMDbEpisode( BaseEpisode ):
     self._data['title'] = self.name
 
 class TVDbEpisode( BaseEpisode ):
+  """Object for episode information from TVDb"""
+
   def __init__(self, *args, **kwargs):
-    '''
-    Inputs:
-      series    : The series ID from themoviedb.com, OR a Series object. 
-    Keywords:
-      None.
-    '''
+    """
+    Arguments:
+      seriesID (int, TVDbSeries): The series ID from themoviedb.com, OR a Series object. 
+      seasonNum (int): Season number of episode
+      episodeNum (int): Episode number of episode
+ 
+    Keyword arguments:
+      airedOrder (bool): Set to use airedOrder from TVDb; default is dvdOrder
+      **kwargs: Various, none used
+    """
+
     super().__init__(*args, **kwargs)
     self.__log  = logging.getLogger(__name__)
     self.KWARGS = {'TVDb' : True, 'imageURL' : self.TVDb_URLImage}
+
     if not self._data:
       if (len(args) < 3):
         raise Exception( "Must input series ID or object and season and episode number" )
@@ -138,10 +214,4 @@ class TVDbEpisode( BaseEpisode ):
         if info is not None: 
           self._data.update( info )
 
-    #else:
-    #  self.URL = self.TVDb_URLEpisode.format( self.Series.id, self.airedSeason, self.airedEpisodeNumber )
-    #  json = self.getExtra( *self.EXTRA )
-    #  if json:
-    #    self._data.update( parseInfo(json, imageURL = self.TVDb_URLImage) )
-  
     self._data['title'] = self.name

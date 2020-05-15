@@ -45,44 +45,40 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     self.__runThread.start()                                                        # Start the thread
 
   def on_created(self, event):
-    '''
-    Purpose:
-      Method to handle events when file is created.
-    '''
+    """Method to handle events when file is created."""
+
     if event.is_directory: return                                                   # If directory; just return
     if event.src_path.endswith( self.fileExt ):
       self.Queue.put( event.src_path )                                              # Add split file path (dirname, basename,) tuple to to_convert list
       self.log.debug( 'New file added to queue : {}'.format( event.src_path) )      # Log info
 
   def on_moved(self, event):
-    '''
-    Purpose:
-      Method to handle events when file is created.
-    '''
+    """Method to handle events when file is created."""
+
     if event.is_directory: return                                                   # If directory; just return
     if event.dest_path.endswith( self.fileExt ):
       self.Queue.put( event.dest_path )                                             # Add split file path (dirname, basename,) tuple to to_convert list
       self.log.debug( 'New file added to queue : {}'.format( event.dest_path) )     # Log info
 
   def join(self):
-    '''
-    Method to wait for the watchdog Observer to finish.
-    The Observer will be stopped when _sigintEvent or _sigtermEvent is set
-    '''
+    """Method to wait for the watchdog Observer to finish."""
+
     self.Observer.join()                                                            # Join the observer thread
 
   def _getDirListing(self, dir):
-    '''
-    Purpose:
-      Method to get list of files in a directory (non-recursive), that
-      ends with given extension
-    Inputs:
-      dir  : Path of directory to search
-    Keywords:
-      ext  : Tuple of extensions to check, default = ('.mkv',)
-    Outputs:
-      Returns list of files
-    '''
+    """
+    Get list of files in a directory (non-recursive), that ends with given extension
+
+    Arguments:
+      dir (str): Path of directory to search
+
+    Keyword arguments:
+      None 
+
+    Returns:
+      list: Files
+    """
+
     files = []
     for file in os.listdir(dir):
       if file.endswith( self.fileExt ):
@@ -92,16 +88,19 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     return files
 
   def _checkSize(self, file):
-    '''
-    Purpose:
-      Method to check that file size has stopped changing
-    Inputs:
-      file   : Full path to a file
-    Outputs:
-      None.
-    Keywords:
-      None.
-    '''
+    """
+    Method to check that file size has stopped changing
+
+    Arguments:
+      file (str): Full path to a file
+
+    Keyword arguments:
+      None
+
+    Returns:
+      None
+    """
+
     self.log.debug('Waiting for file to finish being created')
     prev = -1                                                                       # Set previous file size to -1
     curr = os.path.getsize(file)                                                    # Get current file size
@@ -123,16 +122,19 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
           section = 'TV Shows' if self.converter.metaData.isEpisode else 'Movies')
  
   def _run(self, **kwargs):
-    '''
-    Purpose:
-      A thread to dequeue video file paths and convert them
-    Inputs:
-      None.
-    Outputs:
-      None.
+    """
+    A thread to dequeue video file paths and convert them
+
+    Arguments:
+      None
+
     Keywords:
-      None.
-    '''
+      **kwargs
+
+    Returns:
+      None
+    """
+
     while isRunning():                                                          # While the kill event is NOT set
       try:                                                                      # Try
         file = self.Queue.get( timeout = TIMEOUT )                              # Get a file from the queue; block for 0.5 seconds then raise exception

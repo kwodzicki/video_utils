@@ -8,17 +8,20 @@ KEYS    = Keys()
 DATEFMT = '%Y-%m-%d'
 
 def convertDate( info ):
-  '''
-  Purpose:
-    Function to convert any date information into a datetime object
-  Inputs:
-    info  : Dictionary containing JSON response data
-  Keywords:
-    None.
+  """ 
+  Function to convert any date information into a datetime object
+
+  Arguments:
+    info (dict)  : JSON response data from TMDb or TVDb API
+
+  Keyword arguments:
+    None
+
   Returns:
-    Updated info dictionary where date strings have been converted to
+    dict: Updated info dictionary where date strings have been converted to
     datetime objects
-  '''
+  """
+
   log = logging.getLogger(__name__)
   if isinstance(info, (list,tuple,)):                                                   # If info is a list or tuple
     return [ convertDate(i) for i in info ]                                             # Return recursive call to convertDate on each element
@@ -37,6 +40,8 @@ def convertDate( info ):
 
 ####################################################################################
 class BaseAPI( object ):
+  """BaseAPI class for interacting with TMDb and TVDb APIs"""
+
   TMDb_URLBase    = 'https://api.themoviedb.org/3'
   TMDb_URLSearch  = '{}/search/multi'.format( TMDb_URLBase )
   TMDb_URLFind    = '{}/find/{}'.format(      TMDb_URLBase,   '{}' )
@@ -57,6 +62,14 @@ class BaseAPI( object ):
   __TVDb_Headers  = {'Content-Type': 'application/json'} 
 
   def __init__(self, *args, **kwargs):
+    """
+    Arguments:
+      *args: Various, None used
+
+    Keywords arguments:
+      **kwargs: Various, None used
+    """
+
     self.__log = logging.getLogger(__name__)
 
   @property
@@ -65,16 +78,19 @@ class BaseAPI( object ):
     return self.__TVDb_Headers
 
   def _tvdbLogin(self):
-    '''
-    Purpose:
-      Method to login to (get api token) from TVDb
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Method to login to (get api token) from TVDb
+
+    Arguments:
+      None
+
+    Keyword arguements:
+      None
+
     Returns:
-      None. Sets attributes and creates token file in user home dir
-    '''
+      None: Sets attributes and creates token file in user home dir
+    """
+
     if KEYS.TVDb_API_TOKEN:                                                             # If api token is valid
       self.__log.log( 5, 'Using existing TVDb token' )                                   # Log info
       self.__TVDb_Headers['Authorization'] = 'Bearer {}'.format(KEYS.TVDb_API_TOKEN)    # Set TVDb headers
@@ -102,16 +118,19 @@ class BaseAPI( object ):
 
   #################################
   def _getRequest(self, url, **params):
-    '''
-    Purpose:
-      Method to issue requests.get()
-    Inputs:
-      All accepted by requests.get()
-    Keywords:
-      All keywords are sent to params keyword of requests.get
-    Outputs:
+    """
+    Method to issue requests.get()
+
+    Arguments:
+      url (str): URL for request
+
+    Keyword arguments:
+      **kwargs: All keywords are sent to params keyword of requests.get()
+
+    Returns:
       requests Response object
-    '''
+    """
+
     resp   = None
     kwargs = {'params' : params}
     if (self.TMDb_URLBase in url):
@@ -138,16 +157,19 @@ class BaseAPI( object ):
 
   #################################
   def _closeRequest(self, resp):
-    '''
-    Purpose:
-      Method to close Response object
-    Inputs:
+    """
+    Method to close Response object
+
+    Arguments:
       resp   : Response object
-    Keywords:
+
+    Keyword arguments:
       None
-    Outputs:
-      Returns None
-    '''
+
+    Returns:
+      None
+    """
+
     try:
       resp.close()
     except:
@@ -156,16 +178,19 @@ class BaseAPI( object ):
 
   #################################
   def _getJSON(self, url, **kwargs):
-    '''
-    Purpose:
-      Method to try to get JSON data from request
-    Inputs:
-      All accepted by requests.get()
-    Keywords:
-      All accepted by requests.get()
-    Outputs:
-      Dictionary with JSON data if success, else, None
-    '''
+    """
+    Method to try to get JSON data from request
+
+    Arguments:
+      url (str): URL for request
+
+    Keyword arguments:
+      **kwargs: All accepted by requests.get()
+
+    Returns:
+      JSON data if success, else, None
+    """
+
     json = None
     key  = 'append_to_response'                                                     # Key to check 
     if (key in kwargs):                                                             # If key is present

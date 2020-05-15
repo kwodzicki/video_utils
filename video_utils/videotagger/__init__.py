@@ -9,11 +9,20 @@ import os, re, time
 #log.addHandler( sh )
 
 SEASONEP = re.compile('[sS](\d{2,})[eE](\d{2,})')
-isID     = lambda dbID: dbID[:4] == 'tvdb' or dbID[:4] == 'tmdb'        # If tvdb or tmdb in the first four (4) characters
 
-freeform = lambda x: '----:com.apple.iTunes:{}'.format( x )                             # Functio
+def isID(dbID):
+  """Check to ensure the dbID is valid dbID"""
+
+  return dbID[:4] == 'tvdb' or dbID[:4] == 'tmdb'                                       # If tvdb or tmdb in the first four (4) characters
+
+def freeform( tag ):
+  """Generate MP4 freeform tag"""
+
+  return '----:com.apple.iTunes:{}'.format( tag )
 
 def encoder( val ):
+  """Convert val to correct type for writting tags"""
+
   if isinstance(val, (tuple, list,)):
     return [i.encode() for i in val]
   elif isinstance( val, str ):
