@@ -84,7 +84,7 @@ class BaseItem( BaseAPI ):
     """
     Add a user comment to metadata information
 
-    Arguements:
+    Arguments:
       text (str): Comment to add
 
     Keyword arguments:
@@ -100,7 +100,7 @@ class BaseItem( BaseAPI ):
     """
     Set version of file (i.e., Extended Edition); only valid for movies.
 
-    Arguements:
+    Arguments:
       version (str): Movie version
 
     Keyword arguments:
