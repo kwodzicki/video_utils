@@ -12,9 +12,8 @@ except Exception as SFERR:
 
 ################################################################################
 def fft_xcorr(x, y):
-  '''
-  Function to compute scaled cross-correlation using ffts
-  '''
+  """Function to compute scaled cross-correlation using ffts"""
+
   n      = len(x)
   start  = n//2;
   end    = start + n
@@ -24,11 +23,11 @@ def fft_xcorr(x, y):
   denom1 = np.sum( (x - np.mean(x))**2 )
   denom2 = np.sum( (y - np.mean(y))**2 )
   return  numer / np.sqrt( denom1 * denom2 ) ;
+
 ################################################################################
 def plotSignals(signal1, signal2, fs, delayM):
-  '''
-  Function to plot the signals to show the alignment.
-  '''
+  """Function to plot the signals to show the alignment."""
+
   import matplotlib.pyplot as plt;                                              # Only import if we need to
   signal1 = signal1 / 2**16
   signal2 = signal2 / 2**16
@@ -75,8 +74,11 @@ def plotSignals(signal1, signal2, fs, delayM):
   plt.subplots_adjust(left=0.1, bottom=0.1, right=0.99, top=.9, 
     wspace=0.2, hspace=0.13); 
   plt.show();                                                                   # Display the plots
+
 ################################################################################
 def audioDelay( file1, file2, showPlots = False, limit = None ):
+  """Compute delay between audio in different video files"""
+
   if sf is None:
     print( 'Could not input soundfile package: {}'.format(SFERR) )
     return

@@ -20,16 +20,19 @@ TMDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by themo
 
 ########################################################################
 def _updateComment( comment ):
-  '''
-  Purpose:
-    Method to append TVDb and TMDb attribution information to comment
-  Inputs:
+  """
+  Append TVDb and TMDb attribution information to comment
+
+  Arguments:
     comment : str, list, or tuple containing comment from user
-  Keywords:
-    None.
+
+  Keyword arguments:
+    None
+
   Returns:
-    str with TVDb and TMDb attribution appended.
-  '''
+    str: TVDb and TMDb attribution appended to input comment.
+  """
+
   if isinstance(comment, tuple):                                                        # If comment is tuple
     comment = list( comment )                                                           # Convert to list
   elif not isinstance(comment, list):                                                   # Else, if not list
@@ -43,18 +46,16 @@ def _updateComment( comment ):
 
 ########################################################################
 def toMP4( metaData ):
-  '''
-  Purpose:
-    Function to convert internal tags to MP4 tags
-  Inputs:
-    metadata : Dictionary containing metadata returned by a TVDb or TMDb
-                 movie or episde object
-  Keywords:
+  """
+  Convert internal tags to MP4 tags
+  Arguments:
+    metadata (dict): Metadata returned by a TVDb or TMDb movie or episde object
+  Keyword arguments:
     None.
   Returns:
-    Returns dictionary with valid MP4 tags as keys and correctly
-    encoded values
-  '''
+    dict: ictionary with valid MP4 tags as keys and correctly encoded values
+  """
+
   keys = list( metaData.keys() )                                                        # Get list of all keys currently in dictioanry
   for key in keys:                                                                      # Iterate over all keys
     val     = metaData.pop( key )                                                       # Get value in key; poped off so no longer exists in dict
@@ -70,17 +71,19 @@ def toMP4( metaData ):
 
 ########################################################################
 def toMKV( metaData ):
-  '''
-  Purpose:
-    Function to convert internal tags to MKV tags
-  Inputs:
-    metadata : Dictionary containing metadata returned by a TVDb or TMDb
-                 movie or episde object
-  Keywords:
+  """
+  Convert internal tags to MKV tags
+
+  Arguments:
+    metadata (dict): Metadata returned by a TVDb or TMDb movie or episde object
+
+  Keyword arguments:
     None.
+
   Returns:
-    Returns dictionary with valid MKV tag level and tags as keys
-  '''
+    dict: Dictionary with valid MKV tag level and tags as keys
+  """
+
   keys = list( metaData.keys() )                                                        # Get list of keys currently in dictionary
   for key in keys:                                                                      # Iterate over keys
     val = metaData.pop(key)                                                             # Get value in key; popped off so no longer exists in dict
@@ -90,34 +93,30 @@ def toMKV( metaData ):
 
 ################################################################################
 def mp4Tagger( file, metaData ):
-  '''
-  Name:
-    mp4Tags
-  Purpose:
-    A function to parse information from the IMDbPY API and
-    write Tag data to MP4 files.
-  Inputs:
-    file     : Full path of file to write metadata to.
-    metaData : Dictionary of meta data where keys are internal
+  """
+  Parse information from the IMDbPY API and write Tag data to MP4 files.
+
+  Arguments:
+    file (str): Full path of file to write metadata to.
+    metaData (dict): Dictionary of meta data where keys are internal
                   metadata keys and values are metadata values
-  Outputs:
-    Returns following values based on completion.
-       0 : Completed successfully.
-       1 : Input was NOT and MP4
-       2 : IMDb ID was not valid
-       3 : Failed to download information from IMDb AND themoviedb.org
-       4 : Writing tags is NOT possible
-       5 :  Failed when trying to remove tags from file.
-       6 : Failed when trying to write tags to file.
-      10 : IMDbPY not installed AND getTMDb_Info failed to import
-      11 : File is too large
-  Keywords:
+
+  Keyword arguments:
     None
-  Dependencies:
-    mutagen
-  Author and History: 
-    Kyle R. Wodzicki     Created 18 Feb. 2018
-  '''
+
+  Returns:
+    int: Returns following values based on completion.
+            0 : Completed successfully.
+            1 : Input was NOT and MP4
+            2 : IMDb ID was not valid
+            3 : Failed to download information from IMDb AND themoviedb.org
+            4 : Writing tags is NOT possible
+            5 :  Failed when trying to remove tags from file.
+            6 : Failed when trying to write tags to file.
+           10 : IMDbPY not installed AND getTMDb_Info failed to import
+           11 : File is too large
+  """
+
   log = logging.getLogger(__name__)                                                     # Set up a logger
   log.debug( 'Testing file is MP4' )                                                    # Debugging information
   if not file.endswith('.mp4'):                                                         # If the input file does NOT end in '.mp4'
@@ -184,16 +183,19 @@ def mp4Tagger( file, metaData ):
 
 ################################################################################
 def deleteAttachments( file, n = 10 ):
-  '''
-  Purpose:
-    Function to delete a bunch of attachments in an MKV file
-  Inputs:
-    file : Full path to file
+  """
+  Delete a bunch of attachments in an MKV file
+
+  Arguments:
+    file (str): Full path to file
+
   Keywords:
-    n    : int, number of attachments to try to delete
+    n (int): Number of attachments to try to delete
+
   Returns:
-    None.
-  '''
+    None
+  """
+
   if not MKVPROPEDIT: return
 
   cmd  = [MKVPROPEDIT, file]
@@ -204,17 +206,20 @@ def deleteAttachments( file, n = 10 ):
 
 ################################################################################
 def addTarget( ele, level ):
-  '''
-  Purpose:
-    Add a target level to the XML file from MKV tagging
-  Inputs:
+  """
+  Add a target level to the XML file from MKV tagging
+
+  Arguments:
     ele   : Element to add tag to
     level : Level of the tag
-  Keywords:
+
+  Keyword arguments:
     None.
+
   Returns:
-    An ElementTree SbuElement instance
-  '''
+    An ElementTree SubElement instance
+  """
+
   tags = ET.SubElement(ele, 'Tag')                                                      # Create subelement named Tag
   targ = ET.SubElement(tags, 'Targets')                                                 # Add subelement named Targets to Tag element
   ET.SubElement(targ, 'TargetTypeValue').text = str(level)                              # Set the TargetTypeValue text
@@ -222,18 +227,20 @@ def addTarget( ele, level ):
 
 ################################################################################
 def addTag( ele, key, val ):
-  '''
-  Purpose:
-    Add a tag to XML element for MKV tagging 
-  Inputs:
+  """
+  Add a tag to XML element for MKV tagging 
+
+  Arguments:
     ele   : Element to add tag to
     key   : Tag name to add
     val   : Value of the tag
-  Keywords:
+
+  Keyword arguments:
     None.
+
   Returns:
     None
-  '''
+  """
   if isinstance(val, (list,tuple,)):                                                    # If val is an iterable type
     val = ','.join(map(str, val))                                                       # Convert all values to string using map() and join on comma
   elif not isinstance(val, str):                                                        # Else, if not a str instance
@@ -245,34 +252,29 @@ def addTag( ele, key, val ):
 
 ################################################################################
 def mkvTagger( file, metaData ):
-  '''
-  Name:
-    mkvTagger
-  Purpose:
-    A function to parse information from the IMDbPY API and
-    write Tag data to MP4 files.
-  Inputs:
-    file     : Full path of file to write metadata to.
-    metaData : Dictionary of meta data where keys are internal
-                metadata keys and values are metadata values
-  Outputs:
-    Returns following values based on completion.
-         0 : Completed successfully.
-         1 : Input was NOT and MKV
-         2 : IMDb ID was not valid
-         3 : Failed to download information from IMDb AND themoviedb.org
-         4 : Writing tags is NOT possible
-         5 :    Failed when trying to remove tags from file.
-         6 : Failed when trying to write tags to file.
-        10 : IMDbPY not installed AND getTMDb_Info failed to import
-        11 : File is too large
-  Keywords:
+  """
+  Parse information from the IMDbPY API and write Tag data to MP4 files.
+
+  Arguments:
+    file (str): Full path of file to write metadata to.
+    metaData (dict): Meta data where keys are internal metadata keys and values are metadata values
+
+  Keyword arguments:
     None.
-  Dependencies:
-    mkvpropedit
-  Author and History: 
-    Kyle R. Wodzicki     Created 18 Feb. 2018
-  '''
+
+  Returns:
+    int: Returns following values based on completion.
+              0 : Completed successfully.
+              1 : Input was NOT and MKV
+              2 : IMDb ID was not valid
+              3 : Failed to download information from IMDb AND themoviedb.org
+              4 : Writing tags is NOT possible
+              5 :    Failed when trying to remove tags from file.
+              6 : Failed when trying to write tags to file.
+             10 : IMDbPY not installed AND getTMDb_Info failed to import
+             11 : File is too large
+  """
+
   log = logging.getLogger(__name__);                                              # Set up a logger
   if not MKVPROPEDIT:
     log.warning( 'mkvpropedit not installed' )
@@ -342,17 +344,20 @@ def mkvTagger( file, metaData ):
 
 ########################################################################
 def writeTags( file, metaData, **kwargs ):
-  '''
-  Purpose:
-    Function that acts as wrapper for mp4Tagger and mkvTagger
-  Inputs:
-    file     : Full path of file to write tags to
-    metaData : Dictionary with tag/values to write
-  Keywords:
+  """
+  Wrapper for mp4Tagger and mkvTagger
+
+  Arguments:
+    file (str): Full path of file to write tags to
+    metaData (dict): Dictionary with tag/values to write
+
+  Keyword argumetns:
     Various; passed directory to mp4Tagger or mkvTagger
+
   Returns:
-    True if tags written, False otherwise
-  '''
+    bool: True if tags written, False otherwise
+  """
+
   log = logging.getLogger(__name__)
 
   if file.endswith('.mp4'):

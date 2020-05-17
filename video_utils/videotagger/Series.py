@@ -20,12 +20,14 @@ class BaseSeries( BaseItem ):
 class TMDbSeries( BaseSeries ):
   EXTRA = ['external_ids', 'content_ratings']
   def __init__(self, *args, **kwargs):
-    '''
-    Inputs:
+    """
+    Arguments:
       seriesID  : The series ID from themoviedb.com, not need if data keyword is used
-    Keywords:
+
+    Keyword arguments:
       data      : Series data returned by a search
-    '''
+    """
+
     super().__init__(*args, **kwargs)
     self._tmdb = True
 
@@ -55,12 +57,14 @@ class TMDbSeries( BaseSeries ):
 
 class TVDbSeries( BaseSeries ):
   def __init__(self, *args, **kwargs):
-    '''
-    Inputs:
+    """ 
+    Arguments:
       seriesID  : The series ID from themoviedb.com, not need if data keyword is used
-    Keywords:
+
+    Keyword arguments:
       data      : Series data returned by a search
-    '''
+    """
+
     super().__init__(*args, **kwargs)
     self._tmdb  = False
     self.KWARGS =  {'TVDb' : True, 'imageURL' : self.TVDb_URLImage}

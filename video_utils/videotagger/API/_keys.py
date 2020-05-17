@@ -16,9 +16,8 @@ class Keys( object ):
   __TVDb_TIME       = None
 
   def __init__(self):
-    '''
-    Method to initialize class
-    '''
+    """Initialize class"""
+
     if os.path.isfile( TVDbCACHE ):                                                     # If the TVDb cache file exists
       with open(TVDbCACHE, 'r') as fid:                                                 # Open for reading
         token, t = fid.read().split()                                                   # Read in the data; split on space to get token and time token was obtained

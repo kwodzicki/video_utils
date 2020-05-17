@@ -5,18 +5,10 @@ from datetime import datetime
 from .API import BaseAPI
 from .writers import writeTags
 
-'''
-A note from the mutagen package:
-The freeform ‘----‘ frames use a key in the format ‘----:mean:name’ where ‘mean’
-is usually ‘com.apple.iTunes’ and ‘name’ is a unique identifier for this frame.
-The value is a str, but is probably text that can be decoded as UTF-8. Multiple
-values per key are supported.
-'''
-
 class BaseItem( BaseAPI ):
   """Extends the BaseAPI class for use in Episdode, Movie, Person, etc classes"""
 
-  def __init__(self, *args, data = {}, version = '', **kwargs):
+  def __init__(self, *args, data = None, version = None, **kwargs):
     """
     Initialize the class
 
@@ -31,15 +23,15 @@ class BaseItem( BaseAPI ):
 
     super().__init__(*args, **kwargs)                                                   # Initialize parent class(es)
     self.__log      = logging.getLogger(__name__)
-    self._data      = data
-    self._version   = version
+    self._data      = data if isinstance(data, dict) else {}
+    self._version   = version if isinstance(version, str) else ''
     self._isMovie   = False
     self._isSeries  = False
     self._isEpisode = False
     self._isPerson  = False
     self._tmdb      = False                                                             # Flag specifying if data from TMDb or TVDb
     self.URL        = None
- 
+
   @property
   def isMovie(self):
     """bool: Identifies object as movie"""
@@ -286,16 +278,19 @@ class BaseItem( BaseAPI ):
     return ['']
 
   def _getPlot(self, **kwargs):
-    '''
-    Purpose:
-      Method to get short and long plots 
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Get short and long plots 
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
     Returns:
-      Tuple containg short (less than 240 characters) and long plots
-    '''
+      tuple: Short (less than 240 characters) and long plots
+    """
+
     sPlot = lPlot = ''
     if self.overview is not None:
       if len(self.overview) < 240:

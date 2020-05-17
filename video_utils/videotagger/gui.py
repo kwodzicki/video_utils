@@ -75,18 +75,22 @@ class SearchWidget( QWidget ):
     self.search_btn.clicked.connect( func )
 
   def search(self, *args, **kwargs):
-    '''
-    Purpose:
-      Method to run when the 'Search' button is pushed.
-      Parses information in search boxes and makes API request
-    Inputs:
-      Any, none used
-    Keywords:
-      Any, none used
+    """
+    Method to run when the 'Search' button is pushed.
+
+    Parses information in search boxes and makes API request
+
+    Arguments:
+      *args: Any, none used
+
+    Keyword arguments:
+      **kwargs: Any, none used
+
     Returns:
       An instance of either TVDbMovie, TVDbEpisode, TMDbMovie, TMDbEpisode
       based on search criteria. If bad criteria, then returns None.
-    '''
+    """
+
     dbName  = self.comboBox.currentText()                                                   # Use current text as db name
     dbID    = self.dbID_box.text()
     season  = self.season_box.text()

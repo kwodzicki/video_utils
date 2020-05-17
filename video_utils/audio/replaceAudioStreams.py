@@ -12,22 +12,22 @@ from .DolbyDownmix  import DolbyDownmix
 
 ################################################################################
 def extractAudio( info, inFile, outDir, result, time = None ):
-  '''
-  Name:
-     extractAudio
-  Purpose:
-     A function to extract an audio stream from a video file
-  Inputs:
+  """
+  A function to extract an audio stream from a video file
+
+  Arguments:
      info   : Information about the audio strem to extract
      inFile : Full path to the file to extract the stream from
-  Outputs:
-     Returns the path to the extracted audio stream
-  Keywords:
-     time     : How long the extracted stream should be.
-                 time is a timedelta object.
-     lossless : Set to True to extract into a FLAC file.
+
+  Keyword arguments:
+     time (timedelta): How long the extracted stream should be.
+     lossless (bool): Set to True to extract into a FLAC file.
                  Only valid when stream is > 2 channels.
-  '''
+
+  Returns:
+    str: Path to the extracted audio stream
+  """
+
   print('Extracting audio for alignment'.format(inFile));                       # Print some inforamtion
   outFile = '.'.join( os.path.basename(inFile).split('.')[:-1] )
   outFile = os.path.join(outDir, outFile);
@@ -50,18 +50,19 @@ def extractAudio( info, inFile, outDir, result, time = None ):
 
 ################################################################################
 def fileNameInfo( inFile, info = None ):
-  '''
-  Name:
-     fileNameInfo
-  Purpose:
-     A function to get information for naming a file
-  Inputs:
-     inFile : Full path to the file to get information for
-  Outputs:
-     Returns list with file information
-  Keywords:
-     None.
-  '''
+  """
+  A function to get information for naming a file
+
+  Arguments:
+     inFile (str): Full path to the file to get information for
+
+  Keyword arguments:
+     None
+
+  Returns:
+     list: List with file information
+  """
+
   m = MediaInfo(inFile) if info is None else info;                              # Get information about the file
   if m['Video'][0]['Height'] <= 480:                                            # If image size if <= 480
     info = ['480p'];                                                            # Set resolution to 480p
@@ -84,7 +85,8 @@ def fileNameInfo( inFile, info = None ):
 
 ################################################################################
 def computeOffset(in1, in2, info1, info2, outDir):
-  '''Function to get offset between files.'''
+  """Function to get offset between files."""
+
   memSize = psutil.virtual_memory().total // 4;                                 # Set size to third of total memory
   aLength = memSize / (48000 * 2 * 2) / 2;                                      # Length in seconds is the total memory divided by (48kHz sample rate, times 2 bytes per sample, times 2 channels)
   aLength = timedelta( seconds = aLength);
@@ -117,11 +119,14 @@ def computeOffset(in1, in2, info1, info2, outDir):
   
 ################################################################################
 def replaceAudioStreams( in1, in2, outDir = None, replace = False):
-  '''
+  """
+  Replace audio streams in one file with those from another.
+
   This function will replace all audio streams in in1 with those
   in in2. If all audio streams in in2 are surround (i.e., > 2 channels),
   one downmixed stream will also be placed in in1.
-  '''
+  """
+
   if outDir is None: outDir = os.path.dirname(in1)
   out    = os.path.join(outDir, 'test.mp4');
   base   = ['ffmpeg', '-nostdin', '-v', 'quiet', '-stats']

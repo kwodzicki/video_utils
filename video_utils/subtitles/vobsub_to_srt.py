@@ -15,30 +15,31 @@ from ..utils.subprocManager import SubprocManager;
 from .srtUtils import srtCleanup;
 
 def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, threads = None ):
-  '''
-  Name:
-    vobsub_to_srt
-  Purpose:
-    A python function to convert VobSub(s) to SRT(s). Will convert all
-    VobSub(s) in the output directory as long as a matching SRT file
-    does NOT exist.
-  Inputs:
-    None.
-  Outputs:
-    updates vobsub_status and creates/updates list of VobSubs that failed
-    vobsub2srt conversion.
-    Returns codes for success/failure of extraction. Codes are as follows:
-       0 - Completed successfully.
-       1 - SRT(s) already exist
-       2 - No VobSub(s) to convert.
-       3 - Some VobSub(s) failed to convert.
-  Keywords:
-    None.
+  """
+  Convert VobSub(s) to SRT(s).
+
+  Will convert all VobSub(s) in the output directory as long as a matching SRT file
+  does NOT exist.
+
+  Arguments:
+    None
+
+  Keyword arguments:
+    None
+
+  Returns:
+    int: Updates vobsub_status and creates/updates list of VobSubs that failed
+             vobsub2srt conversion.
+             Returns codes for success/failure of extraction. Codes are as follows:
+                0 - Completed successfully.
+                1 - SRT(s) already exist
+                2 - No VobSub(s) to convert.
+                3 - Some VobSub(s) failed to convert.
+
   Dependencies:
     vobsub2srt - A CLI for converting VobSub images to SRT
-  Author and History:
-    Kyle R. Wodzicki     Created 30 Dec. 2016
-  '''
+  """
+
   log   = logging.getLogger(__name__);                                          # Initialize logger
   files = []
   if text_info is None: return 2, files;                                        # If text info has not yet been defined, return

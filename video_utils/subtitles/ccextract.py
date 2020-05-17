@@ -12,21 +12,21 @@ except:
   CLI = None
 
 def ccextract( in_file, out_file, text_info ):
-  '''
-  Name:
-    ccextract
-  Purpose:
-    A wrapper for the ccextrator CLI, simply calls ccextractor using 
-    subprocess.Popen
-  Inputs:
-    in_file   : File to extract closed captions from
-    out_file  : Base name for output file(s)
-    text_info : Dictionary of text information from call to mediainfo
-  Keywords:
+  """
+  Wrapper for the ccextrator CLI, simply calls ccextractor using subprocess.Popen
+
+  Arguments:
+    in_file (str): File to extract closed captions from
+    out_file (str): Base name for output file(s)
+    text_info (dict): Text information from call to mediainfo
+
+  Keyword arguments:
     None.
-  Outputs:
-    ccextract creates some files
-  '''
+
+  Returns:
+    None: ccextract creates some files
+  """
+
   log  = logging.getLogger(__name__);                                           # Set up logger
   if CLI is None:
     log.warning( '{} CLI not found; cannot extract!'.format(CLIName) )

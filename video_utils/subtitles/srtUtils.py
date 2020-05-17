@@ -3,22 +3,22 @@ import os, re
 from datetime import datetime, timedelta
 
 class SRTsubs():
+  """A python class to parse SRT subtitle files"""
+
   def __init__(self, file):
-    '''
-    Name:
-       srt_subs_parser
-    Purpose:
-       A python class to parse SRT subtitle files
-    Inputs:
-       file : Full path to srt file
-    Outputs:
-       None.
+    """
+    Initialize the class
+
+    Arguments:
+       file (str): Full path to srt file
+
     Keywords:
        None.
-    Author and History:
-       Kyle R. Wodzicki     Created 16 Sep. 2017
 
-    '''
+    Returns:
+       Class object
+    """
+
     self.log = logging.getLogger(__name__)
     if not os.path.isfile( file ):
       self.log.error( 'File does NOT exist!' )
@@ -32,21 +32,19 @@ class SRTsubs():
     self.parse_subs();
   ##############################################################################
   def parse_subs(self):
-    '''
-    Name:
-       parse_subs
-    Purpose:
-       A python function to parse subtitles from an SRT
-       file into a list of dictionaries
-    Inputs:
-       None.
-    Outputs:
-       Adds a list of dictionaries to the class
-    Keywords:
-       None.
-    Author and History:
-       Kyle R. Wodzicki     Created 16 Sep. 2017
-    '''
+    """
+    Parse subtitles from an SRT file into a list of dictionaries
+
+    Arguments:
+       None
+
+    Keyword arguments:
+       None
+
+    Returns:
+       None: Adds a list of dictionaries to the class
+    """
+
     with open(self.file, 'r') as f: lines = f.readlines();                      # Open input file for reading
     self.raw = ''.join(lines);
     lines = [line.rstrip() for line in lines];                                  # Strip return characters
@@ -66,21 +64,19 @@ class SRTsubs():
           if i >= nLines: break;                                                # If i is greater equal number of lines, then break while loop
   ##############################################################################
   def adjust_timing( self, offset ):
-    '''
-    Name:
-       adjust_timing
-    Purpose:
-       A python function to adjust timing of subtitles
-    Inputs:
-       offset : Change in time in seconds. Positive numbers
+    """
+    Adjust timing of subtitles
+
+    Arguments:
+       offset (float): Change in time in seconds. Positive numbers
                  shift to later time, negative to earlier.
-    Outputs:
-       Updates the self.subs array
-    Keywords:
-       None.
-    Author and History:
-       Kyle R. Wodzicki     Created 16 Sep. 2017
-    '''
+
+    Keyword arguments:
+       None
+
+    Returns:
+       None: Updates the self.subs array
+    """
     dlt   = timedelta(milliseconds = offset);                                   # Set time offset based on input
     start = datetime.strptime(self.subs[0]['start'], self.fmt);                 # Get start time of first subtitle in datetime format
     if (start + dlt).year < 1900:                                               # If the year of the change to the first subtitle is less than 1900, then the time would be negative, so much change time delta
@@ -94,20 +90,19 @@ class SRTsubs():
         self.subs[i][j] = time.strftime( fmt )[:-3];                            # Update timing in the dictionary of the subs array
   ##############################################################################
   def write_file(self, raw = False):
-    '''
-    Name:
-       write_file
-    Purpose:
-       A python function to write subtitle data to SRT file.
-    Inputs:
-       None.
-    Outputs:
-       Updates SRT file input
-    Keywords:
+    """
+    Write subtitle data to SRT file.
+
+    Arguments:
+       None
+
+    Keyword arguments:
        raw   : Set to True to write raw data.
-    Author and History:
-       Kyle R. Wodzicki     Created 16 Sep. 2017
-    '''
+
+    Returns:
+       None: Updates SRT file input
+    """
+
     if len(self.subs) == 0:                                                     # If there are NO subtitles in the subs attribute
       self.log.warning( 'No subtitles read in!' );                              # Log message that no subtitles were read in
       return;                                                                   # Return
@@ -123,22 +118,23 @@ class SRTsubs():
 
 
 def srtCleanup( fname, verbose = False ):
-  '''
-  Name:
-    srtCleanup
-  Purpose:
-    A python function to replace J' characters at the beginning or ending of 
-    a subtitle line with a musical note character as this seems to be an issue 
-    with the vobsub2srt program.
-  Inputs:
+  """
+  Fix some known bad characters in SRT file
+
+  A python function to replace J' characters at the beginning or ending of 
+  a subtitle line with a musical note character as this seems to be an issue 
+  with the vobsub2srt program.
+
+  Arguments:
     fname  : Path to a file. This file will be overwritten.
-  Outputs:
-    Outputs a file to the same name as input, i.e., over writes the file.
-  Keywords:
+
+  Keyword arguments:
     verbose : Set to increase verbosity.
-  Author and History:
-    Kyle R. Wodzicki     Created 27 Dec. 2016
-  '''
+
+  Returns:
+    int: Outputs a file to the same name as input, i.e., over writes the file.
+  """
+
   out_file = fname + '.tmp';
   iid, oid, i, music = open(fname, 'r'), open(out_file, 'w'), 0, False;         # Open input file for reading and output file for writing, initialize counter
   for in_line in iid:

@@ -16,16 +16,19 @@ except:
   MKVEXTRACT = None
 
 def _mp4ExtractCover( info ):
-  '''
-  Purpose:
-    Function to write MP4Cover information to temporary file 
-  Inputs:
+  """
+  Write MP4Cover information to temporary file 
+
+  Arguments:
     info  : Dictionary of metadata information in internal format
-  Keyword:
-    None.
+
+  Keyword arguments:
+    None
+
   Returns:
-    Update info dictionary
-  '''
+    dict: Update info dictionary
+  """
+
   key = 'cover'                                                                         # Key for the info dictionary to use
   if key in info:                                                                       # If key is in info
     ext   = 'jpeg' if info[key].imageformat == info[key].FORMAT_JPEG else 'png'         # Set extension based on image type
@@ -37,16 +40,19 @@ def _mp4ExtractCover( info ):
   return info
     
 def mp4Reader( filePath ):
-  '''
-  Purpose:
-    Function to read metadata from MP4 file and parse into 'internal' format
-  Inputs:
-    filePath  : Path to MP4 file to extract metadata from
-  Keywords:
-    None.
+  """
+  Read metadata from MP4 file and parse into 'internal' format
+
+  Arguments:
+    filePath (str): Path to MP4 file to extract metadata from
+
+  Keyword arguments:
+    None
+
   Returns:
-    Dictionary containing metadata if found, otherwise, emtpy dict
-  '''
+    dict: Dictionary containing metadata if found, otherwise, emtpy dict
+  """
+
   log  = logging.getLogger(__name__)
   obj  = mp4.MP4( filePath )                                                            # Create mutagen.mp4.MP4 object
   info = {}                                                                             # Initialize empty dictionary
@@ -67,17 +73,19 @@ def mp4Reader( filePath ):
   return info
 
 def _mkvExtractCover( filePath ):
-  '''
-  Purpose:
-    Function to run mkvextact to get first attachment from file
-  Inputs:
-    filePath path to MKV file
-  Keyword:
-    None.
+  """
+  Run mkvextact to get first attachment from file
+
+  Arguments:
+    filePath (str): Path to MKV file
+
+  Keyword arguments:
+    None
+
   Returns:
-    String containg path to cover art file if extraction success, empyt
-    string otherwise
-  '''
+    str: Path to cover art file if extraction success, empty string otherwise
+  """
+
   cover = os.path.join( CACHEDIR, uuid4().hex )                                         # Build path to cover file using random uuid
   try:                                                                                  # Try to 
     std = check_output( [MKVEXTRACT, filePath, 'attachments', '1:{}'.format(cover)] )   # Extract cover
@@ -95,16 +103,19 @@ def _mkvExtractCover( filePath ):
     return ''                                                                           # Set cover to emty string
 
 def mkvReader( filePath ):
-  '''
-  Purpose:
-    Function to read metadata from MKV file and parse into 'internal' format
-  Inputs:
-    filePath  : Path to MKV file to extract metadata from
-  Keywords:
+  """
+  Read metadata from MKV file and parse into 'internal' format
+
+  Arguments:
+    filePath (str): Path to MKV file to extract metadata from
+
+  Keyword arguments:
     None.
+
   Returns:
-    Dictionary containing metadata if found, otherwise, emtpy dict
-  '''
+    dict: Dictionary containing metadata if found, otherwise, emtpy dict
+  """
+
   log  = logging.getLogger(__name__)
   info = {}                                                                             # Initialize info as empty dictionary
   if MKVEXTRACT is None: return info                                                    # If the MKVEXTRACT command was not found at import, return emtpy dictionary

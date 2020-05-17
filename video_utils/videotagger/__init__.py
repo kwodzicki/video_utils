@@ -16,7 +16,15 @@ def isID(dbID):
   return dbID[:4] == 'tvdb' or dbID[:4] == 'tmdb'                                       # If tvdb or tmdb in the first four (4) characters
 
 def freeform( tag ):
-  """Generate MP4 freeform tag"""
+  """
+  Generate MP4 freeform tag
+
+  Note from the mutagen package:
+    The freeform ‘----‘ frames use a key in the format ‘----:mean:name’ where ‘mean’
+    is usually ‘com.apple.iTunes’ and ‘name’ is a unique identifier for this frame.
+    The value is a str, but is probably text that can be decoded as UTF-8. Multiple
+    values per key are supported.
+  """
 
   return '----:com.apple.iTunes:{}'.format( tag )
 
@@ -142,7 +150,7 @@ class TMDb( BaseAPI ):
           #  val.append( Season( item ) )
           else:
             pass
-            #print(key) 
+            #print(key)
       return json
     return None 
 
@@ -196,22 +204,24 @@ class TVDb( BaseAPI ):
 
 ###################################################################
 def getMetaData( file=None, dbID=None, seasonEp=(), version='', **kwargs ):
-  '''
-  Purpose:
-    Function to get Movie or Episode object based on
-    information from file name or dbID
-  Inputs:
+  """
+  Get Movie or Episode object based on information from file name or dbID
+  
+  Arguments:
     None
-  Keywords:
-    file    : Full path, or base name of file to get
+
+  Keyword arguments:
+    file (str): Full path, or base name of file to get
                information for. MUST match naming conventions
-    dbID    : TVDb or TMDb to use for file; overrides any
+    dbID (str): TVDb or TMDb to use for file; overrides any
                 information parsed from file name
-    seasonEP : Tuple or list containing season and episode number
-    version : Version for movie; e.g., Extended Edition
+    seasonEP (tuple,list): Season and episode number
+    version (str): Version for movie; e.g., Extended Edition
+
   Returns:
     A TMDbMovie, TMDbEpisode, TVDbMovie, or TVDbEpisode object
-  '''
+  """
+
   if file:
     fileDir, fileBase = os.path.split( file )
     seasonEp = SEASONEP.findall(fileBase)

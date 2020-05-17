@@ -13,9 +13,8 @@ from ..config import opensubtitles as opensubs_config
 ext = ('.avi', '.m4v', '.mp4', '.mkv', '.mpeg', '.mov', '.wmv');                # List of some common video extensions
 
 class OpenSubtitles( ServerProxy ):
-  '''
-  A python class to download SRT subtitles for opensubtitles.org.
-  '''
+  """A python class to download SRT subtitles for opensubtitles.org."""
+
   api_url     = opensubs_config['url'];                                  # Set the URL
   user_agent  = opensubs_config['user_agent'];                           # Set the user agent for testing
   title       = None
@@ -29,23 +28,27 @@ class OpenSubtitles( ServerProxy ):
 
   server_lang = 'en';                                                    # Set up the server
   attempts    = 10;
-  def __init__( self, username = '', userpass = '', verbose = False, **kwargs):
-    '''
-    Name:
-       __init__
-    Purpose:
-       A pyhton function to initialize the opensubtitles class.
-    Inputs:
-       None.
-    Outputs:
-       Save an SRT subtitle file with same convetion as movie
-       file IF a subtitle is found.
-    Keywords:
-      username   : User name for opensubtitles.org.
-      userpass   : Password for opensubtitles.org. Recommend that
+  def __init__( self, username = None, userpass = None, verbose = False, **kwargs):
+    """
+    Initialize the OpenSubtitles class.
+
+    Some code borrowed from https://github.com/chripede/opensubtitle-downloader
+
+    Arguments:
+       None
+
+    Keyword arguments:
+      username (str): User name for opensubtitles.org.
+      userpass (str): Password for opensubtitles.org. Recommend that
                     this be the md5 hash of the password and not
                     the plain text of the password for slightly
                     better security
+      **kwargs
+
+    Outputs:
+       Save an SRT subtitle file with same convetion as movie
+       file IF a subtitle is found.
+
     Example:
       To download the top 5 subtiles for foreign language parts and full movie
       based on score in english, the call word look like:
@@ -55,24 +58,16 @@ class OpenSubtitles( ServerProxy ):
       
       To download the 5 newest subtitles in Russian for foreign 
       language parts and full movie the call word look like:
-        subs = OpenSubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
-    Author and history:
-       Kyle R. Wodzicki     Created 12 Sep. 2017
-         Modified 21 Sep. 2017 by Kyle R. Wodzicki
-           - Added 0.3 second sleeps in search function so that 
-             40 requests per 10 second limit is never reached.
-           - Added the username and userpass keywords for so
-              users can login using their accounts if they like. 
-        
-         Some code borrowed from
-           https://github.com/chripede/opensubtitle-downloader
-    '''
+
+          subs = OpenSubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
+    """
+
     super().__init__( opensubs_config['url'], verbose=False )
 
     self.__log         = logging.getLogger(__name__);
   
-    self.username    = '' if username is None else username;                     # Set username attribute 
-    self.userpass    = '' if userpass is None else userpass;                     # Set userpass attribute
+    self.username    = username if isinstance(username, str) else ''
+    self.userpass    = userpass if isinstance(userpass, str) else ''
     self.verbose     = verbose;
     self.subs        = None;
     
@@ -80,10 +75,8 @@ class OpenSubtitles( ServerProxy ):
 
   ##############################################################################        
   def _parseKwargs(self, **kwargs):
-    '''
-    Purpose:
-      Method to parse keyword arguments into class attributes
-    '''
+    """Method to parse keyword arguments into class attributes"""
+
     self.title      = kwargs.get('title',      None)
     self.IMDb       = kwargs.get('IMDb',       None)
     self.lang       = kwargs.get('lang',       None)
@@ -101,36 +94,40 @@ class OpenSubtitles( ServerProxy ):
 
   ##############################################################################        
   def getSubtitles(self, file, **kwargs):
-    '''
+    """
     Attempt to log-in to, download from, and log-out of the server.
+
     No user interaction requried.
-    Inputs:
-       file : Full path to the movie file to download SRT file for.
-    Outputs:
-       Save an SRT subtitle file with same convetion as movie
-       file IF a subtitle is found.
+
+    Arguments:
+       file (str): Full path to the movie file to download SRT file for.
+
     Keywords:
-       title   : Set to title of movie to search for. Default is to use
+       title (str): Set to title of movie to search for. Default is to use
                   title from file.
-       imdb    : Set to IMDb id of moive to search for. Default is to
+       imdb (str): Set to IMDb id of moive to search for. Default is to
                   try to get IMDb id from file name.
-       lang    : String of list of strings to language to download
+       lang (str,list): String of list of strings to language to download
                   subtitle in using ISO 639-2 code. Default is english (eng).
-       verbose : Set to True to increase verbosity. Default: False
-       nSubs   : Set to the number of files subtitles to download
+       verbose (bool): Set to True to increase verbosity. Default: False
+       nSubs (int): Set to the number of files subtitles to download
                   for each file. Default is one (1).
-       sort    : Set the sorting method used for downloading.
+       sort (str): Set the sorting method used for downloading.
                   Options are:
                     score     : Sort based on score
                     downloads : Sort based on number of times downloaded
                     date      : Sort based on upload date
                   All of the sorting is done in descending order.
                   Default is score.
-      track_num  : Set to specific 'track' number for labeling.
+      track_num (int): Set to specific 'track' number for labeling.
                      Default is to start at zero.
-      get_forced : Set to True to get only forced subtitles.
+      get_forced (bool): Set to True to get only forced subtitles.
                      Default is to get full.
-    '''
+    Returns:
+       Save an SRT subtitle file with same convetion as movie
+       file IF a subtitle is found.
+    """
+
     self._parseKwargs( **kwargs )
     self.login();
     self.searchSubs(file = file);
@@ -140,9 +137,8 @@ class OpenSubtitles( ServerProxy ):
 
   ##############################################################################        
   def searchSubs(self, **kwargs):
-    '''
-    A python function to search for, download, and save subtitles.
-    '''
+    """search for, download, and save subtitles."""
+
     if self.login_token is None: return;
     self.__log.info("Searching for subtitles...");
 
@@ -181,9 +177,8 @@ class OpenSubtitles( ServerProxy ):
 
   ##############################################################################        
   def sortSubs( self, sub_data ):
-    '''
-    A function for sorting the subtitles by score, download count, and date.
-    '''
+    """Sort subtitles by score, download count, and date."""
+
     self.subs = {};                                                             # Set subs to empty dictionary
     keys = ( ('Score', 'score'), ('SubDownloadsCnt', 'downloads'), ('SubAddDate', 'date') );
     for lang in self.lang:                                                      # Iterate over all languages
@@ -212,9 +207,8 @@ class OpenSubtitles( ServerProxy ):
 
   ##############################################################################        
   def saveSRT( self, file = '' ):
-    '''
-    A python function to save the SRT subtitle data.
-    '''
+    """Save the SRT subtitle data to file"""
+
     files = []                                                                  # List of all downloaded files
     if self.subs is None: return;
     track = -1 if self.track_num is None else self.track_num - 1;
@@ -253,9 +247,8 @@ class OpenSubtitles( ServerProxy ):
 
   ##############################################################################        
   def download( self, sub ):
-    '''
-    A function to download subtitle file and return the decompressed data.
-    '''
+    """Download subtitle file and return the decompressed data."""
+
     self.__log.info('  Downloading subtitle...');                                 # Print to log
     for i in range(self.attempts):                                              # Try n times to download
       try:                                                                      # Try to ...
@@ -277,7 +270,8 @@ class OpenSubtitles( ServerProxy ):
   ##############################################################################
   # Login / Logout / Check_status
   def login(self):
-    '''Log in to OpenSubtitles'''
+    """Log in to OpenSubtitles"""
+
     self.__log.info("Login to opensubtitles.org...");                             # Print log for logging in
     for i in range(self.attempts):                                              # Try n times to log in
       try:                                                                      # Try to...
@@ -293,7 +287,8 @@ class OpenSubtitles( ServerProxy ):
     self.__log.error( "Failed to login!" );                                       # Print log
     self.login_token = None;                                                    # Set the login token to None
   def logout(self):
-    '''Log out from OpenSubtitles'''
+    """Log out from OpenSubtitles"""
+
     if self.login_token is None: return;                                        # If the login token is None, then NOT logged in and just return
     self.__log.info("Logout of opensubtitles.org...");                            # Print log for logging out
     for i in range(self.attempts):                                              # Try n times to log in
@@ -309,9 +304,7 @@ class OpenSubtitles( ServerProxy ):
     self.__log.error( "Failed to logout!" );                                      # Print error to log
     self.login_token = None;                                                    # Reset login token to None.
   def check_status(self, resp):
-    '''Check the return status of the request.
-    Anything other than "200 OK" raises a UserWarning
-    '''
+    """Check request status, anything other than "200 OK" raises a UserWarning"""
     try:
       if resp['status'].upper() != '200 OK':
         self.__log.error( "Response error from " + self.api_url );

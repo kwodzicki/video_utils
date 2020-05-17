@@ -83,16 +83,19 @@ def tvdb2tmdb( info ):
   return info
 
 def parseCredits( info, **kwargs ):
-  '''
-  Purpose:
-    Function to parse credits into Person objects
-  Inputs:
-    info   : Dictionary, or dictionary like, containing data from API call
-  Keywords:
+  """
+  Function to parse credits into Person objects
+
+  Arguments:
+    info (dict): Data from an API call
+
+  Keyword argumetns:
     None.
+
   Returns:
-    Updated dictionary
-  '''
+    dict: Updated dictionary
+  """
+
   log     = logging.getLogger(__name__)
   credits = info.pop('credits', None)
   if credits:
@@ -126,7 +129,8 @@ def imagePaths( info, **kwargs ):
   if imageURL:
     imageKeys = ['_path', 'poster', 'banner', 'fanart', 'filename']
     for key, val in info.items():
-      if any( image in key for image in imageKeys ):
+      if any( [image in key for image in imageKeys] ):
+        if isinstance(val, (list,tuple)): val = val[0]                                  # If is an iterable, take first value
         info[key] = imageURL.format( val )
   return info
 

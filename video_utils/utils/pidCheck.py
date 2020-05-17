@@ -2,17 +2,19 @@ import logging
 import os, json, psutil
 
 def pidStore( fPath ):
-  '''
-  Purpose:
-    Function to store information about the current process in 
-    a JSON formatted file
-  Inputs:
-    fPath   : Full path of file to write data to
-  Keywords:
-    None.
+  """
+  Store information about the current process in a JSON formatted file
+
+  Arguments:
+    fPath (str): Full path of file to write data to
+
+  Keyword arguments:
+    None
+
   Returns:
-    Boolean, True if file created, False otherwise
-  '''
+    bool: True if file created, False otherwise
+  """
+
   log  = logging.getLogger(__name__)
   fDir = os.path.dirname( fPath )
   try:
@@ -39,17 +41,19 @@ def pidStore( fPath ):
   return False
 
 def pidRunning( fPath ):
-  '''
-  Purpose:
-    Function to check if current process is already running based on 
-    data in JSON formatted file created by pidStore()
-  Inputs:
-    fPath   : Full path of file to check pid information against
-  Keywords:
-    None.
+  """
+  Check if current process is already running based on data in JSON formatted file created by pidStore()
+
+  Arguments:
+    fPath (str): Full path of file to check pid information against
+
+  Keyword arguments:
+    None
+
   Returns:
-    Boolean, True if process is already running, False otherwise
-  '''
+    bool: True if process is already running, False otherwise
+  """
+
   if os.path.isfile( fPath ):                                                           # if the fPath file exists
     with open( fPath, 'r' ) as fid:                                                     # Open for reading
       info = json.load( fid )                                                           # Read in data

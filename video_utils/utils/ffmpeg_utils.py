@@ -27,6 +27,8 @@ CHAPTERFMT  = ['[CHAPTER]', 'TIMEBASE={}', 'START={}', 'END={}', 'title={}', '']
 CHAPTERFMT  = os.linesep.join( CHAPTERFMT )                                             # Join CHAPTER block format list on operating system line separator
 
 class FFMetaData( object ):
+  """For creating a FFMetaData file for input into ffmpeg CLI"""
+
   def __init__(self, version = 1):
     self.__log     = logging.getLogger(__name__)
     self._version  = version
@@ -35,37 +37,42 @@ class FFMetaData( object ):
     self._chapter  = 1
  
   def addMetadata(self, **kwargs):
-    '''
-    Purpose:
-      Method to add new metadata tags to FFMetaData file
-    Inputs:
-      None.
-    Keywords:
+    """
+    Method to add new metadata tags to FFMetaData file
+
+    Arguments:
+      None
+
+    Keyword arguments:
       Any key/value pair where key is a valid metadata tag and value is
       the value for the tag. 
+
     Returns:
       None.
-    '''
+    """
+
     self._metadata.update( kwargs )
 
   def addChapter(self, *args, **kwargs):
-    '''
-    Purpose:
-      Method to add chapter marker to FFMetaData file
-    Inputs:
+    """
+    Method to add chapter marker to FFMetaData file
+
+    Arguments:
       If one (1) input:
         Must be Chapter instance
       If three (3) inputs:
         start  : Start time of chapter (float or datetime.timedelta)
         end    : End time of chapter (float or datetime.timedelta)
         title  : Chapter title (str)
-    Keywords:
+
+    Keyword arguments:
       time_base : String of form 'num/den’, where num and den are integers. 
                   If the time_base is missing then start/end times are assumed
                  to be in nanosecond. Ignored if NOT three (3) inputs.
     Returns:
-      None.
-    '''
+      None
+    """
+
     if len(args) == 1:
       chapter = args[0]
     elif len(args) == 3:
@@ -95,16 +102,19 @@ class FFMetaData( object ):
     self._chapter += 1
 
   def save(self, filePath):
-    '''
-    Purpose:
-      Method to write ffmetadata to file
-    Inputs:
-      filePath  : Full path of file to write to
-    Keywords:
-      None.
+    """
+    Method to write ffmetadata to file
+
+    Arguments:
+      filePath (str): Full path of file to write to
+
+    Keyword arguments:
+      None
+
     Returns:
-      Returns the filePath input
-    '''
+      str: Returns the filePath input
+    """
+
     with open(filePath, 'w') as fid:                                            # Open file for writing
       fid.write( HEADERFMT.format( self._version ) )                       # Write header to file
 
@@ -122,8 +132,10 @@ class FFMetaData( object ):
 
 ###############################################################################
 class Chapter( object ):
-  def __init__(self, chapter={}):
-    self._data     = chapter
+  """Represents a chapter in a video file"""
+
+  def __init__(self, chapter=None):
+    self._data     = chapter if isinstance(chapter, dict) else {}
     time_base      = self.time_base
     start          = self.start
     end            = self.end
@@ -136,7 +148,10 @@ class Chapter( object ):
 
   @property
   def time_base(self):
+    """Time base for start/end values"""
+
     return self._data.get('time_base', TIME_BASE)
+
   @time_base.setter
   def time_base(self, val):
     self._data['time_base'] = val                                                       # Set time_base to new value
@@ -150,7 +165,10 @@ class Chapter( object ):
 
   @property
   def start(self):
+    """Start time of chapter, in time base units"""
+
     return self._data.get('start', 0)
+
   @start.setter
   def start(self, val):
     self._data['start']      = val
@@ -158,7 +176,10 @@ class Chapter( object ):
 
   @property
   def end(self):
+    """End time of chapter, in time base units"""
+
     return self._data.get('end', 0)
+
   @end.setter
   def end(self, val):
     self._data['end']      = val
@@ -166,7 +187,10 @@ class Chapter( object ):
 
   @property
   def start_time(self):
+    """Start time of chapter in seconds"""
+
     return self._data.get('start_time', 0)
+
   @start_time.setter
   def start_time(self, val):
     self._data['start_time'] = val
@@ -174,7 +198,10 @@ class Chapter( object ):
 
   @property
   def end_time(self):
+    """End time of chapter in seconds"""
+
     return self._data.get('end_time', 0)
+
   @end_time.setter
   def end_time(self, val):
     self._data['end_time'] = val
@@ -182,9 +209,12 @@ class Chapter( object ):
 
   @property
   def title(self):
+    """Chapter title"""
+
     key = 'tags'
     if key in self._data:
       return self._data[key].get('title', '')
+
   @title.setter
   def title(self, val):
     key  = 'tags'
@@ -194,18 +224,21 @@ class Chapter( object ):
     self._data[key]['title'] = val
 
   def _convertTimebase(self, inInt, inFloat, time_base):
-    '''
-    Purpoe:
-      Method to convert to new time_base
-    Inputs:
+    """
+    Convert to new time_base
+
+    Arguments:
       inInt     : Value of time in time_base units
       inFloat   : Value of time in seconds
       time_base : str contianing new time_base
-    Keywords:
-      None.
+
+    Keyword arguments:
+      None
+
     Returns:
-      (inInt, inFloat) where inInt is in requested time_base
-    '''
+      tuple: (inInt, inFloat) where inInt is in requested time_base
+    """
+
     if time_base != self.time_base:                                                     # If requested time_base NOT match time_base
       num, den = map(int, time_base.split('/'))                                         # Get numerator and denominator of new time_base
       factor   = (self._num * den) / (self._den * num)                                  # Cross multiply original time_base with new time_base
@@ -213,42 +246,49 @@ class Chapter( object ):
     return inInt, inFloat
 
   def toFFMetaData(self):
-    '''Method that returns information in format for FFMETADATA file'''
+    """Method that returns information in format for FFMETADATA file"""
+
     return CHAPTERFMT.format(self.time_base, self.start, self.end, self.title)
 
   def base2seconds(self, val):
-    '''Method that converts value in time_base units to seconds'''
+    """Method that converts value in time_base units to seconds"""
+
     return val * self._num / self._den
 
   def seconds2base(self, val):
-    '''Method that converts value in seconds to time_base units'''
+    """Method that converts value in seconds to time_base units"""
+
     return round( val * self._den / self._num )
 
   def getStart(self, time_base = None):
-    '''Method to return chapter start time in time_base and seconds units'''
+    """Method to return chapter start time in time_base and seconds units"""
+
     if time_base:
       return self._convertTimebase( *self.getStart(), time_base )
     return self.start, self.start_time
 
   def getEnd(self, time_base = None):
-    '''Method to return chapter end time in time_base and seconds units'''
+    """Method to return chapter end time in time_base and seconds units"""
+
     if time_base:
       return self._convertTimebase( *self.getEnd(), time_base )
     return self.end, self.end_time
 
   def addOffset(self, offset, flag = 2):
-    '''
-    Purpose:
-      To adjust the start, end, or both times
-    Inputs:
-      offset  : float specifying offset time in seconds
-    Keywords:
-      flag    : Set to: 0 - to add offset to start time,
-                        1 - to add offset to end time,
-                        2 - (default) add offset to start and end
+    """
+    To adjust the start, end, or both times
+
+    Arguments:
+      offset (float): Offset time in seconds
+
+    Keyword arguments:
+      flag (int): Set to: 0 - to add offset to start time,
+                          1 - to add offset to end time,
+                          2 - (default) add offset to start and end
     Returns:
-      None, updates internal attributes
-    '''
+      None: updates internal attributes
+    """
+
     if isinstance(offset, timedelta):
       offset = offset.total_seconds()
     if flag == 2:                                                                       # If flag is 2
@@ -260,38 +300,44 @@ class Chapter( object ):
       self.start_time += offset                                                         # Offset start time
 
 ###############################################################################
-def cropdetect( infile, dt = 20, threads = POPENPOOL.threads):
-  '''
-  Name:
-    cropdetect
-  Purpose:
-    A python function that uses FFmpeg to to detect a cropping region for
-    video files
-  Inputs:
-    infile  : Path to input file for crop detection
-  Outputs:
-    Returns string for FFmpeg video filter in the format crop=w:h:x:y
-    or None if no cropping detected
-  Keywords:
+def cropdetect( infile, dt = 20, threads = None):
+  """
+  Use FFmpeg to to detect a cropping region for video files
+
+  Arguments:
+    infile (str): Path to input file for crop detection
+
+  Keyword arguments:
     dt  : Length of video, in seconds, starting from beginning to use
           for crop detection, default is 20 seconds
-  '''
-  log  = logging.getLogger(__name__);                                                   # Get a logger
+
+  Returns:
+    Returns string for FFmpeg video filter in the format crop=w:h:x:y
+    or None if no cropping detected
+  """
+
+  log     = logging.getLogger(__name__);                                                # Get a logger
+
+  threads = threads if isinstance(threads, int) else POPENPOOL.threads                  # Set default value for number of threads
+  if threads < 0: threads = 1
 
   def buildCmd(infile, ss, dt, threads):                                                # Local function to build command for ffmpeg
-    '''
-    Purpose:
-      Generate ffmpeg command list for cropping
-    Inputs:
-      infile   : str; File to read from
+    """
+    Generate ffmpeg command list for cropping
+
+    Arguments:
+      infile (str): File to read from
       ss       : timedelta; Start time for segment
       dt       : timedelta; Length of segment for crop detection
       threads  : int; number of threads to let ffmpeg use
-    Keywords:
+
+    Keyword arguments:
       None.
+
     Returns:
       List of strings containing ffmpeg command
-    '''
+    """
+
     if not isinstance(ss,      str): ss = str(ss)
     if not isinstance(dt,      str): dt = str(dt)
     if not isinstance(threads, str): threads = str(threads)
@@ -352,53 +398,46 @@ def cropdetect( infile, dt = 20, threads = POPENPOOL.threads):
 
 ###############################################################################
 def totalSeconds( *args ):
-    '''
-    Name:
-      totalSeconds
-    Purpose:
-      A function to convert an arbitrary number of time strings to the total
-      number of 
-      seconds represented by the time
-    Inputs:
-      One or more time strings of format HH:MM:SS
-    Outputs:
-      Returns a numpy array of total number of seconds in time
-    Keywords:
-      None.
-    '''
-    times = [np.array(arg.split(':'), dtype=np.float32)*_toSec for arg in args]         # Iterate over all arugments, splitting on colon (:), converting to numpy array, and converting each time element to seconds
-    return np.array( times ).sum( axis=1 )                                              # Conver list of numpy arrays to 2D numpy array, then compute sum of seconds across second dimension
+  """
+  Convert time strings to the total number of seconds represented by the time
+
+  Arguments:
+    *args: One or more time strings of format HH:MM:SS
+
+  Keyword arguments:
+    None.
+
+  Returns:
+    Returns a numpy array of total number of seconds in time
+  """
+
+  times = [np.array(arg.split(':'), dtype=np.float32)*_toSec for arg in args]         # Iterate over all arugments, splitting on colon (:), converting to numpy array, and converting each time element to seconds
+  return np.array( times ).sum( axis=1 )                                              # Conver list of numpy arrays to 2D numpy array, then compute sum of seconds across second dimension
 
 ###############################################################################
 class FFmpegProgress(object):
-  '''
-  Name:
-    progess
-  Purpose:
-    A function to loop over the output from ffmpeg to determine how much
-    time remains in the conversion.
-  Inputs:
-    proc  : A subprocess.Popen instance. The stdout of Popen must be set
-             to subprocess.PIPE and the stderr must be set to 
-             subprocess.STDOUT so that all information runs through 
-             stdout. The universal_newlines keyword must be set to True
-             as well
-  Outputs:
-    Returns nothing. Does NOT wait for the process to finish so MUST handle
-    that in calling function
-  Keywords:
-    interval   : The update interval, in seconds, to log time remaining info.
-                  Default is sixty (60) seconds, or 1 minute.
-    nintervals : Set to number of updates you would like to be logged about
-                  progress. Default is to log as many updates as it takes
-                  at the interval requested. Setting this keyword will 
-                  override the value set in the interval keyword.
-                  Note that the value of interval will be used until the
-                  first log, after which point the interval will be updated
-                  based on the remaing conversion time and the requested
-                  number of updates
-  '''
+  """
+  Class for monitoring output from ffmpeg to determine how much time remains in the conversion."""
+
   def __init__(self, interval = 60.0, nintervals = None):
+    """
+      Arguments:
+        None
+      Returns:
+        Object
+      Keyword arguments:
+        interval (float): The update interval, in seconds, to log time remaining info.
+                      Default is sixty (60) seconds, or 1 minute.
+        nintervals (int): Set to number of updates you would like to be logged about
+                      progress. Default is to log as many updates as it takes
+                      at the interval requested. Setting this keyword will 
+                      override the value set in the interval keyword.
+                      Note that the value of interval will be used until the
+                      first log, after which point the interval will be updated
+                      based on the remaing conversion time and the requested
+                      number of updates
+    """
+
     self.log = logging.getLogger(__name__)                                          # Initialize logger for the function
     self.t0  = self.t1 = time.time()                                                      # Initialize t0 and t1 to the same time; i.e., now
     self.dur        = None                                                             # Initialize dur to None; this is the file duration
@@ -446,25 +485,20 @@ class FFmpegProgress(object):
 
 ###############################################################################
 def progress( proc, interval = 60.0, nintervals = None ):
-  '''
-  Name:
-    procProgess
-  Purpose:
-    A function to loop over the output from ffmpeg to determine how much
-    time remains in the conversion.
-  Inputs:
-    proc  : A subprocess.Popen instance. The stdout of Popen must be set
+  """
+  Parse output from ffmpeg to determine how much time remains in the conversion.
+
+  Arguments:
+    proc (Popen): A subprocess.Popen instance. The stdout of Popen must be set
              to subprocess.PIPE and the stderr must be set to 
              subprocess.STDOUT so that all information runs through 
              stdout. The universal_newlines keyword must be set to True
              as well
-  Outputs:
-    Returns nothing. Does NOT wait for the process to finish so MUST handle
-    that in calling function
-  Keywords:
-    interval   : The update interval, in seconds, to log time remaining info.
+
+  Keyword arguments:
+    interval  (float): The update interval, in seconds, to log time remaining info.
                   Default is sixty (60) seconds, or 1 minute.
-    nintervals : Set to number of updates you would like to be logged about
+    nintervals (int): Set to number of updates you would like to be logged about
                   progress. Default is to log as many updates as it takes
                   at the interval requested. Setting this keyword will 
                   override the value set in the interval keyword.
@@ -472,7 +506,12 @@ def progress( proc, interval = 60.0, nintervals = None ):
                   first log, after which point the interval will be updated
                   based on the remaing conversion time and the requested
                   number of updates
-  '''
+
+  Returns:
+    Returns nothing. Does NOT wait for the process to finish so MUST handle
+    that in calling function
+  """
+
   log = logging.getLogger(__name__);                                          # Initialize logger for the function
   if proc.stdout is None:                                                     # If the stdout of the process is None
     log.error( 'Subprocess stdout is None type! No progess to print!' );    # Log an error
@@ -519,21 +558,22 @@ def getVideoLength(in_file):
 
 ###############################################################################
 def checkIntegrity(filePath):
-  '''
-  Name:
-    checkIntegrity
-  Purpose:
-    A function to test the integrity of a video file.
-    Runs ffmpeg with null output, checking errors for
-    'overread'. If overread found, then return False,
-    else True
-  Inputs:
-    filePath  : Full path of file to check
-  Keywords:
-    None.
-  Outputs:
-    Returns True if no overread errors, False if error
-  '''
+  """
+  Test the integrity of a video file.
+
+  Runs ffmpeg with null output, checking errors for 'overread'. If overread found,
+  then return False, else True
+
+  Arguments:
+    filePath (str): Full path of file to check
+
+  Keyword arguments:
+    None
+
+  Returns:
+    bool: True if no overread errors, False otherwise
+  """
+
   cmd  = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', 
             '-i', filePath, '-f', 'null', '-']                                              # Command to run
   proc = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)                   # Run ffmpeg command
@@ -550,9 +590,8 @@ def checkIntegrity(filePath):
 
 ###############################################################################
 def _testFile():                                                                 
-    '''
-    This is a grabage function used only for testing during development.
-    '''
+    """This is a grabage function used only for testing during development."""
+
     infile   = '/mnt/ExtraHDD/Movies/short.mp4'                                 
     outfile  = os.path.join(os.path.dirname(infile), 'tmp1.mp4')                 
 
@@ -568,16 +607,19 @@ def _testFile():
 
 ###############################################################################
 def getChapters(inFile):
-  '''
-  Purpose:
-    Function for extract chapter information from video
-  Inputs:
-    inFile      : Path of file to extract chapter information from
-  Keywords:
-    None.
+  """
+  Function for extract chapter information from video
+
+  Arguments:
+    inFile (str): Path of file to extract chapter information from
+
+  Keyword arguments:
+    None
+
   Returns:
     List of Chapter objects if chapters exist, None otherwise
-  '''
+  """
+
   cmd = ['ffprobe', '-i', inFile, '-print_format', 'json', 
          '-show_chapters', '-loglevel', 'error']                                        # Command to get chapter information
   try:                                                                                  # Try to...
@@ -589,21 +631,24 @@ def getChapters(inFile):
 
 ###############################################################################
 def partialExtract( inFile, outFile, startOffset, duration, chapterFile = None ):
-  '''
-  Purpose:
-    Function for extracting video segement
-  Inputs:
-    inFile      : Path of file to extract segment from
-    outFile     : Path of file to extract segment to
-    startOffset : float or timedelta object specifying segment start time in input file.
+  """
+  Function for extracting video segement
+
+  Arguments:
+    inFile (str): Path of file to extract segment from
+    outFile (str): Path of file to extract segment to
+    startOffset (float,timedelta): Segment start time in input file.
                    If float, units must be seconds.
-    duration    : float or timedelta object specifying segment duration
+    duration (float,timedelta): Segment duration
                    If float, units must be seconds.
-  Keywords:
-    chapterFile : Path to ffmetadata file specifying chapters for new segment
+
+  Keyword arguments:
+    chapterFile (str): Path to ffmetadata file specifying chapters for new segment
+
   Returns:
-    True on successful extraction, False otherwise
-  '''
+    bool: True on successful extraction, False otherwise
+  """
+
   if not isinstance(startOffset, timedelta):                                            # Ensure startOffset is timedelta
     startOffset = timedelta(seconds = startOffset)
   if not isinstance(duration, timedelta):                                               # Ensure duration is timedelta
@@ -624,26 +669,25 @@ def partialExtract( inFile, outFile, startOffset, duration, chapterFile = None )
 
 ###############################################################################
 def splitOnChapter(inFile, nChapters):
-  '''
-  Name:
-    splitOnChapter
-  Purpose:
-    A python script to split a video file based on chapters.
-    the idea is that if a TV show is ripped with multiple 
-    episodes in one file, assuming all episodes have the 
-    same number of chapters, one can split the file into
-    individual episode files.
-  Inputs:
-    inFile    : Full path to the file that is to be split.
-    nChapters : The number of chapters in each episode.
-  Outputs:
+  """
+  Split a video file based on chapters.
+
+  The idea is that if a TV show is ripped with multiple episodes in one file, 
+  assuming all episodes have the same number of chapters, one can split the file into
+  individual episode files.
+
+  Arguments:
+    inFile (str): Full path to the file that is to be split.
+    nChapters (int,list): The number of chapters in each episode.
+
+  Keyword arguments:
+    None
+
+  Returns:
     Outputs n files, where n is equal to the total number
     of chapters in the input file divided by nChaps.
-  Keywords:
-    None.
-  Author and History:
-    Kyle R. Wodzicki     Created 01 Feb. 2018
-  '''
+  """
+
   chapters = getChapters( inFile )                                                      # Get all chapters from file
   if not chapters: return                                                               # If no chapters, return
 
@@ -703,18 +747,20 @@ def splitOnChapter(inFile, nChapters):
 
 ###############################################################################
 def combine_mp4_files(outFile, *args):
-  '''
-  Purpose:
-    Function for combining multiple (2+) mp4 files into a single
-    mp4 file. Needs the ffmpeg CLI
-  Inputs
-    inFiles : List of input file paths
-    outFile : Output (combined) file path
-  Outputs:
-    Creates a new combined mp4 file
-  Keywords:
-    None.
-  '''
+  """
+  Function for combining multiple (2+) mp4 files into a single mp4 file; ffmpeg CLI required
+
+  Arguments:
+    inFiles (str): List of input file paths
+    outFile (str): Output (combined) file path
+
+  Keyword arguments:
+    None
+
+  Returns:
+    None
+  """
+
   log = logging.getLogger( __name__ )
   if len(args) < 2:                                                          # If there are less than 2 ipputs
     log.critical('Need at least two (2) input files!')

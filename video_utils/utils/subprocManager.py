@@ -21,8 +21,8 @@ else:
 
 class SubprocManager(object):
   def __init__(self, cpulimit = None, threads = None, interval = None, **kwargs):
-    '''
-    Keywords:
+    """ 
+    Keyword arguments:
        cpulimit : Limit, in percent, for CPU usage. 
                    Values range from 1 - 100.
                    A value of 0 means no limiting.
@@ -35,7 +35,8 @@ class SubprocManager(object):
                    Smaller values will catch process completions faster,
                    but will also use more resources while checking for
                    process completion.
-    '''
+    """
+
     super().__init__(**kwargs);
     self.__log           = logging.getLogger(__name__);                         # Get logger for the class
     self.cpulimit      = cpulimit;                                              # Set cpulimit attribute to user input cpulimit; see @properties at bottom for defaults
@@ -54,12 +55,13 @@ class SubprocManager(object):
 
   ##############################################################################
   def addProc(self, args, **kwargs):
-    '''
-    Purpose:
-      Method for adding a command to the queue
-    Inputs:
+    """
+    Method for adding a command to the queue
+
+    Arguments:
       args  : same as input to subprocess.Popen
-    Keywords:
+
+    Keyword arguments:
       single  : Set to True if the process you are controlling is single
                  threaded; i.e., it can only ever use one CPU core.
       stdout  : Same as stdout for Popen, however, if you set this to a
@@ -68,22 +70,24 @@ class SubprocManager(object):
       stderr  : Same as for stdout but for all stderr values
       Accepts all subprocess.Popen arguments. Only difference is that
       by default stdout and stderr are piped to DEVNULL
-    '''
+    """
+
     self.__queue.append( (args, kwargs,) );                                     # Append the Popen info to the queue as a tuple
     self.__nPopen += 1;                                                         # Increment the number of processes to be run
 
   ##############################################################################
   def run(self, block = True):
-    '''
-    Purpose:
-      Method to start running the commands in the queue
-    Keywords:
-      block   : Wait for all commands to finish before returning. 
+    """
+    Method to start running the commands in the queue
+
+    Keyword arguments:
+      block (bool): Wait for all commands to finish before returning. 
                  Default is to wait. Set to False to return right away.
                  Returning right away may be useful if you want to add 
                  more processes the to process queue. You can then use
                  the .wait() method to wait for processes to finish.
-    '''
+    """
+
     self.__runEvent.set()
     self.__returncodes = [];                                                    # Reset __return codes to empty list
     self.__exitID      = Thread( target = self.__exit )
@@ -94,12 +98,13 @@ class SubprocManager(object):
 
   ##############################################################################
   def wait(self, timeout = None):
-    '''
-    Purpose:
-      Similar to Popen.wait(), however, returns False if timed out
-    Keywords:
+    """
+    Similar to Popen.wait(), however, returns False if timed out
+
+    Keyword arguments:
       timeout : Time, in seconds, to wait for process to finish.
-    '''
+    """
+
     if self.__threadID:                                                         # If the _threadID attribute valid; i.e., not None
       self.__threadID.join(timeout = timeout);                                  # Try to join the thread
       if self.__threadID.is_alive():                                            # If the thread is still alive
@@ -110,24 +115,26 @@ class SubprocManager(object):
     return True;                                                                # Return True by default
   ##############################################################################
   def kill(self):
-    '''
-    Method to kill all running processes
-    ''' 
+    """Method to kill all running processes"""
+
     for proc in self.__procs: proc[0].terminate()                               # Terminate all of the processes 
   ##############################################################################
-  def applyFunc(self, func, args=(), kwargs={}):
-    '''
-    Purpose:
-      Method to apply given function to Popen instance.
-      Only applicable when one (1) process running
-    Inputs:
+  def applyFunc(self, func, args=None, kwargs=None):
+    """
+    Apply function to Popen instance; only applicable when one (1) process running
+
+    Arguments:
       func  : Function to apply
-    Keywords:
+
+    Keyword argumetns:
       args   : Tuple or list of arguments, besides Popen instance, to
                apply to function
       kwargs : Dictionary of keyword arguments to apply to input function
-    '''
+    """
+
     self.__log.debug('Attempting to apply function to process')
+    if args   is None: args   = ()
+    if kwargs is None: kwargs = {}
     if len(self.__procs) != 1: time.sleep(0.5);                                 # If no processes running, sleep for 500 ms to see if one will start
     if len(self.__procs) != 1:                                                  # If there is NOT one process running
       if len(self.__procs) == 0:                                                # Check if no processes running
@@ -140,11 +147,12 @@ class SubprocManager(object):
 
   ##############################################################################
   def __thread(self):
-    '''
+    """ 
     Private method for actually running all the process.
     This is done in a thread so that blocking can be disabled; i.e.,
     user can keep adding processes to the queue if they want
-    '''
+    """
+
     self.__n = 0;                                                               # Ensure the counter is at zero
     while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()) and (len(self.__queue) > 0): # While there are commands in the queue
       if len(self.__procs) == self.threads:                                     # If the number of allowable subprocess are running
@@ -157,13 +165,16 @@ class SubprocManager(object):
     self.__procs = []                                                           # Clear out Popen instances
   ##############################################################################
   def __Popen( self, args, **kwargs ):    
-    '''
+    """
     Method for starting subprocess and applying cpu limiting
-    Inputs:
+
+    Arguments:
       args  : Same as Popen args
-    Keywords:
-      All kwargs from Popen
-    '''      
+
+    Keyword arguments:
+      **kwargs: All kwargs from Popen
+    """
+
     if _sigintEvent.is_set() or _sigtermEvent.is_set(): return
     self.__n += 1;                                                              # Increment n by one
     single = kwargs.pop('single', False);                                       # Pop off the 'single' keyword argument, or get False if not keyword
@@ -208,9 +219,8 @@ class SubprocManager(object):
 
   ##############################################################################
   def __procCheck(self):
-    '''
-    Private method to check for finished processes
-    '''
+    """Private method to check for finished processes"""
+
     while all( [proc[0].poll() is None for proc in self.__procs] ):             # While all of the processes are working (remember _procs contains tuples)
       time.sleep(self.interval);                                                # Sleep for the interval defined
     for i in range( len(self.__procs) ):                                        # Iterate over all the process
@@ -233,7 +243,8 @@ class SubprocManager(object):
 
    ##############################################################################
   def __makedirs( self, path, stdout = False ):
-    '''A private method to try to make parent directory for log files'''
+    """A private method to try to make parent directory for log files"""
+
     errFMT = 'Error making path to {} file: {}. Using default logging';         # Format for logging error
     if stdout:                                                                  # If stdout True
       errFMT = errFMT.format('stdout','{}');                                    # Update errFMT with stdout in first entry
@@ -252,10 +263,10 @@ class SubprocManager(object):
     return True;                                                                # Return True
   ##############################################################################
   def __exit(self, *args, **kwargs):
-    '''
+    """ 
     Private method for killing everything (cleanly). 
     Intended to be called when SIGINT or something else occurs
-    '''
+    """
     while self.__runEvent.is_set():
       if _sigintEvent.wait( timeout = 0.5 ) or _sigtermEvent.wait( timeout = 0.5 ):
         self.__runEvent.clear()

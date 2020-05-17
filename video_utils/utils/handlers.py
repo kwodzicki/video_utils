@@ -15,16 +15,19 @@ EMAILNAME = 'emailer'
 
 ############################################################################### 
 def sendEMail( func ):
-  '''
-  Purpose:
-    Function to act as decorator to send email using EMailHandler
-  Inputs:
-    func   : Function to wrap
-  Keywords:
+  """
+  Function to act as decorator to send email using EMailHandler
+
+  Arguments:
+    func: Function to wrap
+
+  Keyword arguments:
     None.
+
   Returns:
     Wrapped function
-  '''
+  """
+
   def sendEMailWrapper(*args, **kwargs):
     val = func(*args, **kwargs)
     for handler in log.handlers:                        # Iterate over all handlers in root logger
@@ -76,21 +79,24 @@ class EMailHandler( logging.Handler ):
 
   ##################################                                            
   def setSendLevel(self, level):
-    '''
-    Purpose:
-      Set the level at which logs are automatically 
-      emailed. For example, if the SendLevel is set
-      to logging.WARNING, if a log with level WARNING
-      or higher is encountered, an email will be sent.
-      Note that if this level is set lower than the
-      logger level, the email my be empty.
-    Inputs:
-      level   : The logging level
-    Keywords:
-      None.
+    """
+    Set the level at which logs are automatically 
+    emailed. For example, if the SendLevel is set
+    to logging.WARNING, if a log with level WARNING
+    or higher is encountered, an email will be sent.
+    Note that if this level is set lower than the
+    logger level, the email my be empty.
+
+    Arguments:
+      level (int): The logging level
+
+    Keyword arguments:
+      None
+
     Returns:
-      None.
-    '''
+      None
+    """
+
     if isinstance(level, int):
       self._sendLevel = level
    
@@ -143,7 +149,7 @@ class EMailHandler( logging.Handler ):
 
 ########################################################################################
 class RotatingFile( Thread ):
-  '''
+  """
   A class that acts like the logging.handlers.RotatingFileHander;
   writing data out to a file until file grows too large, then rolling
   over.
@@ -151,7 +157,8 @@ class RotatingFile( Thread ):
   This class is intended to be used for stdout and stderr for calls to
   subprocess module routines, such as the Popen constructor. However, there
   are many other applications for this class.
-  '''
+  """
+
   def __init__(self, *args, **kwargs):
     super().__init__()
     self.rw         = None                                                              # Initialize read/write pipe as None
@@ -181,17 +188,21 @@ class RotatingFile( Thread ):
     super().start()                                                                     # Call supercalls start method
 
   def run(self):
-    '''
-    Purpose:
-      Overloads the run method; this method will run in own thread.
-      Reads data from pipe and passes to self.log.emit
-    Inputs:
-      None.
-    Keywords:
-      None.
+    """
+    Overloads the run method; this method will run in own thread.
+    
+    Reads data from pipe and passes to self.log.emit
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      None
+
     Returns:
-      None.
-    '''
+      None
+    """
+
     with os.fdopen(self.rw[0]) as fid:                                                  # Open the read-end of pipe
       for line in iter(fid.readline, ''):                                               # Iterate over all lines
         record = logging.LogRecord('', 20, '', '', line.rstrip(), '', '')
@@ -201,32 +212,16 @@ class RotatingFile( Thread ):
     self.close()
 
   def close(self):
-    '''
-    Purpose:
-      Method to clean up the pipe and logging file
-    Inputs:
-      None.
-    Keywords:
-      None.
-    Returns:
-      None.
-    '''
+    """Method to clean up the pipe and logging file"""
+
     if self.rw:                                                                         # If rw is set
       os.close(self.rw[1])                                                              # Close the write-end of pipe
       self.rw = None                                                                    # Set rw to None
     self.log.close()                                                                    # Close the log
  
   def fileno(self):
-    '''
-    Purpose:
-      Method to get underlying file pointer; in this case pipe
-    Inputs:
-      None.
-    Keywords:
-      None.
-    Returns:
-      None.
-    '''
+    """Method to get underlying file pointer; in this case pipe"""
+
     if not self.rw:                                                                     # If read/write pipe NOT set
       self.start()                                                                      # Start thread
     return self.rw[1]                                                                   # Return write-end of pipe

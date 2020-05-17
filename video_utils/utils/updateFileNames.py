@@ -101,12 +101,13 @@ def movieRename( topDir, path, metadata, imdbID, rootdir = None):
   return newDir
 
 def genHardLinks( topDir, rootdir = None ):
-  '''
+  """
   Function to generate hard links to existing files using
   new file nameing convention. Will walk through given directory,
   finding all files with IMDBid in name. Will then get TVDb or
   TMDb information for renaming.
-  '''
+  """
+
   imdbIDs  = {}
   for root, dirs, items in os.walk(topDir):                                     # Iterate over all files recursively
     for item in items:                                                          # Iterate over items
@@ -184,22 +185,23 @@ def updateSpecials(season00, dbID, rootdir):
   
 
 def updateFileNames(*args, rootdir = None, dbID = None):
-  '''
-  Purpose:
-    Function to iterate over Plex Library directories to rename
-  Inputs:
-    A bunch of comma separated paths. These can either be top level
-    Library directories OR individual directories within a library.
-    If they are individual directories within a library, then
-    must set the rootdir keyword for things to work correctly.
-  Keywords:
-    rootdir  : Set if scanning a subset of directories in a library
+  """
+  Function to iterate over Plex Library directories to rename
+
+  Arguments:
+    *args: A bunch of comma separated paths. These can either be top level
+             Library directories OR individual directories within a library.
+             If they are individual directories within a library, then
+             must set the rootdir keyword for things to work correctly.
+  Keyword arguments:
+    rootdir (str): Set if scanning a subset of directories in a library
                   directory. For example, if renaming files in Westworld
                   and the args path is /path/to/TV Shows/Westworld, then
                   should set rootdir=/path/to/TV Shows
   Returns:
-    None.
-  '''
+    None
+  """
+
   for arg in args:
     for item in os.listdir(arg):
       indir = os.path.join(arg, item)
