@@ -51,6 +51,7 @@ def plexDVR_Scan( recorded, no_remove = False, movie = False ):
 
   Note:
     This function is intened to be run as a child process, i.e., after call to os.fork()
+
   """ 
 
   log = logging.getLogger(__name__);
@@ -141,6 +142,7 @@ def plexFile_Info( in_file ):
 
   Outputs:
     Returns series name, season/episode or date, episode title, and file extension
+
   """
 
   log               = logging.getLogger(__name__);
@@ -194,6 +196,7 @@ def plexDVR_Rename( in_file, hardlink = True ):
 
   Outputs:
     Returns path to renamed file and tuple with parsed file information
+
   """
 
   log     = logging.getLogger(__name__)
@@ -247,6 +250,7 @@ class DVRqueue( list ):
   remember where it was in the event of a restart/power off. Whenever
   the list is modified via the append, remove, etc methods, data are
   written to disc.
+
   """
 
   def __init__(self, file):
@@ -307,6 +311,7 @@ def getPlexMediaScanner( ):
 
   Outputs:
     Returns list containing full path to Plex Media Scanner command
+
   """
 
   log = logging.getLogger(__name__);
@@ -363,6 +368,7 @@ def getPlexLibraries( cmd, env = None ):
 
   Ouputs:
     Returns dictionary of Plex Libraries where key is library name and value is library number.
+
   """
 
   log      = logging.getLogger(__name__)                                        # Get logger
@@ -433,6 +439,7 @@ def parse_cmd_lib_dirs( lines ):
   Outputs:
     Returns the command parent directory and LD_LIBRARY_PATH.
     in that order. If either/both NOT found, None is returned.
+
   """ 
 
   for line in lines:                                                            # Iterate over all the lines in the list

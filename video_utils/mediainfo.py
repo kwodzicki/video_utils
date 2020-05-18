@@ -42,6 +42,7 @@ class MediaInfo( object ):
 
     Returns:
       MediaInfo object
+
     """
 
     super().__init__(**kwargs);
@@ -98,6 +99,7 @@ class MediaInfo( object ):
 
     Returns:
       tuple: Video (width, height) if video stream exists. None otherwise.
+
     """
 
     tmp = self.get('Video', [])
@@ -116,6 +118,7 @@ class MediaInfo( object ):
     This is done by checking that the size of the first video stream is less than
     the size of the file. This many not work in all cases, but seems to be
     true for MPEGTS files.
+
     """
 
     if self.__mediainfo:
@@ -200,6 +203,7 @@ class MediaInfo( object ):
 
     Returns:
       dict: Information in a format for input into the ffmpeg command.
+
     """
 
     self.__log.info('Parsing audio information...');                              # If verbose is set, print some output
@@ -272,16 +276,16 @@ class MediaInfo( object ):
 
     Video stream information is obtained using information from the mediainfo
     command and parsing it into a dictionary in a format that allows for input
-    into ffmpeg command for transcoding.
-
-    Rate factors for different resolutions are the mid-points from the ranges provided by 
+    into ffmpeg command for transcoding. Rate factors for different resolutions
+    are the mid-points from the ranges provided by:
     https://handbrake.fr/docs/en/latest/workflow/adjust-quality.html
+
       - RF 18-22 for 480p/576p Standard Definition
       - RF 19-23 for 720p High Definition
       - RF 20-24 for 1080p Full High Definition
       - RF 22-28 for 2160p 4K Ultra High Definition
 
-    Rate factors used in this program are as follows
+    Rate factors used:
       - 22 :  480p/576p
       - 23 :  720p
       - 24 : 1080p
@@ -295,6 +299,7 @@ class MediaInfo( object ):
 
     Returns:
       dict: Information in a format for input into the ffmpeg command.
+
     """
      
     self.__log.info('Parsing video information...');                              # If verbose is set, print some output
@@ -409,6 +414,7 @@ class MediaInfo( object ):
       extension to be used on the subtitle file, and the MKV ID used
       to identify tracks in MKVToolNix for each text stream of interest.
       Returns None if NO text streams found.
+
     """
 
     self.__log.info('Parsing text information...');                               # If verbose is set, print some output
@@ -495,6 +501,7 @@ class MediaInfo( object ):
       there is not clear documentation on how to extract 
       specific streams and mediainfo does not return any
       language information for the streams
+
     """
 
     j, n_elems, info = 0, [], [];                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary

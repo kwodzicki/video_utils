@@ -60,6 +60,7 @@ class OpenSubtitles( ServerProxy ):
       language parts and full movie the call word look like:
 
           subs = OpenSubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
+
     """
 
     super().__init__( opensubs_config['url'], verbose=False )
@@ -100,32 +101,34 @@ class OpenSubtitles( ServerProxy ):
     No user interaction requried.
 
     Arguments:
-       file (str): Full path to the movie file to download SRT file for.
+      file (str): Full path to the movie file to download SRT file for.
 
     Keywords:
-       title (str): Set to title of movie to search for. Default is to use
-                  title from file.
-       imdb (str): Set to IMDb id of moive to search for. Default is to
-                  try to get IMDb id from file name.
-       lang (str,list): String of list of strings to language to download
-                  subtitle in using ISO 639-2 code. Default is english (eng).
-       verbose (bool): Set to True to increase verbosity. Default: False
-       nSubs (int): Set to the number of files subtitles to download
-                  for each file. Default is one (1).
-       sort (str): Set the sorting method used for downloading.
-                  Options are:
-                    score     : Sort based on score
-                    downloads : Sort based on number of times downloaded
-                    date      : Sort based on upload date
-                  All of the sorting is done in descending order.
-                  Default is score.
+      title (str): Set to title of movie to search for.
+        Default is to use title from file.
+      imdb (str): Set to IMDb id of moive to search for.
+        Default is to try to get IMDb id from file name.
+      lang (str,list): String of list of strings to language to download
+        subtitle in using ISO 639-2 code. Default is english (eng).
+      verbose (bool): Set to True to increase verbosity.
+        Default isFalse
+      nSubs (int): Set to the number of files subtitles to download
+        for each file. Default is one (1).
+      sort (str): Set the sorting method used for downloading.
+        Options are
+          - score     : Sort based on score
+          - downloads : Sort based on number of times downloaded
+          - date      : Sort based on upload date
+
+        Default is score. All of the sorting is done in descending order.
       track_num (int): Set to specific 'track' number for labeling.
-                     Default is to start at zero.
+        Default is to start at zero.
       get_forced (bool): Set to True to get only forced subtitles.
-                     Default is to get full.
+        Default is to get full.
+
     Returns:
-       Save an SRT subtitle file with same convetion as movie
-       file IF a subtitle is found.
+      Save an SRT subtitle file with same convetion as movie file IF a subtitle is found.
+
     """
 
     self._parseKwargs( **kwargs )

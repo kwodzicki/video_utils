@@ -29,6 +29,7 @@ def plexMediaScanner( *args, **kwargs ):
 
   Returns:
     int: Returns status code; 0 is successful scan
+
   """
 
   log = logging.getLogger(__name__);

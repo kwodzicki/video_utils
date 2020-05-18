@@ -17,6 +17,7 @@ class SRTsubs():
 
     Returns:
        Class object
+
     """
 
     self.log = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ class SRTsubs():
 
     Returns:
        None: Adds a list of dictionaries to the class
+
     """
 
     with open(self.file, 'r') as f: lines = f.readlines();                      # Open input file for reading
@@ -76,6 +78,7 @@ class SRTsubs():
 
     Returns:
        None: Updates the self.subs array
+
     """
     dlt   = timedelta(milliseconds = offset);                                   # Set time offset based on input
     start = datetime.strptime(self.subs[0]['start'], self.fmt);                 # Get start time of first subtitle in datetime format
@@ -101,6 +104,7 @@ class SRTsubs():
 
     Returns:
        None: Updates SRT file input
+
     """
 
     if len(self.subs) == 0:                                                     # If there are NO subtitles in the subs attribute
@@ -133,6 +137,7 @@ def srtCleanup( fname, verbose = False ):
 
   Returns:
     int: Outputs a file to the same name as input, i.e., over writes the file.
+
   """
 
   out_file = fname + '.tmp';

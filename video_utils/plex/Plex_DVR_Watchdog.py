@@ -18,10 +18,8 @@ TIMEOUT       =     1.0
 SLEEP         =     1.0
 
 class Plex_DVR_Watchdog( FileSystemEventHandler ):
-  """
-  Class to watch for, and convert, new DVR recordings
+  """Class to watch for, and convert, new DVR recordings"""
 
-  """
   def __init__(self, *args, **kwargs):
     super().__init__()
     self.log         = logging.getLogger(__name__)
@@ -77,6 +75,7 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
 
     Returns:
       bool: True if file is a recording (i.e., it's just been moved), False otherwise
+
     """
 
     with self.__Lock:                                                                 # Acquire Lock so other events cannot change to_convert list at same time
@@ -109,6 +108,7 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
     Method to wait for the watchdog Observer to finish.
 
     The Observer will be stopped when _sigintEvent or _sigtermEvent is set
+
     """
  
     self.Observer.join()                                                            # Join the observer thread
@@ -125,6 +125,7 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
 
     Returns:
       bool: True if file size is NOT changing, False if timeout
+
     """
 
     self.log.debug('Waiting for file to finish being created')
@@ -163,6 +164,7 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
 
     Returns:
       None
+
     """
 
     while True:                                                                     # Infinite loop
@@ -225,7 +227,9 @@ class Plex_DVR_Watchdog( FileSystemEventHandler ):
 
     Returns:
       None
+
     """
+
     while isRunning():                                                          # While the kill event is NOT set
       try:                                                                      # Try
         file = self.converting[0]                                               # Get a file from the queue; block for 0.5 seconds then raise exception

@@ -11,9 +11,8 @@ from .utils import plexDVR_Rename
 
 
 class DVRconverter(VideoConverter): 
-  """
-  A class to combine the VideoConverter and ComRemove classes for post-processing Plex DVR recordings
-  """
+  """Combines the VideoConverter and ComRemove classes for post-processing Plex DVR recordings"""
+
   def __init__(self,
      logdir      = None, 
      lang        = None,
@@ -46,6 +45,7 @@ class DVRconverter(VideoConverter):
 
     Returns:
       None
+
     """
 
     super().__init__(
@@ -77,6 +77,7 @@ class DVRconverter(VideoConverter):
 
     Returns:
       int: Returns success of transocde
+
     """
 
     inFile       = os.path.realpath( inFile )                                       # Get real input file path 

@@ -20,6 +20,7 @@ def convertDate( info ):
   Returns:
     dict: Updated info dictionary where date strings have been converted to
     datetime objects
+
   """
 
   log = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ class BaseAPI( object ):
 
     Keywords arguments:
       **kwargs: Various, None used
+
     """
 
     self.__log = logging.getLogger(__name__)
@@ -89,6 +91,7 @@ class BaseAPI( object ):
 
     Returns:
       None: Sets attributes and creates token file in user home dir
+
     """
 
     if KEYS.TVDb_API_TOKEN:                                                             # If api token is valid
@@ -129,6 +132,7 @@ class BaseAPI( object ):
 
     Returns:
       requests Response object
+
     """
 
     resp   = None
@@ -168,6 +172,7 @@ class BaseAPI( object ):
 
     Returns:
       None
+
     """
 
     try:
@@ -189,6 +194,7 @@ class BaseAPI( object ):
 
     Returns:
       JSON data if success, else, None
+
     """
 
     json = None

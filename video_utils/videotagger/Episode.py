@@ -27,6 +27,7 @@ def getBasename(seasonNum, episodeNum, title, ID = '', **kwargs):
 
   Returns:
     str: Episode base name
+
   """
 
   basename = SEFMT.format(seasonNum, episodeNum, title)                                 # Format base name using season/episode number and title
@@ -39,6 +40,7 @@ class BaseEpisode( BaseItem ):
 
   Provides methods that are used in both TMDbEpisode and TVDbEpisode
   objects for cleaner code.
+
   """
 
   def __init__(self, *args, **kwargs):
@@ -75,6 +77,7 @@ class BaseEpisode( BaseItem ):
 
     Returns:
       str: File name in semi-Plex convention
+
     """
 
     ID    = self.Series.getID()
@@ -102,6 +105,7 @@ class BaseEpisode( BaseItem ):
 
     Returns:
       str: Directory structure in Plex convention
+
     """
 
     series = replaceChars( str(self.Series) )
@@ -121,6 +125,7 @@ class TMDbEpisode( BaseEpisode ):
  
     Keyword arguments:
       **kwargs: Various, none used
+
     """
 
     super().__init__(*args, **kwargs)
@@ -162,6 +167,7 @@ class TVDbEpisode( BaseEpisode ):
     Keyword arguments:
       airedOrder (bool): Set to use airedOrder from TVDb; default is dvdOrder
       **kwargs: Various, none used
+
     """
 
     super().__init__(*args, **kwargs)

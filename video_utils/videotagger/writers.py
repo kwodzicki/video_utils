@@ -31,6 +31,7 @@ def _updateComment( comment ):
 
   Returns:
     str: TVDb and TMDb attribution appended to input comment.
+
   """
 
   if isinstance(comment, tuple):                                                        # If comment is tuple
@@ -54,6 +55,7 @@ def toMP4( metaData ):
     None.
   Returns:
     dict: ictionary with valid MP4 tags as keys and correctly encoded values
+
   """
 
   keys = list( metaData.keys() )                                                        # Get list of all keys currently in dictioanry
@@ -82,6 +84,7 @@ def toMKV( metaData ):
 
   Returns:
     dict: Dictionary with valid MKV tag level and tags as keys
+
   """
 
   keys = list( metaData.keys() )                                                        # Get list of keys currently in dictionary
@@ -106,15 +109,16 @@ def mp4Tagger( file, metaData ):
 
   Returns:
     int: Returns following values based on completion.
-            0 : Completed successfully.
-            1 : Input was NOT and MP4
-            2 : IMDb ID was not valid
-            3 : Failed to download information from IMDb AND themoviedb.org
-            4 : Writing tags is NOT possible
-            5 :  Failed when trying to remove tags from file.
-            6 : Failed when trying to write tags to file.
-           10 : IMDbPY not installed AND getTMDb_Info failed to import
-           11 : File is too large
+      -  0 : Completed successfully.
+      -  1 : Input was NOT and MP4
+      -  2 : IMDb ID was not valid
+      -  3 : Failed to download information from IMDb AND themoviedb.org
+      -  4 : Writing tags is NOT possible
+      -  5 :  Failed when trying to remove tags from file.
+      -  6 : Failed when trying to write tags to file.
+      - 10 : IMDbPY not installed AND getTMDb_Info failed to import
+      - 11 : File is too large
+
   """
 
   log = logging.getLogger(__name__)                                                     # Set up a logger
@@ -194,6 +198,7 @@ def deleteAttachments( file, n = 10 ):
 
   Returns:
     None
+
   """
 
   if not MKVPROPEDIT: return
@@ -218,6 +223,7 @@ def addTarget( ele, level ):
 
   Returns:
     An ElementTree SubElement instance
+
   """
 
   tags = ET.SubElement(ele, 'Tag')                                                      # Create subelement named Tag
@@ -240,6 +246,7 @@ def addTag( ele, key, val ):
 
   Returns:
     None
+
   """
   if isinstance(val, (list,tuple,)):                                                    # If val is an iterable type
     val = ','.join(map(str, val))                                                       # Convert all values to string using map() and join on comma
@@ -264,15 +271,16 @@ def mkvTagger( file, metaData ):
 
   Returns:
     int: Returns following values based on completion.
-              0 : Completed successfully.
-              1 : Input was NOT and MKV
-              2 : IMDb ID was not valid
-              3 : Failed to download information from IMDb AND themoviedb.org
-              4 : Writing tags is NOT possible
-              5 :    Failed when trying to remove tags from file.
-              6 : Failed when trying to write tags to file.
-             10 : IMDbPY not installed AND getTMDb_Info failed to import
-             11 : File is too large
+      -  0 : Completed successfully.
+      -  1 : Input was NOT and MKV
+      -  2 : IMDb ID was not valid
+      -  3 : Failed to download information from IMDb AND themoviedb.org
+      -  4 : Writing tags is NOT possible
+      -  5 :    Failed when trying to remove tags from file.
+      -  6 : Failed when trying to write tags to file.
+      - 10 : IMDbPY not installed AND getTMDb_Info failed to import
+      - 11 : File is too large.
+
   """
 
   log = logging.getLogger(__name__);                                              # Set up a logger
@@ -356,6 +364,7 @@ def writeTags( file, metaData, **kwargs ):
 
   Returns:
     bool: True if tags written, False otherwise
+
   """
 
   log = logging.getLogger(__name__)

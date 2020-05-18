@@ -41,6 +41,7 @@ class ComRemove( object ):
       threads (int): Number of threads comskip is allowed to use
       cpulimit (int): Set limit of cpu usage per thread
       verbose  (bool): Depricated
+
     """
 
     super().__init__( **kwargs );
@@ -88,6 +89,7 @@ class ComRemove( object ):
 
     Returns:
       bool
+
     """
 
     self.__outDir  = os.path.dirname( in_file )                                     # Store input file directory in attribute
@@ -133,6 +135,7 @@ class ComRemove( object ):
       str: Returns path to .edl file produced by comskip IF the 
       comskip runs successfully. If comskip does not run
       successfully, then None is returned.
+
     """
 
     if not COMSKIP:
@@ -204,6 +207,7 @@ class ComRemove( object ):
 
     Returns:
       bool: True if success, False if failed
+
     """
 
     self.__log.info('Generating metadata file')
@@ -258,6 +262,7 @@ class ComRemove( object ):
 
     Returns:
       list: File paths for the intermediate files created if successful. Else, returns None.
+
     """
 
     self.__log.info('Cutting out commercials')
@@ -311,6 +316,7 @@ class ComRemove( object ):
       Returns path to continous file created by joining
       intermediate files if joining is successful. Else
       returns None.
+
     """
 
     self.__log.info( 'Joining video segments into one file')
@@ -350,6 +356,7 @@ class ComRemove( object ):
 
     Returns:
       None
+
     """
 
     self.__log.debug( "Running file size check to make sure too much wasn't removed");
@@ -407,6 +414,7 @@ class ComRemove( object ):
 
     Returns:
       str: Path to Comskip INI file to use for commercial removal
+
     """
 
     if self.iniDir:                                                                     # If the iniDir is defined
@@ -428,6 +436,7 @@ class ComRemove( object ):
 
     Arguments:
       num (int) : File size
+
     """
 
     for unit in ['','K','M','G','T','P','E','Z']:

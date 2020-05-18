@@ -19,6 +19,7 @@ class BaseItem( BaseAPI ):
       data (dict): Metadata to initialize class with
       version (str): Release version such as 'Extended Edition'; only relevant for movies
       **kwargs: arbitrary arguments
+
     """
 
     super().__init__(*args, **kwargs)                                                   # Initialize parent class(es)
@@ -84,6 +85,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       None
+
     """
 
     self._data['comment'] = text
@@ -100,6 +102,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       None
+
     """
 
     self._version = version
@@ -116,6 +119,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       dict: Extra information
+
     """
 
     if self.URL:                                                                        # If URL is defined
@@ -142,6 +146,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       Return the item ID or None if not found
+
     """
 
     if external:                                                                        # If external keyword set
@@ -168,6 +173,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       List of srings containing director(s)
+
     """
 
     if self.crew is not None:
@@ -186,6 +192,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       List of srings containing writer(s)
+
     """
 
     if self.crew is not None:
@@ -208,6 +215,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       List of srings containing cast members
+
     """
 
     if self.cast is not None:
@@ -226,6 +234,7 @@ class BaseItem( BaseAPI ):
       **kwargs: Other arguments are accepted but ignored for compatability
     Returns:
       String containing rating
+
     """
 
     rating = ''                                                                         # Default rating is emtpy string
@@ -253,6 +262,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       List of strings containing genre(s)
+
     """
 
     if self.genres is not None:
@@ -271,6 +281,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       List of strings containing production company(s)
+
     """
 
     if self.production_companies is not None:
@@ -289,6 +300,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       tuple: Short (less than 240 characters) and long plots
+
     """
 
     sPlot = lPlot = ''
@@ -311,6 +323,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       URL to poster if exists, else empty string
+
     """
 
     if self.filename is not None:
@@ -375,6 +388,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       dict: Metadata in internal, standard format
+
     """
 
     if self.isEpisode:
@@ -395,6 +409,7 @@ class BaseItem( BaseAPI ):
 
     Returns:
       bool: True if tags written, False otherwise
+
     """
 
     data = self.metadata( **kwargs )

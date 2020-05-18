@@ -28,6 +28,7 @@ def replaceChars( string, repl = ' ', **kwargs ):
 
   Returns:
     str: String with ad values replaced by repl value
+
   """
 
   return BADCHARS.sub( repl, string ).replace('&', 'and')
@@ -44,6 +45,7 @@ def download(URL):
 
   Returns:
     bytes: Data downloaded from file; None if failed
+
   """
 
   log  = logging.getLogger(__name__)
@@ -89,6 +91,7 @@ def getFont( text, bbox ):
   Returns:
     tuple: Input text (may be updated with extra space between characters) and a
       pillow ImageFont font object.
+
   """
 
   bbox      = list(bbox)                                                        # Convert bbox to list
@@ -131,6 +134,7 @@ def addText( fp, text ):
 
   Returns:
     bytes: Image data
+
   """
 
   if isinstance(fp, bytes):                                                     # If input is a bytes instance
@@ -171,6 +175,7 @@ def downloadCover( videoPath, URL, text = None ):
 
   Returns:
     tuple: Path to downloaded image on local disc, and bytes for image data
+
   """
 
   data = download( URL )                                                                # Download data from URL

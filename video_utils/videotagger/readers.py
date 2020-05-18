@@ -27,6 +27,7 @@ def _mp4ExtractCover( info ):
 
   Returns:
     dict: Update info dictionary
+
   """
 
   key = 'cover'                                                                         # Key for the info dictionary to use
@@ -51,6 +52,7 @@ def mp4Reader( filePath ):
 
   Returns:
     dict: Dictionary containing metadata if found, otherwise, emtpy dict
+
   """
 
   log  = logging.getLogger(__name__)
@@ -84,6 +86,7 @@ def _mkvExtractCover( filePath ):
 
   Returns:
     str: Path to cover art file if extraction success, empty string otherwise
+
   """
 
   cover = os.path.join( CACHEDIR, uuid4().hex )                                         # Build path to cover file using random uuid
@@ -114,6 +117,7 @@ def mkvReader( filePath ):
 
   Returns:
     dict: Dictionary containing metadata if found, otherwise, emtpy dict
+
   """
 
   log  = logging.getLogger(__name__)

@@ -43,6 +43,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
   Dependencies:
      ffmpeg, mediainfo
+
   """
 
   def __init__(self, 
@@ -93,6 +94,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
                         this be the md5 hash of the password and not
                         the plain text of the password for slightly
                         better security
+
     """
 
     super().__init__(**kwargs);
@@ -181,47 +183,51 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
 
   ################################################################################
-  def transcode( self, inFile, 
-        log_file          = None, 
+  def transcode( self, inFile,
+        log_file          = None,
         metaData          = None,
-        chapters          = False, 
+        chapters          = False,
         removeCommercials = False):
     """
     Actually transcode a file
 
     Designed mainly with MKV file produced by MakeMKV in mind, this method
     acts to setup options to be fed into the ffmpeg CLI to transcode
-    the file. A non-exhaustive list of options chosen are:
+    the file. A non-exhaustive list of options chosen are
+
       - Set quality rate factor for x264/x265 based on video resolution and the recommended settings found here: https://handbrake.fr/docs/en/latest/workflow/adjust-quality.html
       - Used variable frame rate, which 'preserves the source timing
       - Uses x264 codec for all video 1080P or lower, uses x265 for video greater than 1080P, i.e., 4K content.
       - Copy any audio streams with more than two (2) channels 
       - Extract VobSub subtitle file(s) from the mkv file.
       - Convert VobSub subtitles to SRT files.
+
     This program will accept both movies and TV episodes, however,
     movies and TV episodes must follow specific naming conventions 
     as specified under in the 'File Naming' section below.
 
     Arguments:
-       inFile (str): Full path to MKV file to covert. Make sure that the file names
-               follow the following formats for movies and TV shows:
+      inFile (str): Full path to MKV file to covert. Make sure that the file names
+        follow the following formats for movies and TV shows:
 
     Keyword arguments:
-       log_file (str): File to write logging information to
-       metaData (dict): Pass in result from previous call to getMetaData
-       chapters (bool) : Set if commericals are to be marked with chapters.
-                     Default is to cut commericals out of video file
-       removeCommercials (bool): Set to remove/mark commercial segments in file
+      log_file (str): File to write logging information to
+      metaData (dict): Pass in result from previous call to getMetaData
+      chapters (bool): Set if commericals are to be marked with chapters.
+        Default is to cut commericals out of video file
+      removeCommercials (bool): Set to remove/mark commercial segments in file
 
     Returns:
-       Outputs a transcoded video file in the MP4 container and
-       subtitle files, based on keywords used. Also returns codes 
-       to signal any errors.
-       Check .transcode_status
-         -  0 : Everything finished cleanly
-         -  1 : Output file exists
-         -  5 : comskip failed
-         - 10 : No video OR no audio streams
+      Outputs a transcoded video file in the MP4 container and 
+      subtitle files, based on keywords used. Also returns codes 
+      to signal any errors. 
+
+    Transcode Status
+      -  0 : Everything finished cleanly
+      -  1 : Output file exists
+      -  5 : comskip failed
+      - 10 : No video OR no audio streams
+
     """
  
     if _sigtermEvent.is_set(): return False                                             # If _sigterm has been called, just quit
@@ -345,6 +351,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     Returns:
       None
+
     """
 
     if not isRunning(): return False
@@ -416,20 +423,21 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       None
 
     Keyword arguments:
-        None
+      None
 
     Returns:
-      Updates vobsub_status and creates/updates list of VobSubs that failed
-      vobsub2srt conversion.
-      Return codes for success/failure of extraction. Codes are as follows:
-        - 0 : Completed successfully.
-        - 1 : VobSub(s) and SRT(s) already exist
-        - 2 : Error extracting VobSub(s).
-        - 3 : VobSub(s) are still being extracted.
+      Updates vobsub_status and creates/updates list of VobSubs that failed vobsub2srt conversion.
+
+    Return codes:
+      - 0 : Completed successfully.
+      - 1 : VobSub(s) and SRT(s) already exist
+      - 2 : Error extracting VobSub(s).
+      - 3 : VobSub(s) are still being extracted.
 
     Dependencies:
       - mkvextract : A CLI for extracting streams for an MKV file.
       - vobsub2srt : A CLI for converting VobSub images to SRT
+
     """ 
 
     if not isRunning(): return
@@ -529,6 +537,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     Returns:
       list: Full ffmpeg command to run
+
     """
 
     cmd = self._ffmpeg_base( )                                                  # Call method to generate base command for ffmpeg
@@ -585,6 +594,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     Returns:
       List containing base ffmpeg command for converting
+
     """
 
     cmd  = ['ffmpeg', '-nostdin', '-i', self.inFile]
@@ -613,6 +623,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     Returns:
       str: Key for the video_info attribute
+
     """
 
     for i in range( len(self.video_info['order']) ):                            # Iterate over all values in the 'order' tuple
@@ -631,6 +642,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     Returns:
       str: Key for the audio_info attribute
+
     """
 
     for i in range( len(self.audio_info['order']) ):                            # Iterate over all values in the 'order' tuple

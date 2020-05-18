@@ -27,10 +27,11 @@ def getDownmixFilter( PLII = True ):
     None
 
   Keyword arguments:
-    PLII    : Set to use Dolby Pro Logic II downmix. This is the default
+    PLII : Set to use Dolby Pro Logic II downmix. This is the default
 
   Returns:
     str: Format string for filter
+
   """
 
   if PLII:                                                                      # If PLII is True
@@ -54,17 +55,17 @@ def DolbyDownmix( inFile, outDir = None, PLII = True, AAC = False, FLAC = False,
   Arguments:
      inFile (str): Full path to the file that should be downmixed
 
-  Keyword argumentss:
-     PLII (bool): Set to downmix to Dolby Pro Logic II.
-                 This is the default. Setting to Fasle
-                 will downmix in Dolby Pro Logic.
-     AAC (bool): Set to output as AAC encoded file. Default is OGG.
-     time (str): String in format HH:MM:SS.0 specifing the
-                 lenght of the downmix. Default is complete
-                 stream.
+  Keyword arguments:
+    PLII (bool): Set to downmix to Dolby Pro Logic II.
+      This is the default. Setting to False will downmix in Dolby Pro Logic.
+    AAC (bool): Set to output as AAC encoded file. Default is OGG.
+    time (str): String in format HH:MM:SS.0 specifing the
+      length of the downmix. Default is complete stream.
+
   Returns:
      None: A stereo downmix of audio tracks in inFile with the same name as input.
-             Only first audio stream is downmixed
+       Only first audio stream is downmixed
+
   """
 
   inFile  = os.path.abspath( inFile );                                          # Make sure we have the absolute path

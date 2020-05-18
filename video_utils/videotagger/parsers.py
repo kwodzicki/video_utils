@@ -94,6 +94,7 @@ def parseCredits( info, **kwargs ):
 
   Returns:
     dict: Updated dictionary
+
   """
 
   log     = logging.getLogger(__name__)

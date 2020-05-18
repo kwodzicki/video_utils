@@ -44,11 +44,11 @@ class FFMetaData( object ):
       None
 
     Keyword arguments:
-      Any key/value pair where key is a valid metadata tag and value is
-      the value for the tag. 
+      Any key/value pair where key is a valid metadata tag and value is the value for the tag. 
 
     Returns:
-      None.
+      None:
+
     """
 
     self._metadata.update( kwargs )
@@ -67,10 +67,12 @@ class FFMetaData( object ):
 
     Keyword arguments:
       time_base : String of form 'num/den’, where num and den are integers. 
-                  If the time_base is missing then start/end times are assumed
-                 to be in nanosecond. Ignored if NOT three (3) inputs.
+        If the time_base is missing then start/end times are assumed to be in nanosecond.
+        Ignored if NOT three (3) inputs.
+
     Returns:
       None
+
     """
 
     if len(args) == 1:
@@ -113,6 +115,7 @@ class FFMetaData( object ):
 
     Returns:
       str: Returns the filePath input
+
     """
 
     with open(filePath, 'w') as fid:                                            # Open file for writing
@@ -237,6 +240,7 @@ class Chapter( object ):
 
     Returns:
       tuple: (inInt, inFloat) where inInt is in requested time_base
+
     """
 
     if time_base != self.time_base:                                                     # If requested time_base NOT match time_base
@@ -287,6 +291,7 @@ class Chapter( object ):
                           2 - (default) add offset to start and end
     Returns:
       None: updates internal attributes
+
     """
 
     if isinstance(offset, timedelta):
@@ -314,6 +319,7 @@ def cropdetect( infile, dt = 20, threads = None):
   Returns:
     Returns string for FFmpeg video filter in the format crop=w:h:x:y
     or None if no cropping detected
+
   """
 
   log     = logging.getLogger(__name__);                                                # Get a logger
@@ -336,6 +342,7 @@ def cropdetect( infile, dt = 20, threads = None):
 
     Returns:
       List of strings containing ffmpeg command
+
     """
 
     if not isinstance(ss,      str): ss = str(ss)
@@ -409,6 +416,7 @@ def totalSeconds( *args ):
 
   Returns:
     Returns a numpy array of total number of seconds in time
+
   """
 
   times = [np.array(arg.split(':'), dtype=np.float32)*_toSec for arg in args]         # Iterate over all arugments, splitting on colon (:), converting to numpy array, and converting each time element to seconds
@@ -416,26 +424,26 @@ def totalSeconds( *args ):
 
 ###############################################################################
 class FFmpegProgress(object):
-  """
-  Class for monitoring output from ffmpeg to determine how much time remains in the conversion."""
+  """Class for monitoring output from ffmpeg to determine how much time remains in the conversion."""
 
   def __init__(self, interval = 60.0, nintervals = None):
     """
-      Arguments:
-        None
-      Returns:
-        Object
-      Keyword arguments:
-        interval (float): The update interval, in seconds, to log time remaining info.
-                      Default is sixty (60) seconds, or 1 minute.
-        nintervals (int): Set to number of updates you would like to be logged about
-                      progress. Default is to log as many updates as it takes
-                      at the interval requested. Setting this keyword will 
-                      override the value set in the interval keyword.
-                      Note that the value of interval will be used until the
-                      first log, after which point the interval will be updated
-                      based on the remaing conversion time and the requested
-                      number of updates
+    Arguments:
+      None
+    Returns:
+      Object
+    Keyword arguments:
+      interval (float): The update interval, in seconds, to log time remaining info.
+                    Default is sixty (60) seconds, or 1 minute.
+      nintervals (int): Set to number of updates you would like to be logged about
+                    progress. Default is to log as many updates as it takes
+                    at the interval requested. Setting this keyword will 
+                    override the value set in the interval keyword.
+                    Note that the value of interval will be used until the
+                    first log, after which point the interval will be updated
+                    based on the remaing conversion time and the requested
+                    number of updates
+
     """
 
     self.log = logging.getLogger(__name__)                                          # Initialize logger for the function
@@ -510,6 +518,7 @@ def progress( proc, interval = 60.0, nintervals = None ):
   Returns:
     Returns nothing. Does NOT wait for the process to finish so MUST handle
     that in calling function
+
   """
 
   log = logging.getLogger(__name__);                                          # Initialize logger for the function
@@ -572,6 +581,7 @@ def checkIntegrity(filePath):
 
   Returns:
     bool: True if no overread errors, False otherwise
+
   """
 
   cmd  = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', 
@@ -618,6 +628,7 @@ def getChapters(inFile):
 
   Returns:
     List of Chapter objects if chapters exist, None otherwise
+
   """
 
   cmd = ['ffprobe', '-i', inFile, '-print_format', 'json', 
@@ -647,6 +658,7 @@ def partialExtract( inFile, outFile, startOffset, duration, chapterFile = None )
 
   Returns:
     bool: True on successful extraction, False otherwise
+
   """
 
   if not isinstance(startOffset, timedelta):                                            # Ensure startOffset is timedelta
@@ -686,6 +698,7 @@ def splitOnChapter(inFile, nChapters):
   Returns:
     Outputs n files, where n is equal to the total number
     of chapters in the input file divided by nChaps.
+
   """
 
   chapters = getChapters( inFile )                                                      # Get all chapters from file
@@ -759,6 +772,7 @@ def combine_mp4_files(outFile, *args):
 
   Returns:
     None
+
   """
 
   log = logging.getLogger( __name__ )

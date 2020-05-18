@@ -24,6 +24,7 @@ def getBasename(title, year=None, version='', ID='', **kwargs):
 
   Returns:
     str: Movie base name
+
   """
 
   if year:                                                                              # If year is valid
@@ -38,6 +39,7 @@ class BaseMovie( BaseItem ):
 
   Provides methods that are used in both TMDbMovie and TVDbMovie
   objects for cleaner code
+
   """
 
   def __init__(self, *args, **kwargs):
@@ -49,6 +51,7 @@ class BaseMovie( BaseItem ):
 
     Keyword arguments:
       **kwargs:
+
     """
 
     super().__init__(*args, **kwargs)                                                   # Initialize parent class(es)
@@ -90,6 +93,7 @@ class BaseMovie( BaseItem ):
 
     Returns:
       str: File nam in Plex convention
+
     """
 
     title = self.title.replace('.', '_')
@@ -120,6 +124,7 @@ class BaseMovie( BaseItem ):
 
     Returns:
       str: Directory structure in Plex convention
+
     """
     mdir = replaceChars( str(self) )
     return os.path.join( root, 'Movies', mdir )
@@ -168,6 +173,7 @@ class TVDbMovie( BaseMovie ):
     Keyword arguments:
       data (dict): User-defined metadata; if None entered, will be downloaded
       **kwargs: Arbitrary arguments
+
     """
 
     super().__init__(*args, **kwargs)                                                   # Initialize parent class(es)

@@ -24,6 +24,7 @@ def freeform( tag ):
     is usually ‘com.apple.iTunes’ and ‘name’ is a unique identifier for this frame.
     The value is a str, but is probably text that can be decoded as UTF-8. Multiple
     values per key are supported.
+
   """
 
   return '----:com.apple.iTunes:{}'.format( tag )
@@ -220,6 +221,7 @@ def getMetaData( file=None, dbID=None, seasonEp=(), version='', **kwargs ):
 
   Returns:
     A TMDbMovie, TMDbEpisode, TVDbMovie, or TVDbEpisode object
+
   """
 
   if file:

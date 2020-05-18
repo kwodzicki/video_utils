@@ -13,6 +13,7 @@ def pidStore( fPath ):
 
   Returns:
     bool: True if file created, False otherwise
+
   """
 
   log  = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ def pidRunning( fPath ):
 
   Returns:
     bool: True if process is already running, False otherwise
+
   """
 
   if os.path.isfile( fPath ):                                                           # if the fPath file exists

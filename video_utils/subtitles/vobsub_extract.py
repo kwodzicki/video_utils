@@ -26,14 +26,16 @@ def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
 
   Returns:
     int: Updates vobsub_status and creates/updates list of VobSubs that failed vobsub2srt conversion.
-                Returns codes for success/failure of extraction. Codes are as follows:
-                   0 - Completed successfully.
-                   1 - VobSub(s) already exist
-                   2 - No VobSub(s) to extract
-                   3 - Error extracting VobSub(s).
-                  10 - mkvextract not found/installed
+      Returns codes for success/failure of extraction. Codes are as follows:
+        -  0 : Completed successfully.
+        -  1 : VobSub(s) already exist
+        -  2 : No VobSub(s) to extract
+        -  3 : Error extracting VobSub(s).
+        - 10 : mkvextract not found/installed
+
   Dependencies:
     mkvextract - A CLI for extracting streams for an MKV file.
+
   """
 
   log     = logging.getLogger(__name__);

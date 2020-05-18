@@ -25,6 +25,7 @@ def ccextract( in_file, out_file, text_info ):
 
   Returns:
     None: ccextract creates some files
+
   """
 
   log  = logging.getLogger(__name__);                                           # Set up logger

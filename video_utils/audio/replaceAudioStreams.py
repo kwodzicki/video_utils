@@ -26,6 +26,7 @@ def extractAudio( info, inFile, outDir, result, time = None ):
 
   Returns:
     str: Path to the extracted audio stream
+
   """
 
   print('Extracting audio for alignment'.format(inFile));                       # Print some inforamtion
@@ -61,6 +62,7 @@ def fileNameInfo( inFile, info = None ):
 
   Returns:
      list: List with file information
+
   """
 
   m = MediaInfo(inFile) if info is None else info;                              # Get information about the file
@@ -125,6 +127,7 @@ def replaceAudioStreams( in1, in2, outDir = None, replace = False):
   This function will replace all audio streams in in1 with those
   in in2. If all audio streams in in2 are surround (i.e., > 2 channels),
   one downmixed stream will also be placed in in1.
+
   """
 
   if outDir is None: outDir = os.path.dirname(in1)

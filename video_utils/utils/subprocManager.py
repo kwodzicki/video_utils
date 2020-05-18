@@ -35,6 +35,7 @@ class SubprocManager(object):
                    Smaller values will catch process completions faster,
                    but will also use more resources while checking for
                    process completion.
+
     """
 
     super().__init__(**kwargs);
@@ -70,6 +71,7 @@ class SubprocManager(object):
       stderr  : Same as for stdout but for all stderr values
       Accepts all subprocess.Popen arguments. Only difference is that
       by default stdout and stderr are piped to DEVNULL
+
     """
 
     self.__queue.append( (args, kwargs,) );                                     # Append the Popen info to the queue as a tuple
@@ -86,6 +88,7 @@ class SubprocManager(object):
                  Returning right away may be useful if you want to add 
                  more processes the to process queue. You can then use
                  the .wait() method to wait for processes to finish.
+
     """
 
     self.__runEvent.set()
@@ -103,6 +106,7 @@ class SubprocManager(object):
 
     Keyword arguments:
       timeout : Time, in seconds, to wait for process to finish.
+
     """
 
     if self.__threadID:                                                         # If the _threadID attribute valid; i.e., not None
@@ -126,10 +130,11 @@ class SubprocManager(object):
     Arguments:
       func  : Function to apply
 
-    Keyword argumetns:
-      args   : Tuple or list of arguments, besides Popen instance, to
-               apply to function
-      kwargs : Dictionary of keyword arguments to apply to input function
+    Keyword arguments:
+      args: Tuple or list of arguments, besides Popen instance, to
+        apply to function
+      kwargs: Dictionary of keyword arguments to apply to input function
+
     """
 
     self.__log.debug('Attempting to apply function to process')
@@ -151,6 +156,7 @@ class SubprocManager(object):
     Private method for actually running all the process.
     This is done in a thread so that blocking can be disabled; i.e.,
     user can keep adding processes to the queue if they want
+
     """
 
     self.__n = 0;                                                               # Ensure the counter is at zero
@@ -173,6 +179,7 @@ class SubprocManager(object):
 
     Keyword arguments:
       **kwargs: All kwargs from Popen
+
     """
 
     if _sigintEvent.is_set() or _sigtermEvent.is_set(): return
@@ -266,6 +273,7 @@ class SubprocManager(object):
     """ 
     Private method for killing everything (cleanly). 
     Intended to be called when SIGINT or something else occurs
+
     """
     while self.__runEvent.is_set():
       if _sigintEvent.wait( timeout = 0.5 ) or _sigtermEvent.wait( timeout = 0.5 ):

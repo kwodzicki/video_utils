@@ -77,6 +77,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
     Returns:
       list: Files
+
     """
 
     files = []
@@ -99,6 +100,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
     Returns:
       None
+
     """
 
     self.log.debug('Waiting for file to finish being created')
@@ -133,6 +135,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
     Returns:
       None
+
     """
 
     while isRunning():                                                          # While the kill event is NOT set

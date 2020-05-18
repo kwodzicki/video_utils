@@ -89,6 +89,7 @@ class SearchWidget( QWidget ):
     Returns:
       An instance of either TVDbMovie, TVDbEpisode, TMDbMovie, TMDbEpisode
       based on search criteria. If bad criteria, then returns None.
+
     """
 
     dbName  = self.comboBox.currentText()                                                   # Use current text as db name

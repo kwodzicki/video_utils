@@ -106,6 +106,7 @@ def genHardLinks( topDir, rootdir = None ):
   new file nameing convention. Will walk through given directory,
   finding all files with IMDBid in name. Will then get TVDb or
   TMDb information for renaming.
+
   """
 
   imdbIDs  = {}
@@ -200,6 +201,7 @@ def updateFileNames(*args, rootdir = None, dbID = None):
                   should set rootdir=/path/to/TV Shows
   Returns:
     None
+
   """
 
   for arg in args:

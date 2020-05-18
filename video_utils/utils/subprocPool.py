@@ -30,6 +30,7 @@ def makeDirs( path ):
 
   Returns:
     bool: True if directory(ies) created, False otherwise
+
   """
 
   dirName = os.path.dirname(path)
@@ -55,10 +56,12 @@ class NLock( object ):
     threads than specified could start. For example, say 2 threads are allowed
     in the NLock object:
     code-block::
+
        LOCK = NLock(2)
 
     Now, image two (2) processes, each requiring one (1) thread, acquire the lock
     code-block::
+
        if LOCK.acquire( threads = 1 ):
          ...process1...
        if LOCK.acquire( threads = 1 ):
@@ -67,6 +70,7 @@ class NLock( object ):
     While those are running, say a third (3rd) process that requries two (2) threads
     tries to get the lock
     code-block::
+
         if LOCK.acquire( threads = 2 ):
           ...process3...
 
@@ -80,6 +84,7 @@ class NLock( object ):
 
     This issue will only be encountered if acquire is called with varying thread
     counts.
+
   """
 
   __n       = 0                                                                    
@@ -136,6 +141,7 @@ class NLock( object ):
 
     Returns:
       bool: True if lock acquired, False otherwise
+
     """
 
     threads = kwargs.pop('threads', None)                                                  # Get threads keyword for number of processes to reserver, default is 1 
@@ -167,6 +173,7 @@ class NLock( object ):
                  thread.
     Returns:
       None
+
     """
 
     with self.__lock1:                                                                  # Get lock1 to ensure no other process changes __n 
@@ -192,6 +199,7 @@ class PopenThread( Thread ):
 
   Note:
     The thread will run until the subprocess finishes, fails, or is killed
+
   """
 
   def __init__(self, *args, **kwargs):
@@ -208,6 +216,7 @@ class PopenThread( Thread ):
 
     Returns:
       A PopenThread instance
+
     """
 
     super().__init__()
@@ -266,15 +275,15 @@ class PopenThread( Thread ):
     Method to apply function to Popen process
 
     Arguments:
-      func  : Function to apply to process; Must accept subprocess.Popen
-              instance as first argument
+      func: Function to apply to process; Must accept subprocess.Popen instance as first argument
       *args: Any other arguments to pass the func
 
     Keyword arguments:
       **kwargs: Any keywords to pass to func
 
     Returns:
-      bool: True if function applied, False otherwise
+      bool: True if function applied, False otherwise.
+
     """
 
     if self._proc:
@@ -347,6 +356,7 @@ class PopenThread( Thread ):
 
     Returns:
       Popen instance for cpulimit if started, else None
+
     """
 
     if self._proc and CPULIMIT and self.cpulimit:                                       # If process and cpulimit CLI found and cpulimit set
@@ -380,6 +390,7 @@ class PopenPool(Thread):
 
     Returns:
       A PopenPool instance
+
     """
 
     kwargs['daemon'] = kwargs.pop('daemon', True)                                       # Default to deamon
@@ -424,6 +435,7 @@ class PopenPool(Thread):
     Closes the PopenPool, similar to multiprocessing.Pool.close()
 
     Running this method will disable adding processes to the queue.
+
     """
 
     self.__closed.set()
@@ -440,6 +452,7 @@ class PopenPool(Thread):
 
     Returns:
       bool:True if queue is empty, False otherwise; will be False on timeout
+
     """
 
     endtime = None                                                                      # Initialize endTime to None
@@ -471,6 +484,7 @@ class PopenPool(Thread):
 
     Note:
       If too many processes are already queued, this method will block until some finish.
+
     """
 
     if self.__closed.is_set():                                                          # If closed is set
@@ -521,6 +535,7 @@ class PopenPool(Thread):
     Returns:
       None if the lock acquired and process started.
       thread (input object) if the lock not acqurie and process not started.
+
     """
 
     if PROCLOCK.acquire(timeout = TIMEOUT, threads = thread.threads):                   # Grab lock specifying theads and with timeout

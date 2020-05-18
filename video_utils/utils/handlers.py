@@ -26,6 +26,7 @@ def sendEMail( func ):
 
   Returns:
     Wrapped function
+
   """
 
   def sendEMailWrapper(*args, **kwargs):
@@ -95,6 +96,7 @@ class EMailHandler( logging.Handler ):
 
     Returns:
       None
+
     """
 
     if isinstance(level, int):
@@ -157,6 +159,7 @@ class RotatingFile( Thread ):
   This class is intended to be used for stdout and stderr for calls to
   subprocess module routines, such as the Popen constructor. However, there
   are many other applications for this class.
+
   """
 
   def __init__(self, *args, **kwargs):
@@ -201,6 +204,7 @@ class RotatingFile( Thread ):
 
     Returns:
       None
+
     """
 
     with os.fdopen(self.rw[0]) as fid:                                                  # Open the read-end of pipe

@@ -26,6 +26,7 @@ class TMDbSeries( BaseSeries ):
 
     Keyword arguments:
       data      : Series data returned by a search
+
     """
 
     super().__init__(*args, **kwargs)
@@ -63,6 +64,7 @@ class TVDbSeries( BaseSeries ):
 
     Keyword arguments:
       data      : Series data returned by a search
+
     """
 
     super().__init__(*args, **kwargs)
