@@ -101,11 +101,18 @@ from . import Episode
 
 ###################################################################
 class TMDb( BaseAPI ):
-  def __init__(self, *args, **kwargs):
+  """Class for high-level interaction with TMDb API"""
+
+  def __init__(self, *args, **kwargs): 
     super().__init__(*args, **kwargs)
     self.__log = logging.getLogger(__name__)
 
   def search( self, title = None, episode = None, seasonEp = None, year = None, page = None ):
+    """
+    Search TMDb for a given Movie or TV episode
+
+    """
+
     params = {'query' : title}
     if page: params['page'] = page
 
@@ -130,7 +137,12 @@ class TMDb( BaseAPI ):
     return []
   
   #################################
-  def byIMDb( self, IMDbID ):
+  def byIMDb( self, IMDbID, **kwargs ):
+    """
+    Search TMDb for a given Movie or TV episode using IMDb ID
+
+    """
+
     if (IMDbID[:2] != 'tt'): IMDbID = 'tt{}'.format(IMDbID)
     params = {'external_source' : 'imdb_id'}
     url  = self.TMDb_URLFind.format( IMDbID )
@@ -157,11 +169,18 @@ class TMDb( BaseAPI ):
 
 ###################################################################
 class TVDb( BaseAPI ):
+  """Class for high-level interaction with TMDb API"""
+
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.__log = logging.getLogger(__name__)
 
   def search( self, title=None, episode=None, seasonEp=None, year=None, page=None, nresults=10 ):
+    """
+    Search TVDb for a given Movie or TV episode
+
+    """
+
     params = {'name' : title}
     if page: params['page'] = page
 
@@ -187,7 +206,12 @@ class TVDb( BaseAPI ):
     return []                                                                           # Return empty list
   
   #################################
-  def byIMDb( self, IMDbID, season=None, episode=None ):
+  def byIMDb( self, IMDbID, season=None, episode=None, **kwargs ):
+    """
+    Search TVDb for a given Movie or TV episode using IMDb series ID 
+
+    """
+
     if (IMDbID[:2] != 'tt'): IMDbID = 'tt{}'.format(IMDbID)
     params = {'imdbId' : IMDbID}
     json = self._getJSON( self.TVDb_URLSearch, **params )
@@ -195,9 +219,9 @@ class TVDb( BaseAPI ):
       data = []
       for item in json.get('data', []):
         if season and episode:
-          tmp = Episode.TVDbEpisode( item['id'], season, episode )
+          tmp = Episode.TVDbEpisode( item['id'], season, episode, **kwargs )
         else:
-          tmp = Series.TVDbSeries( item['id'] )
+          tmp = Series.TVDbSeries( item['id'], **kwargs )
         if tmp:
           data.append( tmp  )
       return data

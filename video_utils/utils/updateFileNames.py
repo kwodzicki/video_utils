@@ -20,7 +20,7 @@ SEASONEP = re.compile( '[sS](\d{2,})[eE](\d{2,})' )
 tmdb     = TMDb()
 tvdb     = TVDb()
 
-def tvRename( topDir, path, imdbID, seriesID, rootdir = None ):
+def tvRename( topDir, path, imdbID, seriesID, rootdir = None, **kwargs ):
   fileDir, fileBase = os.path.split(path)                                       # Get dirname and basename
   seasonEp = SEASONEP.findall( fileBase )                                   # GEt season/episode number
   if len(seasonEp) == 1:                                                    # If season episode number found
@@ -29,9 +29,9 @@ def tvRename( topDir, path, imdbID, seriesID, rootdir = None ):
     print('Failed to find season/ep: {}'.format(path))
     exit()
   if 'tvdb' in seriesID:
-    ep = TVDbEpisode( seriesID, season, episode )
+    ep = TVDbEpisode( seriesID, season, episode, **kwargs)
   else:
-    res = tvdb.byIMDb(seriesID, season, episode)
+    res = tvdb.byIMDb(seriesID, season, episode, **kwargs)
     if res is None or len(res) != 1:
       print('Incorrect number of results: {}'.format(path) )
       return False 
@@ -100,7 +100,7 @@ def movieRename( topDir, path, metadata, imdbID, rootdir = None):
     print()
   return newDir
 
-def genHardLinks( topDir, rootdir = None ):
+def genHardLinks( topDir, rootdir = None, **kwargs ):
   """
   Function to generate hard links to existing files using
   new file nameing convention. Will walk through given directory,
@@ -142,7 +142,7 @@ def genHardLinks( topDir, rootdir = None ):
 #        print('Not an episode: {}'.format(paths[0]))
 #        continue
       for path in paths:                                                        # Iterate over all files that contain this ID
-        newDir = tvRename( topDir, path, imdbID, seriesID, rootdir ) 
+        newDir = tvRename( topDir, path, imdbID, seriesID, rootdir, **kwargs) 
         if newDir:                                                              # If hardlink created
           toScan.append( newDir )
           toRemove.append( path )                                               # Append path to the toRemove list
@@ -150,7 +150,7 @@ def genHardLinks( topDir, rootdir = None ):
       # Get TMDbMovie object using IMDb id
       # Use that information to create new file path using getDirname and getBasename
       # Create hard link to old file using new path
-      res = tmdb.byIMDb( imdbID )
+      res = tmdb.byIMDb( imdbID, **kwargs )
       if res is None:
         print('Failed for: {}'.format(paths[0]) )
         continue
@@ -168,7 +168,7 @@ def genHardLinks( topDir, rootdir = None ):
 
   return toScan, toRemove                                                               # Return the toRemove list
 
-def updateSpecials(season00, dbID, rootdir):
+def updateSpecials(season00, dbID, rootdir, **kwargs):
   toRemove = []
   for root, dirs, items in os.walk(season00):
     for item in items:
@@ -185,7 +185,7 @@ def updateSpecials(season00, dbID, rootdir):
   return None, toRemove
   
 
-def updateFileNames(*args, rootdir = None, dbID = None):
+def updateFileNames(*args, rootdir = None, dbID = None, **kwargs):
   """
   Function to iterate over Plex Library directories to rename
 
@@ -194,11 +194,15 @@ def updateFileNames(*args, rootdir = None, dbID = None):
              Library directories OR individual directories within a library.
              If they are individual directories within a library, then
              must set the rootdir keyword for things to work correctly.
+
   Keyword arguments:
     rootdir (str): Set if scanning a subset of directories in a library
                   directory. For example, if renaming files in Westworld
                   and the args path is /path/to/TV Shows/Westworld, then
                   should set rootdir=/path/to/TV Shows
+    dbID (str): Force a given TV series ID
+    **kwargs: Various other keywords, including the airedOrder key
+
   Returns:
     None
 
@@ -226,9 +230,9 @@ def updateFileNames(*args, rootdir = None, dbID = None):
         indir = os.path.join( *indir )
       print( 'Working on: {}'.format( indir ) )
       if dbID:
-        scanDirs, toRemove = updateSpecials( indir, dbID, root )
+        scanDirs, toRemove = updateSpecials( indir, dbID, root, **kwargs )
       else:
-        scanDirs, toRemove = genHardLinks( indir, rootdir = root )
+        scanDirs, toRemove = genHardLinks( indir, rootdir = root, **kwargs)
        
       if len(toRemove) != 0:
         res      = input('Want to run Plex Media Scanner (YES/n): ')
