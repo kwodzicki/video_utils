@@ -31,8 +31,10 @@ To install it using pip::
 
    dependencies
    naming/index
+   settings
    tagging
    comskip
+   email
    clis
    examples
    api/index

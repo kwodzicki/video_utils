@@ -1,14 +1,14 @@
-#####################3
+#####################
 # API Keys
 TVDB_API_KEY :    # Set to string containing API key for TV Database 
 TMDB_API_KEY :    # Set to string containing API key for The Movie Database
 
 
-#####################3
+#####################
 # Comskip settings
 COMSKIP_INI_DIR : # Set to string containing full path to directory containing comskip ini files
 
-#####################3
+#####################
 # This section defines email inforamtion for logging
 email:
   send_from:
