@@ -178,17 +178,16 @@ def downloadCover( videoPath, URL, text = None ):
 
   """
 
-  data = download( URL )                                                                # Download data from URL
-  if data is None:                                                                      # If data is None
-    return False                                                                        # Return False
+  imagePath = None                                                                      # Initialize imagePath to None
+  data      = download( URL )                                                           # Download data from URL
+  if data is not None:                                                                  # If data is NOT None
+    if isinstance(text, str) and text != '':                                            # If text is string instance and NOT empty
+      data = addText( data, text )                                                      # Add text to image data
 
-  if isinstance(text, str) and text != '':                                              # If text is string instance and NOT empty
-    data = addText( data, text )                                                        # Add text to image data
-
-  imageExt  = os.path.splitext( URL       )[1]                                          # Get image extension
-  imagePath = os.path.splitext( videoPath )[0] + imageExt                               # Set image path
-  
-  with open( imagePath, 'wb' ) as fid:                                                  # Open imagePath in binary write mode
-    fid.write( data )                                                                   # Write data to file
+    imageExt  = os.path.splitext( URL       )[1]                                        # Get image extension
+    imagePath = os.path.splitext( videoPath )[0] + imageExt                             # Set image path
+    
+    with open( imagePath, 'wb' ) as fid:                                                # Open imagePath in binary write mode
+      fid.write( data )                                                                 # Write data to file
 
   return imagePath, data                                                                # Return path to file and image bytes

@@ -228,7 +228,7 @@ class TVDb( BaseAPI ):
     return None 
 
 ###################################################################
-def getMetaData( file=None, dbID=None, seasonEp=(), version='', **kwargs ):
+def getMetaData( file=None, dbID=None, seasonEp=None, version='', **kwargs ):
   """
   Get Movie or Episode object based on information from file name or dbID
   
@@ -248,48 +248,45 @@ def getMetaData( file=None, dbID=None, seasonEp=(), version='', **kwargs ):
 
   """
 
+  if seasonEp is None: seasonEp = ()                                                    # If seasonEp is None; then make empty tuple
+
   if file:
     fileDir, fileBase = os.path.split( file )
-    seasonEp = SEASONEP.findall(fileBase)
+    if len(seasonEp) != 2: seasonEp = SEASONEP.findall(fileBase)
   
-    if not isinstance(dbID, str):                             # If dbID is NOT a string
+    if not isinstance(dbID, str):                                                       # If dbID is NOT a string
       tmp = os.path.splitext(fileBase)[0].split('.')
-      if isID(tmp[0]):                                        # If tvdb or tmdb in the first four (4) characters
-        dbID    = tmp[0]                                      # Use first value as DB id
-      elif len(seasonEp) == 1:                                # Else, if seasonEp was parsed from file name
+      if isID(tmp[0]):                                                                  # If tvdb or tmdb in the first four (4) characters
+        dbID    = tmp[0]                                                                # Use first value as DB id
+      elif len(seasonEp) == 1:                                                          # Else, if seasonEp was parsed from file name
         try:
-          dbID = tmp[1]                                         # Assume second value is dbID
+          dbID = tmp[1]                                                                 # Assume second value is dbID
         except:
           dbID = ''
-      else:                                                   # Else, assume is movie
+      else:                                                                             # Else, assume is movie
         try:
-          dbID = tmp[2]                                      # Assume third value is dbID
+          dbID = tmp[2]                                                                 # Assume third value is dbID
         except:
           dbID = ''
       if not version:
         try:
-          version = tmp[1]                                      # Assume second value is version (Extended Edition, Director's Cut, etc.)
+          version = tmp[1]                                                              # Assume second value is version (Extended Edition, Director's Cut, etc.)
         except:
           version = ''
-  elif dbID:
-    if len(seasonEp) == 2:
-      seasonEp = (seasonEp,)
-    else:
-      seasonEp = ()
-  else:
+  elif dbID is None:
     raise Exception('Must input file or dbID')
 
   if not isID( dbID ):
     return None
 
   if (dbID[:4] == 'tvdb'):
-    if len(seasonEp) == 1:
-      return Episode.TVDbEpisode( dbID, *seasonEp[0], **kwargs )
+    if len(seasonEp) == 2:
+      return Episode.TVDbEpisode( dbID, *seasonEp, **kwargs )
     else:
       return Movie.TVDbMovie( dbID, version=version, **kwargs )
   elif (dbID[:4] == 'tmdb'):
-    if len(seasonEp) == 1:
-      return Episode.TMDbEpisode( dbID, *seasonEp[0], **kwargs )
+    if len(seasonEp) == 2:
+      return Episode.TMDbEpisode( dbID, *seasonEp, **kwargs )
     else:
       return Movie.TMDbMovie( dbID, version=version, **kwargs )
   return None
