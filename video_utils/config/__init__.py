@@ -96,9 +96,38 @@ BASEPARSER.add_argument("--loglevel",        type   = int,                      
 BASEPARSER.add_argument('--version',         action = 'version', version = '%(prog)s '+__version__)
 
 def getComskipLog(progName, logdir = None):
+  """
+  Generate file path to comskip log file.
+
+  Arguments:
+    progName (str): Name of the running program. This will be prepended
+      to :code:`_Comskip.log`
+
+  Keyword arguments:
+    logdir (str): Path to logging directory
+
+  Returns:
+    str: Path to log file
+
+  """
+
   if logdir is None: logdir = LOGDIR
   return os.path.join( logdir, '{}_Comskip.log'.format(progName) )
 
 def getTranscodeLog(progName, logdir = None):
+  """
+  Generate file path to transcode log file.
+
+  Arguments:
+    progName (str): Name of the running program. This will be prepended
+      to :code:`_Transcoder.log`
+
+  Keyword arguments:
+    logdir (str): Path to logging directory
+
+  Returns:
+    str: Path to log file
+
+  """
   if logdir is None: logdir = LOGDIR
   return os.path.join( logdir, '{}_Transcoder.log'.format(progName) )

@@ -14,24 +14,28 @@ except:
 
 def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
   """
-  A python function to extract VobSub(s) from a file and convert them
-    to SRT file(s). If a file fails to convert, the VobSub files are 
-    removed and the program continues. A message is printed
+  Extract VobSub(s) from a file and convert them to SRT file(s).
+
+  If a file fails to convert, the VobSub files are removed and the program continues.
 
   Arguments:
-    None
+    in_file (str): File to extract subtitles from
+    out_file (str): Base name for output file(s)
+    text_info (dict): Data returned by call to :meth:`video_utils.mediainfo.MediaInfo.get_text_info`
 
   Keyword arguments:
-    None.
+    vobsub (bool): Set to keep vobsub after extraction; Default removes file
+    srt (bool): Set to convert vobsub to srt format; Default does NOT convert file
 
   Returns:
     int: Updates vobsub_status and creates/updates list of VobSubs that failed vobsub2srt conversion.
-      Returns codes for success/failure of extraction. Codes are as follows:
-        -  0 : Completed successfully.
-        -  1 : VobSub(s) already exist
-        -  2 : No VobSub(s) to extract
-        -  3 : Error extracting VobSub(s).
-        - 10 : mkvextract not found/installed
+    Returns codes for success/failure of extraction. Codes are as follows:
+
+      -  0 : Completed successfully
+      -  1 : VobSub(s) already exist
+      -  2 : No VobSub(s) to extract
+      -  3 : Error extracting VobSub(s).
+      - 10 : mkvextract not found/installed
 
   Dependencies:
     mkvextract - A CLI for extracting streams for an MKV file.

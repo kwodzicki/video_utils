@@ -79,16 +79,17 @@ class ComRemove( object ):
     Arguments:
       in_file (str): Full path of file to run commercial removal on
 
-    Keword arguments:
+    Keyword arguments:
       chapters (bool): Set for non-destructive commercial 'removal'.
-                  If set, will generate .chap file containing
-                  Show segment and commercial break chapter info
-                  for FFmpeg.
-      name    (str): Name of series or movie (Plex convention). Required
-                  if trying to use specific comskip.ini file
+        If set, will generate .chap file containing show segment and
+        commercial break chapter info for FFmpeg.
+      name (str): Name of series or movie (Plex convention). Required
+        if trying to use specific comskip.ini file
 
     Returns:
-      bool
+      If chapters is True, returns string to ffmpeg metadata file on
+      success, False otherwise.
+      if Chapters is False, returns True on success, False otherwise
 
     """
 
@@ -127,12 +128,12 @@ class ComRemove( object ):
     Arguments:
       in_file (str): Full path of file to run comskip on
 
-    Keywords arguments:
-      name    (str): Name of series or movie (Plex convention). Required
-                  if trying to use specific comskip.ini file
+    Keyword arguments:
+      name (str): Name of series or movie (Plex convention). Required
+        if trying to use specific comskip.ini file
 
     Returns:
-      str: Returns path to .edl file produced by comskip IF the 
+      Path to .edl file produced by comskip IF the 
       comskip runs successfully. If comskip does not run
       successfully, then None is returned.
 
@@ -198,7 +199,7 @@ class ComRemove( object ):
     Create an ffmpeg metadata file containing chatper information for commercials.
 
     The edl file created by comskip is parsed into an FFMETADATA file. This
-    file can then be passed to ffmpeg to created chapters in the output file
+    file can then be passed to ffmpeg to create chapters in the output file
     marking show and commercial segments.
 
     Arguments:
@@ -206,7 +207,7 @@ class ComRemove( object ):
       edl_file (str): Full path of .edl file produced by
 
     Returns:
-      bool: True if success, False if failed
+      str: Path to ffmpeg metadata file
 
     """
 
@@ -249,7 +250,7 @@ class ComRemove( object ):
  
     ffmeta.save( metaFile )
 
-    return True 
+    return metaFile 
 
   ########################################################
   def comcut(self, in_file, edl_file):
@@ -382,6 +383,21 @@ class ComRemove( object ):
 
   ########################################################
   def convertTXT( self, txt_file, edl_file ):
+    """
+    Convert txt file created by comskip to edl_file
+
+    Arguments:
+      txt_file (str): Path to txt_file
+      edl_file (str): Path to edl_file
+
+    Keyword arguments:
+      None
+
+    Returns:
+      str: Path to edl file
+
+    """
+
     if not os.path.isfile(txt_file):
       self.__log.error('TXT file does NOT exist!')
       return None

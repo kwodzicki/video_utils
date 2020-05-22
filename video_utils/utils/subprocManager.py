@@ -69,8 +69,8 @@ class SubprocManager(object):
                  string, it is assumed that this is a file path and
                  will pipe all output to file.
       stderr  : Same as for stdout but for all stderr values
-      Accepts all subprocess.Popen arguments. Only difference is that
-      by default stdout and stderr are piped to DEVNULL
+      **kwargs: Accepts all subprocess.Popen arguments. Only difference is that
+        by default stdout and stderr are piped to DEVNULL
 
     """
 

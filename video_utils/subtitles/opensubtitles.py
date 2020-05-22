@@ -34,32 +34,33 @@ class OpenSubtitles( ServerProxy ):
 
     Some code borrowed from https://github.com/chripede/opensubtitle-downloader
 
+    To download the top 5 subtiles for foreign language parts and full movie
+    based on score in english, the call word look like::
+
+        >>> subs = OpenSubtitles().getSubtitles('/path/to/file', nSubs=5)
+
+    as the default for sorting is score and english is the
+    default language.
+
+    To download the 5 newest subtitles in Russian for foreign 
+    language parts and full movie the call word look like::
+
+        >>> subs = OpenSubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
+
     Arguments:
        None
 
     Keyword arguments:
       username (str): User name for opensubtitles.org.
       userpass (str): Password for opensubtitles.org. Recommend that
-                    this be the md5 hash of the password and not
-                    the plain text of the password for slightly
-                    better security
+        this be the md5 hash of the password and not
+        the plain text of the password for slightly
+        better security
       **kwargs
 
-    Outputs:
+    Returns:
        Save an SRT subtitle file with same convetion as movie
        file IF a subtitle is found.
-
-    Example:
-      To download the top 5 subtiles for foreign language parts and full movie
-      based on score in english, the call word look like:
-        subs = OpenSubtitles().getSubtitles('/path/to/file', nSubs=5)
-      as the default for sorting is score and english is the
-      default language.
-      
-      To download the 5 newest subtitles in Russian for foreign 
-      language parts and full movie the call word look like:
-
-          subs = OpenSubtitles('/path/to/file', lang='rus', nSubs=5, sort='date')
 
     """
 
@@ -103,7 +104,7 @@ class OpenSubtitles( ServerProxy ):
     Arguments:
       file (str): Full path to the movie file to download SRT file for.
 
-    Keywords:
+    Keyword arguments:
       title (str): Set to title of movie to search for.
         Default is to use title from file.
       imdb (str): Set to IMDb id of moive to search for.
@@ -114,17 +115,15 @@ class OpenSubtitles( ServerProxy ):
         Default isFalse
       nSubs (int): Set to the number of files subtitles to download
         for each file. Default is one (1).
-      sort (str): Set the sorting method used for downloading.
+      sort (str): Set the sorting method used for downloading. Sorted in descending order.
         Options are
-          - score     : Sort based on score
+
+          - score     : Sort based on score (default)
           - downloads : Sort based on number of times downloaded
           - date      : Sort based on upload date
 
-        Default is score. All of the sorting is done in descending order.
-      track_num (int): Set to specific 'track' number for labeling.
-        Default is to start at zero.
-      get_forced (bool): Set to True to get only forced subtitles.
-        Default is to get full.
+      track_num (int): Set to specific 'track' number for labeling. Default is to start at zero.
+      get_forced (bool): Set to True to get only forced subtitles. Default is to get full.
 
     Returns:
       Save an SRT subtitle file with same convetion as movie file IF a subtitle is found.

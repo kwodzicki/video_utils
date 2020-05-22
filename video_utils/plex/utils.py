@@ -19,117 +19,6 @@ _season_pattern = re.compile( r'(?:[sS](\d+)[eE]\d+)' );                        
 _year_pattern   = re.compile( r'\(([0-9]{4})\)' );                                      # Pattern for finding yea
 
 ################################################################################
-def plexDVR_Scan( recorded, no_remove = False, movie = False ):
-  """
-  Function that will try to scan a directory for newly DVRed/transcoded files.
-
-  When Plex records, it saves the file in a temporary folder. When
-  recording finishes, that folder is then moved to the proper 
-  location and the recording added to the library; however, the
-  transoded file will NOT be added. 
-
-  This function will attempt
-  to scan just the specific season directory (or full TV library
-  as last resort) to add transcoded file. 
-
-  After the scan is complete, pending the no_remove keyword,
-  the original recording file fill be removed. It is NOT removed
-  first because then Plex will see the transcoded file as a new
-  file and NOT a duplicate (I think)
-
-  Arguments:
-    recorded (str): Full path to the DVRd file; i.e., the file that Plex recoded data to, should be a .ts file.
-                 This file MUST be in its final location, that is in the directory AFTER Plex moves it when
-                 recording is complete.
-
-  Keyword arguments:
-    no_remove (bool): Set to True to keep the original file
-    movie     (bool):  Set if scanning for movie
-
-  Outputs:
-    None
-
-  Note:
-    This function is intened to be run as a child process, i.e., after call to os.fork()
-
-  """ 
-
-  log = logging.getLogger(__name__);
-  if (os.environ.get('USER', '').upper() != 'PLEX'):
-    log.error("Not running as user 'plex'; current user : {}. Skipping Plex Library Scan".format(os.environ.get('USER','')) )
-    return 2
- 
-  try:
-    cmd, myenv = getPlexMediaScanner();                                             # Attempt to get Plex Media Scanner command
-  except:
-    log.exception('Something went wrong finding Plex commands')
-    return 1
-
-
-  if cmd is None:
-    log.critical( "Did NOT find the 'Plex Media Scanner' command! Returning!")
-    return 1
-  
-  log.debug( 'Getting list of Plex Libraries' )
-  plexList = None
-  try:
-    plexList = check_output( ['stdbuf', '-oL', '-eL'] + cmd + ['--list'], 
-                          universal_newlines = True, env = myenv );             # Get the list again
-  except:
-    log.debug("Failed to get library listing with 'stdbuf', trying without")        
-
-  if (plexList is None) or (plexList == ''):   
-    try:
-      plexList = check_output( cmd + ['--list'], 
-                      universal_newlines = True, env = myenv );                 # Try to get help information from the scanner
-    except:
-      log.debug( 'Exception while running command' )
-      return 1
-
-  if (plexList is None) or (plexList == ''):                                                      # If an empty string was returned
-    log.critical( 'Failed to get listing of sections! Returning')
-    return 1
-
-  log.debug( "Attemting to find 'TV' section...")
-
-  plexList = plexList.splitlines();                                             # Split the string of Plex sections on new line
-  section  = None;                                                              # Set section to None
-  while (len(plexList) > 0) and (section is None):                              # While there are values left in the plexList AND section is None
-    tmp = plexList.pop();                                                       # Pop off a string from the plexList
-    if movie:                                                                   # If movie is set
-      if 'MOVIE' in tmp.upper():                                                # If MOVIE in tmp
-        section = tmp.split(':')[0].strip();                                    # Get the section number for the Plex section
-    elif 'TV' in tmp:                                                           # If TV is in the string
-      section = tmp.split(':')[0].strip();                                      # Get the section number for the Plex section
-  if section is None:                                                           # If section is still None
-    if movie:
-      log.critical( "Failed to find 'Movie' section! Exiting" )
-    else:
-      log.critical( "Failed to find 'TV' section! Exiting" )
-    return 1;                                                                   # Return 
-
-  scan_dir  = os.path.dirname( recorded );                                      # Directory name of input file
-  cmd      += [ '--scan', '--section', section, '--directory', scan_dir ];      # Append scan and section options to command
-
-  log.debug( 'Plex Media Scanner command: {}'.format( ' '.join(cmd) ) )
-
-  proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );
-  proc.communicate();
-
-  if not no_remove:                                                             # If no_remove is False, i.e., want to remove file
-    log.debug('Removing original recoding' );                                   # Debug info
-    try:
-      os.remove( recorded );                                                     # Remove the original recording file
-    except:
-      pass
-
-    log.debug( 'Rescanning library' );                                          # Debug info
-    proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = myenv );        # Rescan the library; note this is only done IF the file is removed
-    proc.communicate();
-
-  return 0
-
-################################################################################
 def plexFile_Info( in_file ):
   """ 
   Function to extract series, season/episode, and episode title information from a file path
@@ -140,8 +29,8 @@ def plexFile_Info( in_file ):
   Keyword arguments:
     None.
 
-  Outputs:
-    Returns series name, season/episode or date, episode title, and file extension
+  Returns:
+    tuple: series name, season/episode or date, episode title, and file extension
 
   """
 
@@ -194,7 +83,7 @@ def plexDVR_Rename( in_file, hardlink = True ):
     hardlink (bool): if set to True, will rename input file, else
                creates hard link to file. Default is to hard link
 
-  Outputs:
+  Returns:
     Returns path to renamed file and tuple with parsed file information
 
   """
@@ -309,7 +198,7 @@ def getPlexMediaScanner( ):
   Keyword arguments:
     None.
 
-  Outputs:
+  Returns:
     Returns list containing full path to Plex Media Scanner command
 
   """
@@ -364,10 +253,10 @@ def getPlexLibraries( cmd, env = None ):
     cmd (list): Full path to the Plex Media Scanner CLI (list, 1-element)
 
   Keyword arguments:
-    env (dict):  Environment for running Plex Media Scanner CLI. Default is os.environ.
+    env (dict): Environment for running Plex Media Scanner CLI. Default is os.environ.
 
-  Ouputs:
-    Returns dictionary of Plex Libraries where key is library name and value is library number.
+  Returns:
+    dict: Plex Libraries where key is library name and value is library number.
 
   """
 
@@ -399,44 +288,19 @@ def getPlexLibraries( cmd, env = None ):
 
   return plexLibs                                                               # Return dictionary
 
-
-################################################################################
-def parseCommands( cmd_list ):
-  """ 
-  Function to parse out the arguments from a string
-
-  Arguments:
-    cmd_list (list): List of strings contiaining output from a call to 'pgrep -fa Plex Media Server'
-
-  Keyword arguments:
-    None.
-
-  Outputs:
-    Returns list of lists, where sub-lists contain all arguments from pgrep output
-
-  """ 
-
-  cmds = [];                                                                    # Initialze list for all commands
-  for cmd in cmd_list:                                                          # Iterate over all cmds in the command list
-    args = _splt_pattern.findall( cmd );                                        # Split arguments; should return list of tuples
-    for i in range(len(args)):                                                  # Iterate over each argument
-      index   = ( args[i].index('') + 1 ) % 2;                                  # Each arg is a 2-element tuple where one is empty string, so, locate empty string, add value of 1 to index do modulus to find index of non-empty string
-      args[i] = args[i][index]                                                  # Set argument at i to non-empty string
-    cmds.append( args );                                                        # Append args list to the cmds list
-  return cmds;                                                                  # Return commands list
-
 ################################################################################
 def parse_cmd_lib_dirs( lines ):
   """ 
-  Function to parse 'Plex Media Server' command directory and LD_LIBRARY_PATH path.
+  Function to parse :code:`Plex Media Server` command directory and LD_LIBRARY_PATH path.
 
   Arguments:
-    lines (list): List of strings contiaining output from a call to 'pgrep -fa Plex Media Server'
+    lines (list): List of strings containing output from a call to 
+      :code:`pgrep -fa Plex Media Server`
 
   Keyword arguments:
     None.
 
-  Outputs:
+  Returns:
     Returns the command parent directory and LD_LIBRARY_PATH.
     in that order. If either/both NOT found, None is returned.
 
@@ -458,11 +322,4 @@ def parse_cmd_lib_dirs( lines ):
         if os.path.isdir( path ):
           return path, None
 
-  # If made here, means nothing found in above method
-#  cmds = parseCommands( lines );                                                # Parse out all argumens from the commands
-#  for cmd in cmds:                                                              # Iterate over all command argument lists in the cmds list
-#    if _plex_server in cmd[-1]:                                                 # If the 'Plex Media Server' string is in the last argument of the command
-#      return os.path.dirname( cmd[-1] ), None;                                  # Return the parent directory of the command AND None for LD_LIBRARY_PATH
-  
-  # If made here, means nothing found
   return None, None;                                                            # Return None for both

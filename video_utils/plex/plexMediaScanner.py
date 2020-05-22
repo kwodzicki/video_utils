@@ -19,13 +19,13 @@ def plexMediaScanner( *args, **kwargs ):
   A python function that will try to run the Plex Media Scanner CLI.
   
   Arguments:
-    Any flags from the Plex Media Scanner Actions list; note that
-    you do NOT include hyphens (-). Note that if you are adding a section,
-    the --type, --agent, etc. flags should be input as keywords.
-    Can also input Modifies to actions here
+    *args: Any flags from the :code:`Plex Media Scanner` Actions list.
+      Do NOT include hyphens (-). If you are adding a section,
+      the :code:`--type`, :code:`--agent`, etc. flags should be input as keywords.
+      Can also input Modifies to actions here
 
   Keyword arguments:
-    Any flag/value pair from the Plex Media Scanner Items list   
+    **kwargs: Any flag/value pair from the Plex Media Scanner Items list   
 
   Returns:
     int: Returns status code; 0 is successful scan

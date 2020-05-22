@@ -29,11 +29,12 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
 
   Returns:
     int: Updates vobsub_status and creates/updates list of VobSubs that failed vobsub2srt conversion.
-      Returns codes for success/failure of extraction. Codes are as follows:
-        - 0 : Completed successfully.
-        - 1 : SRT(s) already exist
-        - 2 : No VobSub(s) to convert.
-        - 3 : Some VobSub(s) failed to convert.
+    Returns codes for success/failure of extraction. Codes are as follows:
+
+      - 0 : Completed successfully.
+      - 1 : SRT(s) already exist
+      - 2 : No VobSub(s) to convert.
+      - 3 : Some VobSub(s) failed to convert.
 
   Dependencies:
     vobsub2srt - A CLI for converting VobSub images to SRT

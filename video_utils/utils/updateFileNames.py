@@ -201,7 +201,7 @@ def updateFileNames(*args, rootdir = None, dbID = None, **kwargs):
                   and the args path is /path/to/TV Shows/Westworld, then
                   should set rootdir=/path/to/TV Shows
     dbID (str): Force a given TV series ID
-    **kwargs: Various other keywords, including the airedOrder key
+    **kwargs: Various other keywords, including the dvdOrder key
 
   Returns:
     None

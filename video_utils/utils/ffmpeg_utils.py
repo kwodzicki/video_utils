@@ -317,8 +317,7 @@ def cropdetect( infile, dt = 20, threads = None):
           for crop detection, default is 20 seconds
 
   Returns:
-    Returns string for FFmpeg video filter in the format crop=w:h:x:y
-    or None if no cropping detected
+    FFmpeg video filter in the format :code:`crop=w:h:x:y` or None if no cropping detected
 
   """
 
@@ -372,8 +371,8 @@ def cropdetect( infile, dt = 20, threads = None):
       if res is None:                                                                   # If resolution not yet found
         res = _resPat.findall( line )                                                   # Try to find resolution information
         res = [int(i) for i in res[0].split('x')] if len(res) == 1 else None            # Set res to resolution if len of res is 1, else set back to None
+
       whxy = _cropPat.findall( line )                                                   # Try to find pattern in line
-    
       if len(whxy) == 1:                                                                # If found the pattern
         if not detect: detect = True                                                    # If detect is False, set to True
         if (nn == crop.shape[0]):                                                       # If the current row is outside of the number of rows
@@ -385,6 +384,10 @@ def cropdetect( infile, dt = 20, threads = None):
     proc.communicate()                                                                  # Wait for FFmpeg to finish cleanly
     ss += timedelta( seconds = 60 * 5 )                                                 # Increment ss by 5 minutes
 
+  if res is None:                                                                       # If resolution is still None
+    log.error('Could not determine video resolution, will NOT crop!')                   # Log error
+    return None                                                                         # Return None
+
   maxVals = np.nanmax(crop, axis = 0)                                                   # Compute maximum across all values
   xWidth  = maxVals[0]                                                                  # First value is maximum width
   yWidth  = maxVals[1]                                                                  # Second is maximum height
@@ -394,10 +397,13 @@ def cropdetect( infile, dt = 20, threads = None):
     yOffset = (res[1] - yWidth) // 2                                                    # Compute x-offset, this is half of the difference between video height and crop height because applies to both top and bottom of video
     crop    = np.asarray( (xWidth, yWidth, xOffset, yOffset), dtype = np.uint16 )       # Numpy array containing crop width/height of offsets as unsigned 16-bit integers
 
-    if res is not None:                                                                 # If input resolution was found
-      if (crop[0] == res[0]) and (crop[1] == res[1]):                                   # If the crop size is the same as the input size
-        log.debug( 'Crop size same as input size, NOT cropping' )                       # Debug info
-        return None                                                                     # Return None
+    if (crop[0] == res[0]) and (crop[1] == res[1]):                                     # If the crop size is the same as the input size
+      log.debug( 'Crop size same as input size, NOT cropping' )                         # Debug info
+      return None                                                                       # Return None
+    elif (xWidth/res[0] >= 0.95) or (crop[1]/res[1] >= 0.95):
+      log.debug( 'Crop size very similar to input size ({:0.0f}x{:0.0f} vs. {:d}x{:d}), NOT cropping'.format(xWidth, yWidth, *res) )
+      return None
+
     log.debug( 'Values for crop: {}'.format(crop) )                                     # Debug info
     return 'crop={}:{}:{}:{}'.format( *crop )                                           # Return formatted string with crop option
   log.debug( 'No cropping region detected' )
@@ -555,6 +561,8 @@ def progress( proc, interval = 60.0, nintervals = None ):
 
 ########################################################
 def getVideoLength(in_file):
+  """Returns float length of video, in seconds"""
+
   proc = Popen( ['ffmpeg', '-i', in_file], stdout=PIPE, stderr=STDOUT)
   info = proc.stdout.read().decode()
   dur  = _durPat.findall( info )

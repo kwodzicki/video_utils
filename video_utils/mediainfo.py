@@ -63,6 +63,8 @@ class MediaInfo( object ):
       self.__parse_output();
   @property
   def format(self):
+    """Full name of file format; e.g., MPEG-4, Matroska"""
+
     if self.__mediainfo:
       return self.__mediainfo['General'][0]['Format'];
     else:
@@ -70,25 +72,25 @@ class MediaInfo( object ):
 
   ##############################################################################
   def __getitem__(self, key):
-    """Method for easily getting key from mediainfo; acts a dict"""
+    """Method for easily getting key from mediainfo; similar to dict[key]"""
 
     return self.__mediainfo[key]
 
   ##############################################################################
   def __setitem__(self, key, value):
-    """Method for easily setting key in mediainfo; acts a dict"""
+    """Method for easily setting key in mediainfo; similar to dict[key] = value"""
 
     self.__mediainfo[key] = value
 
   ##############################################################################
   def get(self, *args):
-    """Method for geting mediainfo keys; acts a dict"""
+    """Method for geting mediainfo keys; similar to dict.get()"""
 
     return self.__mediainfo.get(*args)
 
   ##############################################################################
   def keys(self):
-    """Method for geting mediainfo keys; acts a dict"""
+    """Method for geting mediainfo keys; similar to dict.keys()"""
 
     return self.__mediainfo.keys();
 
