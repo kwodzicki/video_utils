@@ -252,7 +252,7 @@ def getMetaData( file=None, dbID=None, seasonEp=None, version='', **kwargs ):
 
   if file:
     fileDir, fileBase = os.path.split( file )
-    if len(seasonEp) != 2: seasonEp = SEASONEP.findall(fileBase)
+    if len(seasonEp) != 2: seasonEp = SEASONEP.findall(fileBase)[0]
   
     if not isinstance(dbID, str):                                                       # If dbID is NOT a string
       tmp = os.path.splitext(fileBase)[0].split('.')
