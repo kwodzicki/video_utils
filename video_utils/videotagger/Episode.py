@@ -31,8 +31,8 @@ def getBasename(seasonNum, episodeNum, title, ID = '', **kwargs):
   """
 
   basename = SEFMT.format(seasonNum, episodeNum, title)                                 # Format base name using season/episode number and title
-  basename = '{:.50}.{}'.format( basename, ID )                                         # Clip the 
-  return replaceChars( basename, **kwargs )                                             # Replace invalid chars and return
+  basename, ID = replaceChars( basename, ID, **kwargs )
+  return '{:.50}.{}'.format( basename, ID )                                             # Clip the 
 
 class BaseEpisode( BaseItem ):
   """

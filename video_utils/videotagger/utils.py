@@ -15,23 +15,43 @@ TSCALE   = 0.85
 SPACE    = ' '
 BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
 
-def replaceChars( string, repl = ' ', **kwargs ):
+def _replace( string, repl, **kwargs ):
+  """
+  'Private' function for replace characters in string
+
+  Arguments:
+    string (str): String to have characters replaced
+    repl (str): String to replace bad characters with
+
+  Keyword arguments:
+    **kwargs: Any, none used currently
+
+  Returns:
+    str: String with bad values repaced by repl value
+
+  """
+
+  return BADCHARS.sub( repl, string ).replace('&', 'and').strip()
+
+def replaceChars( *args, repl = ' ', **kwargs ):
   """
   Replace invalid path characters; '&' replaced with 'and'
 
   Arguments:
-    string (str): String to replace characters in
+    *args (str): String(s) to replace characters in
 
   Keyword arguments:
     repl (str): String to replace bad characters with; default is space (' ')
     **kwargs
 
   Returns:
-    str: String with ad values replaced by repl value
+    String, or list, with bad values replaced by repl value
 
   """
 
-  return BADCHARS.sub( repl, string ).replace('&', 'and')
+  if len(args) == 1:                                                                    # If one input argument
+    return _replace( args[0], repl, **kwargs )                                          # Return single value
+  return [ _replace( arg, repl, **kwargs ) for arg in args ]                            # Iterate over all input arguments, returning list
  
 def download(URL):
   """

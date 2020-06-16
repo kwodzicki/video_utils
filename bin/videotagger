@@ -14,20 +14,18 @@ from video_utils.videotagger import getMetaData
 if QApplication is not None:
   from video_utils.videotagger import gui
 
-logger = logging.getLogger();                                                 # Load logger on command line run
-
 def tagFile( args ):
   if not args.path.endswith('.mp4') and not args.path.endswith('.mkv'):
-    logger.critical('File must be MP4 or MKV!')
+    video_utils.log.critical('File must be MP4 or MKV!')
     return False
-  metadata = getMetaData( args.path, dbID=args.dbID, seasonEp=args.season_episode, airedOrder=args.airedOrder )
+  metadata = getMetaData( args.path, dbID=args.dbID, seasonEp=args.season_episode, dvdOrder=args.dvdOrder )
   metadata.addComment(
     'Metadata written with {} version {}.'.format(video_utils.__name__, video_utils.__version__)
   )
   try:
     metadata.writeTags( args.path )
   except:
-    logger.critical('Failed to write tags')
+    video_utils.log.critical('Failed to write tags')
     return False 
   if args.rename:
     mediainfo = MediaInfo( args.path ) 
@@ -39,7 +37,7 @@ def tagFile( args ):
       os.makedirs( newDir, exist_ok = True )
     newFile = [metadata.getBasename()] + video['file_info'] + audio['file_info']
     newPath = os.path.join( newDir, '.'.join(newFile) + ext )
-    logger.info('Renaming file: {} ---> {}'.format(args.path, newPath))
+    video_utils.log.info('Renaming file: {} ---> {}'.format(args.path, newPath))
     os.rename( args.path, newPath )
   return True
 
@@ -50,15 +48,15 @@ if __name__ == "__main__":
   parser.add_argument('--season-episode', type=int, nargs=2, help='Season and episode number for tv show')
   parser.add_argument('-v', '--verbose',  nargs='?', default='info', help='Increase verbosity. Levels are info (default) and debug.')
   parser.add_argument("--rename", type=str, help="Top-level path for rename; note that 'Movies' or 'TV Shows' will be placed below this directory, with files below that.")
-  parser.add_argument("--airedOrder",     action = 'store_true', help='Set if the season/episode number corresponds to aired ordering on TVDb. Default is to use DVD ordering')
+  parser.add_argument("--dvdOrder",     action = 'store_true', help='Set if the season/episode number corresponds to dvd ordering on TVDb. Default is to use aired ordering')
   parser.add_argument("--gui",            action = 'store_true', help="Start GUI"); 
   parser.add_argument('--version',        action = 'version', version = '%(prog)s '+video_utils.__version__ )
   
   args = parser.parse_args();                                                   # Parse the arguments
   if args.verbose == 'debug':
-    logger.setLevel( logging.DEBUG );
+    video_utils.log.setLevel( logging.DEBUG );
   else:
-    logger.setLevel( logging.INFO );
+    video_utils.log.setLevel( logging.INFO );
     
   screen_fmt = '%(levelname)-5.5s - %(funcName)-10.10s - %(message)s';          # Set format for printing log messages to file
   screen_fmt = logging.Formatter(screen_fmt);                                   # Get logger formatter based on screen format
@@ -66,7 +64,7 @@ if __name__ == "__main__":
   screen_log = logging.StreamHandler();                                         # Get a stream handler for screen logs
   screen_log.setFormatter( screen_fmt );                                        # Set the format tot the screen format
   screen_log.setLevel( screen_lvl );                                            # Set the screen logger level
-  logger.addHandler(screen_log);                                                # Add the stream handler to the logger
+  video_utils.log.addHandler(screen_log);                                                # Add the stream handler to the logger
 
   if args.gui:
     if QApplication is None:
