@@ -395,7 +395,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       self.metaData = metaData
 
     if self.metaData:                                                                   # If metaData is valid
-      metaData.addComment( 
+      self.metaData.addComment( 
         'File converted and tagged using {} version {}'.format(
           __pkg_name__, __pkg_version__
         )

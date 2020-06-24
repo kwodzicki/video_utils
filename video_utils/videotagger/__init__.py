@@ -158,7 +158,9 @@ class TMDb( BaseAPI ):
           elif (key == 'tv_results'):
             val.append( Series.TMDbSeries( item['id'] ) ) 
           elif (key == 'tv_episode_results'):
-            val.append( Episode.TMDbEpisode( item['id'] ) ) 
+            season  = item['season_number']
+            episode = item['episode_number']
+            val.append( Episode.TMDbEpisode( item['id'], season, episode ) ) 
           #elif (key == 'tv_season_results'):
           #  val.append( Season( item ) )
           else:
