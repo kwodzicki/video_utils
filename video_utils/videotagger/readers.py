@@ -32,6 +32,11 @@ def _mp4ExtractCover( info ):
 
   key = 'cover'                                                                         # Key for the info dictionary to use
   if key in info:                                                                       # If key is in info
+    if isinstance(info[key], (list,tuple)):                                             # If value is iterable
+      if len(info[key]) == 0:                                                           # If length zero
+        return info                                                                     # Return info
+      else:                                                                             # Else
+        info[key] = info[key][0]                                                        # Set value to first element of list
     ext   = 'jpeg' if info[key].imageformat == info[key].FORMAT_JPEG else 'png'         # Set extension based on image type
     cover = os.path.join( CACHEDIR, '{}.{}'.format(uuid4().hex,ext) )                   # Build path to cover file using random uuid
     with open(cover, 'wb') as fid:                                                      # Open file for binary writing
