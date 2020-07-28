@@ -110,14 +110,23 @@ def genHardLinks( topDir, rootdir = None, **kwargs ):
   """
 
   imdbIDs  = {}
-  for root, dirs, items in os.walk(topDir):                                     # Iterate over all files recursively
-    for item in items:                                                          # Iterate over items
-      imdbID = IMDBID.findall( item )                                           # Get IMDb ID from file name
-      if len(imdbID) == 1:                                                      # If IMDB id
-        imdbID = imdbID[0]                                                      # Get only instance
-        if imdbID not in imdbIDs:
-          imdbIDs[imdbID] = []                                                  # If IMDB id not in imdbIDs dictionary, add key with list as value
-        imdbIDs[imdbID].append( os.path.join(root, item) )                      # Append path to list under IMDb id
+
+  if os.path.isfile(topDir):
+    imdbID = IMDBID.findall( topDir )                                           # Get IMDb ID from file name
+    if len(imdbID) == 1:                                                      # If IMDB id
+      imdbID = imdbID[0]                                                      # Get only instance
+      if imdbID not in imdbIDs:
+        imdbIDs[imdbID] = []                                                  # If IMDB id not in imdbIDs dictionary, add key with list as value
+      imdbIDs[imdbID].append( topDir )                      # Append path to list under IMDb id
+  else:
+    for root, dirs, items in os.walk(topDir):                                     # Iterate over all files recursively
+      for item in items:                                                          # Iterate over items
+        imdbID = IMDBID.findall( item )                                           # Get IMDb ID from file name
+        if len(imdbID) == 1:                                                      # If IMDB id
+          imdbID = imdbID[0]                                                      # Get only instance
+          if imdbID not in imdbIDs:
+            imdbIDs[imdbID] = []                                                  # If IMDB id not in imdbIDs dictionary, add key with list as value
+          imdbIDs[imdbID].append( os.path.join(root, item) )                      # Append path to list under IMDb id
  
   toRemove = []                                                                 # List of all files that can be deleted
   toScan   = []
@@ -211,7 +220,10 @@ def updateFileNames(*args, rootdir = None, dbID = None, **kwargs):
   for arg in args:
     for item in os.listdir(arg):
       indir = os.path.join(arg, item)
-      if not os.path.isdir(indir): continue
+      #if not os.path.isdir(indir):
+        #print( item )
+        #exit()
+        #continue
       if rootdir:
         tmp = rootdir
       else:
