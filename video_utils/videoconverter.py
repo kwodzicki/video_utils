@@ -282,7 +282,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
           name = str(self.metaData.Series)                                              # Get series information
         else:                                                                           # Else
           name = str(self.metaData)                                                     # Get movie information
-      status = self.removeCommercials( inFile, chapters = chapters, name = name )       # Try to remove commercials 
+      status = self.removeCommercials( self.inFile, chapters = chapters, name = name )  # Try to remove commercials 
       if isinstance(status, str):                                                       # If string instance, then is path to chapter file
         self.chapterFile = status                                                       # Set chatper file attribute to status; i.e., path to chapter file
       elif not status:                                                                  # Else, will be boolean
@@ -365,17 +365,17 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     """
 
     if not isRunning(): return False
-    self.__log.info('Setting up some file information...');
+    self.__log.info('Setting up some file information...')
 
     # Set up file/directory information
-    self.inFile  = inFile if os.path.exists( inFile ) else None;                        # Set the inFile attribute for the class to the file input IF it exists, else, set the inFile to None
+    self.inFile  = inFile if os.path.exists( inFile ) else None                         # Set the inFile attribute for the class to the file input IF it exists, else, set the inFile to None
     if self.inFile is None:                                                             # IF the input file does NOT exist
-      self.__log.info( 'File requested does NOT exist. Exitting...' );
+      self.__log.info( 'File requested does NOT exist. Exitting...' )
       self.__log.info( '   {}'.format(inFile) )
       return False                                                                      # Return, which stops the program
 
     self.__log.info( 'Input file: {}'.format( self.inFile ) )                           # Print out the path to the input file
-    self.__log.info('Getting video, audio, information...');                            # If verbose is set, print some output
+    self.__log.info('Getting video, audio, information...')                             # If verbose is set, print some output
 
     self.video_info = self.get_video_info( x265 = self.x265 )                           # Get and parse video information from the file
     if self.video_info is None:
