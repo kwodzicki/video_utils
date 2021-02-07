@@ -68,7 +68,7 @@ for key, val in COMMON2MP4.items():
   MP42COMMON[val] = key
 
 # A dictionary where keys are the standard internal tags and values are MKV tags
-# THe first value of each tuple is the level of the tag and the second is the tag name
+# The first value of each tuple is the level of the tag and the second is the tag name
 # See: https://matroska.org/technical/specs/tagging/index.html
 COMMON2MKV = {
   'year'       : (50, 'DATE_RELEASED'),
@@ -250,11 +250,16 @@ def getMetaData( file=None, dbID=None, seasonEp=None, version='', **kwargs ):
 
   """
 
+  log = logging.getLogger(__name__)
+
   if seasonEp is None: seasonEp = ()                                                    # If seasonEp is None; then make empty tuple
 
   if file:
     fileDir, fileBase = os.path.split( file )
-    if len(seasonEp) != 2: seasonEp = SEASONEP.findall(fileBase)[0]
+    if len(seasonEp) != 2:                                                              # If there are NOT 2 elements in season ep
+      seasonEp = SEASONEP.findall(fileBase)                                             # Use regex to try to find season and episode number
+      if len(seasonEp) == 1:                                                            # If there is one match to regex patter
+        seasonEp = seasonEp[0]                                                          # Set seasonEp to the regex pattern match
 
     if not isinstance(dbID, str):                                                       # If dbID is NOT a string
       tmp = os.path.splitext(fileBase)[0].split('.')
@@ -280,15 +285,19 @@ def getMetaData( file=None, dbID=None, seasonEp=None, version='', **kwargs ):
 
   if not isID( dbID ):
     return None
-
+  
+  out = None
   if (dbID[:4] == 'tvdb'):
     if len(seasonEp) == 2:
-      return Episode.TVDbEpisode( dbID, *seasonEp, **kwargs )
+      out = Episode.TVDbEpisode( dbID, *seasonEp, **kwargs )
     else:
-      return Movie.TVDbMovie( dbID, version=version, **kwargs )
+      out = Movie.TVDbMovie( dbID, version=version, **kwargs )
   elif (dbID[:4] == 'tmdb'):
     if len(seasonEp) == 2:
-      return Episode.TMDbEpisode( dbID, *seasonEp, **kwargs )
+      out = Episode.TMDbEpisode( dbID, *seasonEp, **kwargs )
     else:
-      return Movie.TMDbMovie( dbID, version=version, **kwargs )
-  return None
+      out = Movie.TMDbMovie( dbID, version=version, **kwargs )
+
+  log.debug( f'Found metadata: {out}' )
+
+  return out
