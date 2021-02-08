@@ -21,6 +21,8 @@ TIME_BASE   = '1/1000000000'                                                    
 PREROLL     = -1.0                                                                      # Padding before beginning of chapter
 POSTROLL    =  1.0                                                                      # Padding after end of chapter
 
+CROPTHRES   = 0.95                                                                      # Threshold for cropping. If the ratio of crop size to original is >= this value, no cropping done. The width and height are check separately
+
 HEADERFMT   = ';FFMETADATA{}' + os.linesep                                              # Format for FFMETADATA file header
 METADATAFMT = '{}={}' + os.linesep                                                      # Format string for a FFMETADATA metadata tag
 CHAPTERFMT  = ['[CHAPTER]', 'TIMEBASE={}', 'START={}', 'END={}', 'title={}', '']        # Format of CHAPTER block in FFMETADATA file
@@ -304,6 +306,44 @@ class Chapter( object ):
     elif flag == 0:                                                                     # If flag is 0
       self.start_time += offset                                                         # Offset start time
 
+def cropDetectCMD(infile, ss, dt, threads):                                             # Local function to build command for ffmpeg
+  """
+  Generate ffmpeg command list for crop detection
+
+  Arguments:
+    infile (str): File to read from
+    ss       : timedelta; Start time for segment
+    dt       : timedelta; Length of segment for crop detection
+    threads  : int; number of threads to let ffmpeg use
+
+  Keyword arguments:
+    None.
+
+  Returns:
+    list : Command to be run using subprocess.Popen
+
+  """
+
+  # Check inputs string, convert to string if NOT
+#  if not isinstance(ss,      str): ss      = str(ss)
+#  if not isinstance(dt,      str): dt      = str(dt)
+#  if not isinstance(threads, str): threads = str(threads)
+
+  if not isinstance(ss,      timedelta): raise Exception('ss must be datetime.timedelta object')#ss      = str(ss)
+  if not isinstance(dt,      timedelta): raise Exception('dt must be datetime.timedelta object')#dt      = str(dt)
+  if not isinstance(threads,       int): raise Exception('threads must be int')#threads = str(threads)
+  # Return the list with command
+  return ['ffmpeg', '-nostats',
+          '-threads', str(threads),
+          '-ss', str(ss),
+          '-i', infile,
+          '-max_muxing_queue_size', '1024', 
+          '-t', str(dt), 
+          '-vf', 'cropdetect',
+          '-f', 'null',
+          '-'] 
+
+
 ###############################################################################
 def cropdetect( infile, dt = 20, threads = None):
   """
@@ -326,31 +366,6 @@ def cropdetect( infile, dt = 20, threads = None):
   threads = threads if isinstance(threads, int) else POPENPOOL.threads                  # Set default value for number of threads
   if threads < 0: threads = 1
 
-  def buildCmd(infile, ss, dt, threads):                                                # Local function to build command for ffmpeg
-    """
-    Generate ffmpeg command list for cropping
-
-    Arguments:
-      infile (str): File to read from
-      ss       : timedelta; Start time for segment
-      dt       : timedelta; Length of segment for crop detection
-      threads  : int; number of threads to let ffmpeg use
-
-    Keyword arguments:
-      None.
-
-    Returns:
-      List of strings containing ffmpeg command
-
-    """
-
-    if not isinstance(ss,      str): ss = str(ss)
-    if not isinstance(dt,      str): dt = str(dt)
-    if not isinstance(threads, str): threads = str(threads)
-    cmd = ['ffmpeg', '-nostats', '-threads', threads, '-ss', ss, '-i', infile]          # Base command for crop detection
-    return cmd + ['-t', dt, '-vf', 'cropdetect', '-f', 'null', '-']                     # Add length, cropdetec filter and pipe to null muxer
-
-  if not isinstance(threads, int): threads = 1
   whxy    = [ [] for i in range(4) ];                                                   # Initialize list of 4 lists for crop parameters
   res     = None;                                                                       # Initialize video resolution to None
   dt      = timedelta(seconds = dt)                                                     # Get nicely formatted time
@@ -360,11 +375,11 @@ def cropdetect( infile, dt = 20, threads = None):
 
   log.debug( 'Detecting crop using chunks of length {}'.format( dt ) );
 
-  detect = True;                                                                    # Set detect to True; flag for crop detected
-  while detect and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):    # While detect is True, keep iterating
-    detect = False;                                                                 # Set detect to False; i.e., at beginning of iteration, assume no crop found
-    log.debug( 'Checking crop starting at {}'.format( ss ) );
-    cmd    = buildCmd( infile, ss, dt, threads )
+  detect = True;                                                                        # Set detect to True; flag for crop detected
+  while detect and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):        # While detect is True, keep iterating
+    detect = False;                                                                     # Set detect to False; i.e., at beginning of iteration, assume no crop found
+    log.debug( 'Checking crop starting at {}'.format( ss ) )
+    cmd    = cropDetectCMD( infile, ss, dt, threads )                                   # Generate command for crop detection
     proc   = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True )          # Start the command, piping stdout and stderr to a pipe
     line   = proc.stdout.readline()                                                     # Read line from pipe
     while line != '':                                                                   # While line is not empty
@@ -392,17 +407,22 @@ def cropdetect( infile, dt = 20, threads = None):
   xWidth  = maxVals[0]                                                                  # First value is maximum width
   yWidth  = maxVals[1]                                                                  # Second is maximum height
 
-  if (xWidth/res[0] > 0.5) and (yWidth/res[1] > 0.5):                                   # If crop width and height are atleast 50% of video width and height
+  xCheck = xWidth/res[0]                                                                # Compute ratio of cropping width to source width
+  yCheck = yWidth/res[1]                                                                # Compute ratio of cropping height to source height
+  if (xCheck > 0.5) and (yCheck > 0.5):                                                 # If crop width and height are atleast 50% of video width and height
+    if (xWidth == res[0]) and (yWidth == res[1]):                                       # If the crop size is the same as the input size
+      log.debug( 'Crop size same as input size, NOT cropping' )                         # Debug info
+      return None                                                                       # Return None
+    elif (xCheck < CROPTHRES) or (yCheck < CROPTHRES):                                  # If either to x or y ratio is below the CROPTHRES 
+      if (xCheck >= CROPTHRES): xWidth = res[0]                                         # If x ratio is above CROPTHRES, then set xWidth to resolution width
+      if (yCheck >= CROPTHRES): yWidth = res[1]                                         # If y ratio is above CROPTHRES, then set yWidth to resolution height                                     
+    else:                                                                               # Else, crop is too close to original, so do nothing
+      log.debug( 'Crop size very similar to input size ({:0.0f}x{:0.0f} vs. {:d}x{:d}), NOT cropping'.format(xWidth, yWidth, *res) )
+      return None
+
     xOffset = (res[0] - xWidth) // 2                                                    # Compute x-offset, this is half of the difference between video width and crop width because applies to both sizes of video
     yOffset = (res[1] - yWidth) // 2                                                    # Compute x-offset, this is half of the difference between video height and crop height because applies to both top and bottom of video
     crop    = np.asarray( (xWidth, yWidth, xOffset, yOffset), dtype = np.uint16 )       # Numpy array containing crop width/height of offsets as unsigned 16-bit integers
-
-    if (crop[0] == res[0]) and (crop[1] == res[1]):                                     # If the crop size is the same as the input size
-      log.debug( 'Crop size same as input size, NOT cropping' )                         # Debug info
-      return None                                                                       # Return None
-    elif (xWidth/res[0] >= 0.95) or (crop[1]/res[1] >= 0.95):
-      log.debug( 'Crop size very similar to input size ({:0.0f}x{:0.0f} vs. {:d}x{:d}), NOT cropping'.format(xWidth, yWidth, *res) )
-      return None
 
     log.debug( 'Values for crop: {}'.format(crop) )                                     # Debug info
     return 'crop={}:{}:{}:{}'.format( *crop )                                           # Return formatted string with crop option
