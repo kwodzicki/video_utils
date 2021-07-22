@@ -103,9 +103,8 @@ class DVRconverter(VideoConverter):
  
       if not isRunning(): return success, out_file
       out_file = self.transcode( file,
-                metaData          = metaData, 
-                chapters          = not self.destructive,
-                removeCommercials = True )                                          # Run the transcode
+                metaData = metaData, 
+                chapters = not self.destructive)                                    # Run the transcode
 
       self._cleanUp( file )                                                         # If the renamed; i.e., hardlink to original file, exists
 

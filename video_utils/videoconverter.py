@@ -47,18 +47,19 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
   """
 
   def __init__(self, 
-               in_place      = False, 
-               transcode_log = None,
-               comskip_log   = None,
-               lang          = None, 
-               threads       = None, 
-               container     = 'mp4',
-               cpulimit      = None, 
-               x265          = False,
-               remove        = False,
-               vobsub        = False, 
-               srt           = False,
-               vobsub_delete = False,
+               in_place          = False, 
+               transcode_log     = None,
+               comskip_log       = None,
+               lang              = None, 
+               threads           = None, 
+               container         = 'mp4',
+               cpulimit          = None, 
+               x265              = False,
+               remove            = False,
+               comdetect         = False,
+               vobsub            = False, 
+               srt               = False,
+               vobsub_delete     = False,
                **kwargs):
     """
     Keyword arguments:
@@ -79,6 +80,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
                         DEFAULT: 75 per cent.
                         TO DISABLE LIMITING - set to 0.
        remove (bool): Set to True to remove mkv file after transcode
+       comdetect (bool): Set to remove/mark commercial segments in file
        vobsub (bool): Set to extract VobSub file(s). If SRT is set, then
                         this keyword is also set. Setting this will NOT
                         enable downloading from opensubtitles.org as the
@@ -117,6 +119,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     self.outDir        = kwargs.get('outDir', None)
     self.logDir        = kwargs.get('logDir', None)
     self.in_place      = in_place                                                       # Set the in_place attribute based on input value
+    self.comdetect     = comdetect                                                      # Flag for commerical detection enabled
 
     self.miss_lang     = []
     self.x265          = x265
@@ -193,7 +196,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
         log_file          = None,
         metaData          = None,
         chapters          = False,
-        removeCommercials = False):
+        **kwargs):
     """
     Actually transcode a file
 
@@ -221,7 +224,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
       metaData (dict): Pass in result from previous call to getMetaData
       chapters (bool): Set if commericals are to be marked with chapters.
         Default is to cut commericals out of video file
-      removeCommercials (bool): Set to remove/mark commercial segments in file
+      comdetect (bool): Set to remove/mark commercial segments in file
 
     Returns:
       Outputs a transcoded video file in the MP4 container and 
@@ -275,7 +278,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     open(prog_file, 'a').close()                                                        # Touch inprogress file, acts as a kind of lock
 
-    if removeCommercials:                                                               # If the removeCommercials keywords is set
+    if kwargs.get('comdetect', self.comdetect):                                         # If the comdetect keywords is set; if key not given use class-wide setting
       name = ''                                                                         # Default value for name keyword for removeCommercials method
       if self.metaData is not None:                                                     # If metaData attribute is not None
         if self.metaData.isEpisode:                                                     # If metaData for episode
