@@ -13,7 +13,8 @@ WHITE    = (240, 240, 240)
 BSCALE   = 0.05
 TSCALE   = 0.85
 SPACE    = ' '
-BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
+#BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
+BADCHARS = re.compile( '[#%\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
 
 def _replace( string, repl, **kwargs ):
   """

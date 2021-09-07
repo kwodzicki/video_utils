@@ -80,7 +80,7 @@ class BaseEpisode( BaseItem ):
 
     """
 
-    ID    = self.Series.getID()
+    ID    = self.Series.getIDPlex()
     title = self.title.replace('.', '_')
     return getBasename( self.season_number, self.episode_number, title, ID, **kwargs )  
 
