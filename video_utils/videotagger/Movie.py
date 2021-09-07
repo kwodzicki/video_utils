@@ -100,7 +100,7 @@ class BaseMovie( BaseItem ):
       year = self.release_date.year
     except:
       year = None
-    return getBasename( title, year, self._version, self.getID(), **kwargs )
+    return getBasename( title, year, self._version, self.getIDPlex(), **kwargs )
 
   def getDirname(self, root = ''):
     """
@@ -126,6 +126,9 @@ class BaseMovie( BaseItem ):
 
     """
     mdir = replaceChars( str(self) )
+    mid  = self.getIDPlex()
+    if mid is not None:
+      mdir = '{} {}'.format( mdir, mid )
     return os.path.join( root, 'Movies', mdir )
 
 class TMDbMovie( BaseMovie ):

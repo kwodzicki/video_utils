@@ -133,6 +133,17 @@ class BaseItem( BaseAPI ):
       return extra                                                                      # Return extra
     return None
 
+  def _findExternalID( self, external ):
+    """Find external tag"""
+
+    tag = 'external_ids'                                                                # Tag of interest in the data
+    if (tag in self._data):                                                             # If external_ids in the _data dictionary
+      for key, item in self._data[tag].items():                                         # Iterate over key/value pairs in the external_ids dictionary
+        if external in key:                                                             # If the requested external tag is in the key; e.g., 'imdb' is the tag of interest, but the actual tag is 'imdb_id', this will be True
+          return item                                                                   # Return the item
+    self.__log.debug('No external ID found for : {}!'.format(external) )                # Log some debug information
+    return None
+ 
   def getID(self, external = None, **kwargs):
     """
     Method to get ID of object, or external ID of object
@@ -150,16 +161,37 @@ class BaseItem( BaseAPI ):
     """
 
     if external:                                                                        # If external keyword set
-      if ('external_ids' in self._data):                                                # If external_ids in the _data dictionary
-        return self._data['external_ids'].get(external, None)                           # Get the external id and return it; return None if the ID does not exist
-      self.__log.debug('No external IDs found!')                                        # Log some debug information
-      return None                                                                       # Return None
+      fmt = '{}{{}}'.format( external )                                                 # Set up format for ID
+      ID  = self._findExternalID( external )                                            # Try to get the ID
+    else:                                                                               # Else, no external tag requested
+      fmt = 'tmdb{}' if self._tmdb else 'tvdb{}'                                        # Set format base on _tmdb attribute
+      ID  = self._data.get('id', None)                                                  # Get id from data or None if no id
 
-    fmt = 'tmdb{}' if self._tmdb else 'tvdb{}'                                          # Set format base on _tmdb attribute
-    ID  = self._data.get('id', None)                                                    # Get id from data or None if no id
     if ID:                                                                              # If ID
       return fmt.format( ID )                                                           # Return formatted id
     return ID                                                                           # Return ID
+
+  def getIDPlex( self, **kwargs ):
+    """
+    Method to get ID of object or external ID of object in Plex standard format
+
+    The Plex format for the ID is "{source-ID}" where source is tmdb, tvdb, or
+    imdb and ID is the ID; imdb IDs begin with tt.
+
+    Arguments:
+      None
+
+    Keyword arguments:
+      **kwargs: All keywords accepted by getID()
+
+    Returns:
+      Return the item ID or None if not found
+
+    """
+
+    pid = self.getID( **kwargs )
+    if pid is not None:
+      return '{' + pid[:4] + '-' + pid[4:] + '}'
 
   def _getDirectors(self):
     """

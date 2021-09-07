@@ -13,9 +13,14 @@ class BaseSeries( BaseItem ):
 
   def __str__(self):
     try:
-      return '{} ({})'.format(self.title, self.air_date.year)
+      out = '{} ({})'.format(self.title, self.air_date.year)
     except:
-      return '{}'.format(self.title)
+      out = '{}'.format(self.title)
+
+    pid = self.getIDPlex()
+    if pid is not None:
+      return '{} {}'.format( out, pid )
+    return out
 
 class TMDbSeries( BaseSeries ):
   EXTRA = ['external_ids', 'content_ratings']
