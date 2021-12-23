@@ -201,6 +201,7 @@ class SubprocManager(object):
       else:                                                                     # Else, make failed
         stderr = STDOUT;                                                        # Set stderr to STDOUT
 
+    self.__log.debug( f'Running command : {args}' )    
     if logType == 0:                                                            # If no log files are needed
       proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs );         # Start the process
     elif logType == 1:                                                          # Else, if stdout is a file

@@ -76,7 +76,10 @@ def vobsub_to_srt( out_file, text_info, vobsub_delete = False, cpulimit = None, 
   for i in range( len(subproc.returncodes) ):                                   # Iterate over all the return codes
     if subproc.returncodes[i] == 0:                                             # If the return code is zero (0)
       text_info[i]['srt'] = True;                                               # Set srt exists flag in text_info dictionary to True
-      status = srtCleanup( newFiles[i] )                                       # Run SRT music notes on the file
+      try:
+        status = srtCleanup( newFiles[i] )                                       # Run SRT music notes on the file
+      except Exception as err:
+        log.error( f'Failed to convert VobSub to SRT : {err}')
     else:                                                                       # Else
       failed += 1;                                                              # Increment failed by one (1)
 

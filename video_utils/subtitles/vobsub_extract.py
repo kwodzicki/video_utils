@@ -75,6 +75,7 @@ def vobsub_extract( in_file, out_file, text_info, vobsub = False, srt = False ):
         time.sleep(15);                                                         # If pgrep return (i.e., no error thrown), then sleep 15 seconds
       except:  
         log.info('Extracting VobSubs...');                                      # logging info
+        log.debug( extract )
         status = call( extract, stdout = DEVNULL, stderr = STDOUT );            # Run command and dump all output and errors to /dev/null
         break;                                                                  # Pret the while loop
     files = [f for f in files if os.path.isfile(f)]                             # Update files list to include only those files that actually exist
