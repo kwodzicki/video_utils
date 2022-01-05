@@ -17,6 +17,7 @@ _splt_pattern   = re.compile( r'(?:([^"\s]\S*)|"(.+?)")' );                     
 _se_pattern     = re.compile( r'[sS](\d{2,})[eE](\d{2,})' );                    # Pattern for locating season/episode numbering
 _season_pattern = re.compile( r'(?:[sS](\d+)[eE]\d+)' );                        # Pattern for extracting season number from season/episode numbering      
 _year_pattern   = re.compile( r'\(([0-9]{4})\)' );                                      # Pattern for finding yea
+_date_pattern   = re.compile( r'\d{4}-\d{2}-\d{2} \d{2} \d{2} \d{2}') 
 
 ################################################################################
 def plexFile_Info( in_file ):
@@ -45,6 +46,10 @@ def plexFile_Info( in_file ):
   seasonEp = None
   episode  = None
 
+  if _date_pattern.search( in_file ) is not None:                               # If the date pattern is found in the file name
+    log.warning( 'ISO date string found in file name; NO METADATA WILL BE DOWNLOADED!!!' )
+    return title, year, seasonEp, episode, ext
+    
   try:
     title, seasonEp, episode = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
   except:
@@ -92,6 +97,9 @@ def plexDVR_Rename( in_file, hardlink = True ):
   fileDir = os.path.dirname(  in_file )
   title, year, seasonEp, episode, ext = plexFile_Info( in_file )
 
+  if all( v is None for v in [title, year, seasonEp, episode] ):                # If all the values are None, then date in file name
+    return in_file, None                                                        # Return the input file name AND None for metadata
+ 
   if not seasonEp:
     log.warning( 'Season/episode info NOT found; assuming movie...things may break' )
     metaData = _tmdb.search( title=title, year=year, episode=episode, seasonEp=seasonEp )    # Try to get IMDb id
