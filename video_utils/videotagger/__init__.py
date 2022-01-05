@@ -125,7 +125,7 @@ class TMDb( BaseAPI ):
           item = Movie.TMDbMovie( data = item )
           self.__log.info( 'Found movie: {}'.format(item) )
         elif (item['media_type'] == 'tv'):
-          item = Series( data = item )
+          item = Series.TMDbSeries( data = item )
           self.__log.info( 'Found series: {}'.format(item) )
         elif (item['media_type'] == 'person'):
           item = Person( data = item )
