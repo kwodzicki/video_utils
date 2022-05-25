@@ -247,13 +247,17 @@ def updateFileNames(*args, rootdir = None, dbID = None, **kwargs):
         scanDirs, toRemove = genHardLinks( indir, rootdir = root, **kwargs)
        
       if len(toRemove) != 0:
-        res      = input('Want to run Plex Media Scanner (YES/n): ')
-        if res == 'YES':
+        res      = input('Want to run Plex Media Scanner (YES/n/exit): ')
+        if res == 'exit':
+          exit()
+        elif res == 'YES':
           # Run plex media scanner
           PMS('scan', 'refresh', section=section)#, directory=rootdir if rootdir is not None else indir)
 
-          res  = input('Want to delete old files (YES/n): ')
-          if res == 'YES':
+          res  = input('Want to delete old files (YES/n/exit): ')
+          if res == 'exit':
+            exit()
+          elif res == 'YES':
             for path in toRemove:
               try:
                 os.remove( path )

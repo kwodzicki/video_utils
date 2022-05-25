@@ -103,17 +103,35 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
     """
 
-    self.log.debug('Waiting for file to finish being created')
+    self.log.debug( f'Waiting for file to finish being created : {file}' )
     prev = -1                                                                       # Set previous file size to -1
-    curr = os.path.getsize(file)                                                    # Get current file size
-    while (prev != curr):                                                           # While sizes differ
+
+    try:
+      curr = os.path.getsize(file)                                                  # Get current file size
+    except Exception as err:
+      self.log.debug( f"Failed to get file size : {err}" )
+      return False
+
+    while (prev != curr) and isRunning():                                           # While sizes differ and isRunning()
       time.sleep(SLEEP)                                                             # Sleep a few seconds seconds
       prev = curr                                                                   # Set previous size to current size
-      curr = os.path.getsize(file)                                                  # Update current size
+      try:
+        curr = os.path.getsize(file)                                                  # Get current file size
+      except Exception as err:
+        self.log.debug( f"Failed to get file size : {err}" )
+        return False
+
+    if not isRunning():
+      return False
+
+    return prev == curr
 
   @sendEMail
   def _process(self, file):
-    self._checkSize( file )                                                   # Wait to make sure file finishes copying/moving
+
+    if not self._checkSize( file ):                                           # If file size check fails, just return; this will block for a while
+      return
+
     try:        
       out_file = self.converter.transcode( file )                             # Convert file 
     except:
