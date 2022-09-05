@@ -45,9 +45,11 @@ setup(
                            "numpy", "scipy",
                            "requests", "psutil", "watchdog", "pyYAML"],
   scripts              = ['bin/comremove',
-                          'bin/videotagger',
-                          'bin/updateFileNames',
                           'bin/MakeMKV_Watchdog',
-                          'bin/Plex_DVR_Watchdog'],
+                          'bin/Plex_DVR_Watchdog',
+                          'bin/rename_media_plex_tag_format',
+                          'bin/splitOnChapter',
+                          'bin/updateFileNames',
+                          'bin/videotagger'],
   zip_safe             = False
 )
