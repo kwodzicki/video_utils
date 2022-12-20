@@ -28,9 +28,11 @@ def getBasename(title, year=None, version='', ID='', **kwargs):
   """
 
   title, version, ID = replaceChars( title, version, ID, **kwargs )
+  if version != '': version = '{edition-'+version+'}'
+
   if year:                                                                              # If year is valid
-    return '{:.50} ({}).{:.20}.{}'.format( title, year, version, ID )               # Generate base name
-  return '{:.50}.{:.20}.{}'.format( title, version, ID )                          # Generate base name without year
+    return '{:.50} ({}).{}.{}'.format( title, year, version, ID )               # Generate base name
+  return '{:.50}.{}.{}'.format( title, version, ID )                          # Generate base name without year
 
 class BaseMovie( BaseItem ):
   """

@@ -13,7 +13,7 @@ from .plex.plexMediaScanner import plexMediaScanner
 from .utils.handlers import sendEMail
 
 TIMEOUT =  1.0
-SLEEP   = 10.0
+SLEEP   = 30.0
 
 class MakeMKV_Watchdog( FileSystemEventHandler ):
   def __init__(self, *args, **kwargs):
