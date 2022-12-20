@@ -107,7 +107,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     prev = -1                                                                       # Set previous file size to -1
 
     try:
-      curr = os.path.getsize(file)                                                  # Get current file size
+      curr = os.stat(file).st_size                                                  # Get current file size
     except Exception as err:
       self.log.debug( f"Failed to get file size : {err}" )
       return False
@@ -116,7 +116,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       time.sleep(SLEEP)                                                             # Sleep a few seconds seconds
       prev = curr                                                                   # Set previous size to current size
       try:
-        curr = os.path.getsize(file)                                                  # Get current file size
+        curr = os.stat(file).st_size                                                  # Get current file size
       except Exception as err:
         self.log.debug( f"Failed to get file size : {err}" )
         return False
