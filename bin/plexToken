@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+
+from video_utils.plex.utils import getToken
+
+if __name__ == "__main__":
+	getToken( login=True )

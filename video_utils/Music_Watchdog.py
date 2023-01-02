@@ -15,7 +15,7 @@ TIMEOUT = 1.0
 SLEEP   = 5.0
 SLEEP   = 1.0
 
-scanMusic = lambda : plexMediaScanner('scan', 'refresh',  section = 'Music')
+scanMusic = lambda : plexMediaScanner('Music')
  
 class Music_Watchdog( FileSystemEventHandler ):
   def __init__(self, outdir, *args, **kwargs):

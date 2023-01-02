@@ -138,8 +138,10 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       self.log.exception('Failed to convert file')
     else:
       if out_file is not None and isRunning():
-        plexMediaScanner('scan', 'refresh', 
-          section = 'TV Shows' if self.converter.metaData.isEpisode else 'Movies')
+        plexMediaScanner( 
+          'TV Shows' if self.converter.metaData.isEpisode else 'Movies',
+          path = os.path.dirname( out_file )
+        )
  
   def _run(self, **kwargs):
     """

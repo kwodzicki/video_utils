@@ -122,9 +122,8 @@ class DVRconverter(VideoConverter):
         self._cleanUp( inFile, out_file )                                           # If infile exists, delete it
 
     if isRunning():                                                                 # If a file name was returned AND no_remove is False
-      args   = ('scan',)                                                            # Set arguements for plexMediaScanner function
-      kwargs = {'section'   : 'TV Shows',
-                'directory' : os.path.dirname( inFile )}                            # Set keyword arguments for plexMediaScanner function
+      args   = ('TV Shows',)                                                            # Set arguements for plexMediaScanner function
+      kwargs = {'path' : os.path.dirname( inFile )}                            # Set keyword arguments for plexMediaScanner function
       plexMediaScanner( *args, **kwargs )
       if not no_remove:                                                             # If no_remove is NOT set, then we want to delete inFile and rescan the directory so original file is removed from Plex
         self._cleanUp( inFile )                                                     # Delete the file

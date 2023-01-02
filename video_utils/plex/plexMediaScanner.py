@@ -1,61 +1,51 @@
 import logging
-import os, re 
-from subprocess import check_output, Popen, PIPE, STDOUT, DEVNULL
+import os 
 
-from .utils import getPlexMediaScanner, getPlexLibraries
+from plexapi.server import PlexServer
 
-try:
-  _scanner, _env = getPlexMediaScanner();                                           # Attempt to get Plex Media Scanner command
-except:                                                                             # If failed
-  _scanner  = None                                                                  # Set _scanner to None
-  _env      = None                                                                  # Set _env to none
-  _plexLibs = {}                                                                    # Set _plexLibs to empty dictionary
-else:                                                                               # Else
-  _plexLibs = getPlexLibraries( _scanner, _env )                                    # Attempt to get Plex Libraries
+from .utils import getToken
 
 ################################################################################
-def plexMediaScanner( *args, **kwargs ):
+def plexMediaScanner( sectionName, path=None ):
   """
-  A python function that will try to run the Plex Media Scanner CLI.
+  A python function that scans library through API call
   
   Arguments:
-    *args: Any flags from the :code:`Plex Media Scanner` Actions list.
-      Do NOT include hyphens (-). If you are adding a section,
-      the :code:`--type`, :code:`--agent`, etc. flags should be input as keywords.
-      Can also input Modifies to actions here
+    sectionName (str) : Name of the library section to scan
 
   Keyword arguments:
-    **kwargs: Any flag/value pair from the Plex Media Scanner Items list   
+    path (str) : Path to scan for new files; use to only scan 
+        part of section
 
   Returns:
-    int: Returns status code; 0 is successful scan
+    bool : True if success, False otherwise
 
   """
 
   log = logging.getLogger(__name__);
-  if (os.environ.get('USER', '').upper() != 'PLEX'):
-    log.error("Not running as user 'plex'; current user : {}. Skipping Plex Library Scan".format(os.environ.get('USER', '')) )
-    return 2
-  elif (_scanner is None):
-    log.critical( "Did NOT find the 'Plex Media Scanner' command! Returning!")
-    return 1
-  elif not isinstance(_plexLibs, dict): 
-    log.critical('No libraries found! Returning')
-    return 1
-  
-  cmd  = _scanner + ['--{}'.format(arg) for arg in args]
-  for key, val in kwargs.items():
-    if (key == 'section'):
-      val = _plexLibs.get(val, None)
-      if not val:
-        log.error('Failed to find library section in list of libraries! Returning')
-        return 3
-    cmd += ['--{}'.format(key), val]
-# '--scan', '--section', section, '--directory', scan_dir ];      # Append scan and section options to command
 
-  log.debug( 'Plex Media Scanner command: {}'.format( ' '.join(cmd) ) )
+  token = getToken()
+  if token is None:
+    log.error( 'Failed to get Plex token for API call!' )
+    return False
 
-  proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT, env = _env );
-  proc.communicate();
+  try:
+    plex = PlexServer( **token )
+  except Exception as err:
+    log.error( f"Failed to create PlexServer object : {err}" )
+    return False
 
-  return 0
+  try:
+    section = plex.library.section( sectionName )
+  except Exception as err:
+    log.error( f"Failed to find section '{sectionName}' on server" )
+    return False
+
+  if path is not None:
+    if not os.path.isdir(path):
+      log.warning( f"No such directory '{path}'; scanning entire library section" )
+      path = None
+
+  section.update( path )
+
+  return True
