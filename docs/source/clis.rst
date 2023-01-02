@@ -15,6 +15,19 @@ Tagging of MP4 or MKV files
 The :code:`videotagger` utility tags MP4 or MKV files with data from TMDb or TVDb (pending API keys installed) either using the TMDb or TVDb id found in the file name if the file naming convention is used, or using a user supplied id. 
 For more information use the :code:`--help` flag when running the utility.
 
+plexToken
+---------
+
+This CLI is used to obtain an API token for triggering scans of Movie/TV Show sections after files are converted.
+When run, the user will be prompted for the name of their Plex server, their Plex account credentials, and their 2FA token.
+This information is not stored anywhere in the code and is passed directly in to the plexapi python package.
+The token created using the login information IS stored locally so that the token can be used programatically in the future.
+
+If you are uncomforatable logging in through this script (and the plexapi package), you can do so manually and store the required information in a pickle file located at :code: `~/Libarary/Application Support/.plexToken`.
+The data should be formated as :code: `{'baseurl' : url, 'token' : token'}` where :code: `baseurl` is the base url for the Plex server and :code: `token` is the token returned by the authentication service.
+A token can also be obtained by looking at the XML information for any item in your library.
+See the Plex forums for more information on how to do this.
+
 Watchdogs
 ---------
 
