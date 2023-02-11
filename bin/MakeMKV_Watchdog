@@ -35,10 +35,11 @@ if __name__ == "__main__":
               parents         = [BASEPARSER],
               formatter_class = argparse.ArgumentDefaultsHelpFormatter)           # Set the description of the script to be printed in the help doc, i.e., ./script -h
   parser.set_defaults( loglevel = MakeMKVFMT['level'] )
-  parser.add_argument("indir",     type   = str, nargs='+', help = "Directory(s) to watch for new MakeMKV output files"); 
-  parser.add_argument("outdir",    type   = str,            help = "Top level directory for Plex library directories. E.g., '/mnt/plexLibs' if your library directories are '/mnt/plexLibs/Movies' and '/mnt/plexLibs/TV Shows'."); 
-  parser.add_argument("--fileExt", type   = str, nargs='+', help = "Set file extensions to look for in watched directories; only files with given extension(s) will be processed. Default is just '.mkv'") 
-  parser.add_argument("--vobsub",  action = "store_true",   help = "Set to extract VobSub(s) from files.");
+  parser.add_argument("indir",        type   = str, nargs='+', help = "Directory(s) to watch for new MakeMKV output files"); 
+  parser.add_argument("outdir",       type   = str,            help = "Top level directory for Plex library directories. E.g., '/mnt/plexLibs' if your library directories are '/mnt/plexLibs/Movies' and '/mnt/plexLibs/TV Shows'."); 
+  parser.add_argument("--fileExt",    type   = str, nargs='+', help = "Set file extensions to look for in watched directories; only files with given extension(s) will be processed. Default is just '.mkv'") 
+  parser.add_argument("--vobsub",     action = "store_true",   help = "Set to extract VobSub(s) from files.");
+  parser.add_argument("--recursive",  action = "store_true",   help = "If set, will look recursively through directory for new files.");
   args = parser.parse_args();                                                   # Parse the arguments
 
   if pidRunning( MakeMKVFMT['pidFile'] ):
@@ -67,6 +68,7 @@ if __name__ == "__main__":
         vobsub        = args.vobsub,
         transcode_log = getTranscodeLog( parser.prog ),
         comskip_log   = getComskipLog(   parser.prog ),
+        recursive     = args.recursive,
     )
   except:
     log.exception('Something went wrong! Watchdog failed to start')

@@ -22,6 +22,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     self.log.info('Starting up...')
 
     fileExt       = kwargs.pop('fileExt', None)                                     # Try to get fileExt keyword from keyword dictionary 
+    recursive     = kwargs.pop('recursive', False)                                  # Sets watchdog to recursive
     if (fileExt is None):                                                           # If fileExt is None
       self.fileExt = ('.mkv',)                                                      # Set to fileExt attribute to default of '.mkv'
     elif isinstance(fileExt, str):                                                  # Else, if it is string
@@ -32,10 +33,10 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
       self.fileExt = fileExt                                                        # Set fileExt attribute using fileExt keyword value
 
     self.converter = VideoConverter( **kwargs ) 
-    self.Queue     = Queue()                                                         # Initialize queue for sending files to converting thread
-    self.Observer  = Observer()                                                      # Initialize a watchdog Observer
+    self.Queue     = Queue()                                                        # Initialize queue for sending files to converting thread
+    self.Observer  = Observer()                                                     # Initialize a watchdog Observer
     for arg in args:                                                                # Iterate over input arguments
-      self.Observer.schedule( self, arg, recursive = True )                         # Add each input argument to observer as directory to watch; recursively
+      self.Observer.schedule( self, arg, recursive=recursive )                      # Add each input argument to observer as directory to watch; recursively
       for file in self._getDirListing( arg ):                                       # Iterate over all files (if any) in the input directory
         self.Queue.put( file )                                                      # Enqueue the file
  
