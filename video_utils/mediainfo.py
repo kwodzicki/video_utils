@@ -399,7 +399,7 @@ class MediaInfo( object ):
 
     Video stream information is obtained using information from the mediainfo
     command and parsing it into a dictionary in a format for use in either the
-    :meth:`video_utils.subtitles.vobsub_extract` or 
+    :meth:`video_utils.subtitles.subtitle_extract` or 
     :meth:`video_utils.subtitles.ccextract` functions to extract the text to
     individual files and/or convert the text to SRT format.
 

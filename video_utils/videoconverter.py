@@ -497,7 +497,7 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
         self.inFile, self.outFile, self.text_info, 
         vobsub = self.vobsub,
         srt    = self.srt )                                                     # Extract VobSub(s) from the input file and convert to SRT file(s).
-      self._createdFiles.extend( vobsub_files )                                 # Add list of files created by vobsub_extract to list of created files
+      self._createdFiles.extend( vobsub_files )                                 # Add list of files created by subtitles_extract to list of created files
       if (self.vobsub_status < 2) and self.srt:                                 # If there weren't nay major errors in the vobsub extraction
         if not vobsub_to_srt.CLI:                                               # If SRT output is enabled AND vobsub_to_srt imported correctly
           self.__log.warning("vobsub2srt conversion not possible. Leaving vobsub files.")
