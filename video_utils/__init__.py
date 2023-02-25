@@ -13,12 +13,12 @@ __doc__     = "Collection of utilities to manipulate video files; " + \
   "and metadata editing."
 
 # Set up the logger for the module
-log = logging.getLogger( __name__ );                                          # Get root logger based on package name
-log.setLevel(logging.DEBUG);                                                  # Set root logger level to debug
-log.addHandler( logging.StreamHandler() );
+log = logging.getLogger( __name__ )                                          # Get root logger based on package name
+log.setLevel(logging.DEBUG)                                                  # Set root logger level to debug
+log.addHandler( logging.StreamHandler() )
 log.handlers[0].setFormatter( screenFMT['formatter'] )
-log.handlers[0].setLevel( screenFMT['level'] );            # Set the format tot the screen format
-log.handlers[0].set_name( screenFMT['name'] );
+log.handlers[0].setLevel( screenFMT['level'] )            # Set the format tot the screen format
+log.handlers[0].set_name( screenFMT['name'] )
 
 # Check for required CLIs
 for cli in ['ffmpeg', 'mediainfo']:
@@ -50,4 +50,4 @@ signal.signal(signal.SIGTERM, _handle_sigterm)
 from .utils.subprocPool import PopenPool
 POPENPOOL = PopenPool()
 
-del cli, screenFMT;
+del cli, screenFMT

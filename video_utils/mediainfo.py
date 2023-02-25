@@ -393,7 +393,7 @@ class MediaInfo( object ):
     return info
 
   ################################################################################
-  def get_text_info( self, language ):
+  def get_text_info( self, languages ):
     """
     Get text stream information from a video
 
@@ -427,23 +427,45 @@ class MediaInfo( object ):
     if 'Text' not in self.__mediainfo:         
       self.__log.warning('No text information!')                                 # Print a message
       return None      
-    if not isinstance( language, (list, tuple) ): language = (language,)       # If language input is a scalar, convert to tuple
-    
-    if self.__mediainfo['General'][0]['Format'] == 'MPEG-TS':
-      return self.__parse_mpegTS( language )
-    else:
-      return self.__parse_vobsub( language )
+    if not isinstance( languages, (list, tuple) ): languages = (languages,)       # If language input is a scalar, convert to tuple
+
+    return self.__parse_vobsub( 
+        languages,
+        mpegts = (self.__mediainfo['General'][0]['Format'] == 'MPEG-TS')
+    )
 
   ##############################################################################
-  def __parse_vobsub(self, language):
-    """A private method for parsing text information for vobsub subtitle format"""
+  def __parse_vobsub(self, languages, mpegts=False):
+    """
+    A private method for parsing text information for vobsub subtitle format
+
+    Arguments:
+        languages (array-like) : List of languages to extract subtitles for
+
+    Keyword arguments:
+        mpegtst (bool) : If set, then skip language checking because of
+            poor support; see note below
+
+    Returns:
+        None if there was an issue, list if subtitles to extract
+
+    Note: 
+      (20190219) - While this method will parse information from all the 
+      text streams in the file, the ccextract
+      function currently only extracts the first CC stream as
+      there is not clear documentation on how to extract 
+      specific streams and mediainfo does not return any
+      language information for the streams
+
+
+    """
 
     j, n_elems, info = 0, [], []                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
-    for lang in language:                                                         # Iterate over all languages
+    for language in languages:                                                         # Iterate over all languages
       for track in self.__mediainfo['Text']:                                             # Iterate over all text information
         lang3  = track.get( 'Language/String3', '' )
-        if lang != lang3: continue                                               # If the track language does NOT matche the current language
-        id     = track.get( 'ID',                '' )                                   # Get track ID returning empty string if not in dictionary
+        if (not mpegts) and (language != lang3): continue                                               # If the track language does NOT matche the current language
+        idx    = track.get( 'ID',                '' )                                   # Get track ID returning empty string if not in dictionary
         lang1  = track.get( 'Language/String',   '' )
         lang2  = track.get( 'Language/String2',  '' )
         elems  = track.get( 'count_of_elements', '' )
@@ -453,28 +475,34 @@ class MediaInfo( object ):
         else:
           forced = False
 
-        ext = '.' + str( j )                                                     # Append sub title track number to file
         if lang3 != '':  
-          ext = ext + '.' + lang3                                                # Append 2 character language code if language is present
+          lang = lang3                                                # Append 2 character language code if language is present
         elif lang2 != '':   
-          ext = ext + '.' + lang2                                                # Append 3 character language code if language is present
+          lang = lang2                                                # Append 3 character language code if language is present
         elif lang1 != '':  
-          ext = ext + '.' + lang1                                                # Append full language string
+          lang = lang1                                                # Append full language string
+
         if elems  != '':                                                          # If elems variable is NOT an empty string
           n_elems.append( int(elems) )                                           # Append the number of VobSub images to the sub_elems list
         elif frames != '':                                                        # If frames variable is NOT an empty string
           n_elems.append( int(frames) )                                          # Append the number of VobSub images to the sub_frames list
         else:                                                                     # If neither variable has a value
           n_elems.append( 0 )                                                    # Append zero
-        info.append( {'mkvID'  : str( int(id)-1 ),
-                      'lang1'  : lang1,
-                      'lang2'  : lang2,
-                      'lang3'  : lang3,
-                      'ext'    : ext, 
-                      'forced' : forced,
-                      'track'  : j,
-                      'vobsub' : False,
-                      'srt'    : False} )                                        # Update a dictionary to the list. vobsub and srt tags indicate whether a file exists or not
+
+        info.append( 
+            {
+                'mkvID'  : str( int(idx)-1 ),
+                'format' : track.get('Format', ''), 
+                'lang1'  : lang1,
+                'lang2'  : lang2,
+                'lang3'  : lang3,
+                'ext'    : f".{j}.{lang}",
+                'forced' : forced,
+                'track'  : j,
+                'vobsub' : False,
+                'srt'    : False,                                        # Update a dictionary to the list. vobsub and srt tags indicate whether a file exists or not
+            }
+        )
         j+=1                                                                     # Increment sub title track number counter
     if len(n_elems) == 0:                                                         # If subtitle streams were found
       self.__log.warning(  'NO text stream(s) in file...')                         # If verbose is set, print some output
@@ -493,27 +521,19 @@ class MediaInfo( object ):
         return None                                                              # Return None
 
   ##############################################################################
-  def __parse_mpegTS(self, language):
+  def __parse_mpegTS(self, languages):
     """
-    Parse text information for CC in mpeg transport stream data recorded by Plex DVR
-
-    Note: 
-      (20190219) - While this method will parse information from all the 
-      text streams in the file, the ccextract
-      function currently only extracts the first CC stream as
-      there is not clear documentation on how to extract 
-      specific streams and mediainfo does not return any
-      language information for the streams
+    This has been depricated and will be removed in the future
 
     """
 
     j, n_elems, info = 0, [], []                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
-    for lang in language:                                                         # Iterate over all languages
+    for language in languages:                                                         # Iterate over all languages
       for track in self.__mediainfo['Text']:                                             # Iterate over all text information
         lang3  = track.get( 'Language/String3', '' )
         # The following line is commented because language information not available for DCCTV in mediainfo output, but may be in future
         # if lang != lang3: continue                                               # If the track language does NOT matche the current language
-        id     = track.get( 'ID',                '' )
+        idx    = track.get( 'ID',                '' )
         lang1  = track.get( 'Language/String',   '' )
         lang2  = track.get( 'Language/String2',  '' )
         elems  = track.get( 'count_of_elements', '' )
@@ -522,13 +542,14 @@ class MediaInfo( object ):
           forced = True if track['Forced'].lower() == 'yes' else False
         else:
           forced = False
-        ext = '.' + str( j )                                                     # Append sub title track number to file
+
         if lang3 != '':  
-          ext = ext + '.' + lang3                                                # Append 2 character language code if language is present
+          lang = lang3                                                # Append 2 character language code if language is present
         elif lang2 != '':   
-          ext = ext + '.' + lang2                                                # Append 3 character language code if language is present
+          lang = lang2                                                # Append 3 character language code if language is present
         elif lang1 != '':  
-          ext = ext + '.' + lang1                                                # Append full language string
+          lang = lang1                                                # Append full language string
+        
         if elems  != '':                                                          # If elems variable is NOT an empty string
           n_elems.append( int(elems) )                                           # Append the number of VobSub images to the sub_elems list
         elif frames != '':                                                        # If frames variable is NOT an empty string
@@ -538,7 +559,7 @@ class MediaInfo( object ):
         info.append( {'lang1'  : lang1,
                       'lang2'  : lang2,
                       'lang3'  : lang3,
-                      'ext'    : ext, 
+                      'ext'    : f".{j}.{lang}",
                       'forced' : forced,
                       'track'  : j,
                       'vobsub' : False,
