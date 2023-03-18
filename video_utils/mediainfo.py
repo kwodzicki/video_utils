@@ -1,7 +1,8 @@
 import logging
 import re
+import json
 import subprocess as subproc
-from xml.etree import ElementTree as ET
+
 
 cmd  = ['mediainfo', '--version']
 try:
@@ -14,18 +15,54 @@ else:
   del proc, stdout, stderr
 del cmd
 
-if not MediaInfoLib:
-  OUTPUT_FMT = None
-elif int(MediaInfoLib[0]) > 17:                                                   # If the major version is greater than 17
-  OUTPUT_FMT = 'OLDXML'                                                        # Set the output format to OLDXML
-elif (int(MediaInfoLib[0]) == 17) and (int(MediaInfoLib[1]) >= 10):             # Else, if the major version is 17 and the minor version is greater or equal to 10
-  OUTPUT_FMT = 'OLDXML'                                                        # Set the output format to OLDXML
-else:                                                                           # Else
-  OUTPUT_FMT = 'XML'                                                           # Set output format to XML
+def numConvert( val ):
+    """
+    Convert string to int/float
 
+    """
 
+    if not isinstance(val, str):
+        return val
+
+    if val.isdigit():
+        return int(val)
+    
+    try:
+        return float( val )
+    except:
+        return val
+
+def mediainfo( fname ):
+    """
+    Parse mediainfo JSON output
+
+    Parse the JSON formatted output of the mediainfo
+    command into a format that is similar to that 
+    parsed from the OLDXML style
+
+    """
+
+    cmd  = ['mediainfo', '--Full', '--Output=JSON', fname]
+    res  = subproc.check_output( cmd )
+    data = json.loads(res)
+
+    out = {}
+    for track in data['media']['track']:
+        trackType = track['@type']
+        if trackType not in out:
+            out[ trackType ] = []
+        out[ trackType ].append(
+            {key : numConvert(val) for key, val in track.items()}
+        )
+
+    for val in out.values():
+        val.sort( key=lambda x: x.get('@typeorder', 0) )
+
+    return out
+ 
 class MediaInfo( object ):
   """Class that acts as wrapper for mediainfo CLI"""
+
   def __init__( self, inFile = None, **kwargs ):
     """
     Initialize MediaInfo class
@@ -60,7 +97,8 @@ class MediaInfo( object ):
     if self.__inFile is None:
       self.__mediainfo = None
     else:
-      self.__parse_output()
+      self.__mediainfo = mediainfo( value )
+#      self.__parse_output()
   @property
   def format(self):
     """Full name of file format; e.g., MPEG-4, Matroska"""
@@ -125,8 +163,8 @@ class MediaInfo( object ):
 
     if self.__mediainfo:
       try:
-        fileSize   = self.__mediainfo['General'][0]['File_size'  ]
-        streamSize = self.__mediainfo['Video'  ][0]['Stream_size']
+        fileSize   = self.__mediainfo['General'][0]['FileSize'  ]
+        streamSize = self.__mediainfo['Video'  ][0]['StreamSize']
       except:
         return False
       else:
@@ -218,22 +256,24 @@ class MediaInfo( object ):
     if language is not None and not isinstance( language, (list, tuple) ):              # If language defined and not iterable
       language = (language,)                                                            # Convert to tuple
   
-    info = {'-map'       : [],
-            '-codec'     : [],
-            '-title'     : [],
-            '-language'  : [],
-            'order'      : ('-map', '-codec', '-title', '-language'),
-            'file_info'  : []}                                                 # Initialize a dictionary for storing audio information
+    info = {
+        '-map'       : [],
+        '-codec'     : [],
+        '-title'     : [],
+        '-language'  : [],
+        'order'      : ('-map', '-codec', '-title', '-language'),
+        'file_info'  : [],
+    }                                                 # Initialize a dictionary for storing audio information
     track_id  = '1'                                                             # Initialize a variable for counting the track number.
     track_num = 0
     for track in self.__mediainfo['Audio']:                                   # Iterate over all audio information
-      lang3 = track.get( 'Language/String3', '' )
+      lang3 = track.get( 'Language_String3', '' )
       if not self._checkLanguages( language, lang3 ): continue                          # If track language does not match requested, skip it
       fmt   = track.get( 'Format',           '' )
-      nCH   = track.get( 'Channel_s_',       '' )
-      lang1 = track.get( 'Language/String',  '' )
-      lang2 = track.get( 'Language/String2', '' )
-      title = track.get( 'Title',            'Source Track: {}'.format(track_id) )
+      nCH   = track.get( 'Channels',         '' )
+      lang1 = track.get( 'Language_String',  '' )
+      lang2 = track.get( 'Language_String2', '' )
+      title = track.get( 'Title',            f"Source Track: {track_id}" )
       if type(nCH) is str: nCH = max( map( int, nCH.split('/') ) )                    # If nCH is of type string, split number of channels for the audio stream on forward slash, convert all to integer type, take maximum; some DTS streams have 6 or 7 channel layouts 
       lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_'                    # Set default language to English
       try:
@@ -244,23 +284,23 @@ class MediaInfo( object ):
       info['file_info'].append( '-'.join( (lang2 + fmt).split() ) )                   # Append the language and format for the second strem, which is a copy of the orignal stream
 
       if nCH > 2:                                                                     # If there are more than 2 audio channels
-        info['-map'     ].extend( ['-map', mapping]                     )             # Append the track number to the --audio list
-        info['-codec'   ].extend( ['-c:a:{}'.format(track_num), 'copy'] )             # Append audio codecs to faac and copy
-        info['-title'   ].append( '-metadata:s:a:{}'.format(track_num)  )             # Append  audio track names
-        info['-title'   ].append( 'title={} - {}'.format(title, fmt)    )
-        info['-language'].append( '-metadata:s:a:{}'.format(track_num)  )             # Append  audio track names
-        info['-language'].append( 'language={}'.format(lang3)           )
+        info['-map'     ].extend( [ '-map', mapping]                     )             # Append the track number to the --audio list
+        info['-codec'   ].extend( [f"-c:a:{track_num}", 'copy'] )             # Append audio codecs to faac and copy
+        info['-title'   ].append(  f"-metadata:s:a:{track_num}" )             # Append  audio track names
+        info['-title'   ].append(  f"title={title} - {fmt}"    )
+        info['-language'].append(  f"-metadata:s:a:{track_num}"  )             # Append  audio track names
+        info['-language'].append(  f"language={lang3}"          )
       else:                                                                           # Else, there are 2 or fewer channels
-        info['-map'  ].extend( ['-map', mapping]                     )                # Append the track number to the --audio list
-        info['-codec'].extend( ['-c:a:{}'.format(track_num), 'copy'] )                # Append audio codecs to faac and copy
-        info['-title'].append( '-metadata:s:a:{}'.format(track_num)  )                # Append  audio track names
+        info['-map'  ].extend( [ '-map', mapping]                     )                # Append the track number to the --audio list
+        info['-codec'].extend( [f"-c:a:{track_num}", 'copy'] )                # Append audio codecs to faac and copy
+        info['-title'].append(  f"-metadata:s:a:{track_num}" )                # Append  audio track names
         if nCH == 2:                                                                  # If there are only 2 audio channels
           info['-title'].append( 'title=stereo' )
         else:                                                                         # Else, must be only a single channel
           info['-title'].append( 'title=mono'   )
 
-        info['-language'].append( '-metadata:s:a:{}'.format(track_num) )              # Append  audio track names
-        info['-language'].append( 'language={}'.format(lang3)          )
+        info['-language'].append( f"-metadata:s:a:{track_num}" )              # Append  audio track names
+        info['-language'].append( f"language={lang3}"          )
 
       track_id   = str( int(track_id) + 1 )                                           # Increment audio track
       track_num += 1
@@ -291,7 +331,7 @@ class MediaInfo( object ):
       - 22 :  480p/576p
       - 23 :  720p
       - 24 : 1080p
-      - 26 : 2060p
+      - 24 : 2060p
 
     Arguments:
       None
@@ -311,7 +351,7 @@ class MediaInfo( object ):
     if 'Video' not in self.__mediainfo:        
       self.__log.warning('No video information!')                                # Print a message
       return None              
-    if len( self.__mediainfo['Video'] ) > 2:         
+    if len( self.__mediainfo['Video'] ) > 1:         
       self.__log.error('More than one (1) video stream...Stopping!')             # Print a message
       return None                                                              # If the video has multiple streams, return
     encoder    = ''
@@ -325,29 +365,34 @@ class MediaInfo( object ):
         mapping = ['0', str( video_data['StreamOrder'] )]                      # If there is an exception, assume StreamOrder is an integer and create mapping
     mapping = ':'.join( mapping )                                              # Join mapping using colon
 
-    info       = { 'order' : ('-map', '-filter', '-opts') }
+    info = { 
+        'order' : ('-map', '-filter', '-opts'),
+    }
     for tag in info['order']: info[tag] = []
 
     info['-map'].extend( ['-map', mapping] )                                    # Initialize a dictionary for storing video information
 
     if video_data['Height'] <= 1080 and not x265:                               # If the video is 1080 or smaller and x265 is NOT set
       encoder = 'x264'
-      info['-opts'].extend( ['-c:v',       'libx264'] )
-      info['-opts'].extend( ['-preset',    'slow']    )                        # Set the video codec preset
-      info['-opts'].extend( ['-profile:v', 'high']    )                        # Set the video codec profile
-      info['-opts'].extend( ['-level',     '4.0']     )                        # Set the video codec level
+      info['-opts'].extend( 
+        [
+            '-c:v',       'libx264',
+            '-preset',    'slow',                        # Set the video codec preset
+            '-profile:v', 'high',                        # Set the video codec profile
+            '-level',     '4.0',                        # Set the video codec level
+        ]
+      )
     else:                                                                       # Else, the video is either large or x265 has be requested
-      encoder = 'x265'
-      info['-opts'].extend( ['-c:v',      'libx265'] )
-      info['-opts'].extend( ['-preset',   'slow']    )                          # Set the video codec preset
-      if 'Bit_depth' in video_data:
-        if video_data['Bit_depth'] == 10:
-          info['-opts'].extend( ['-profile:v', 'main10']    )                  # Set the video codec profile
-        elif video_data['Bit_depth'] == 12:
-          info['-opts'].extend( ['-profile:v', 'main12']    )                  # Set the video codec profile
-      else:
-        info['-opts'].extend( ['-profile:v', 'main']    )                      # Set the video codec profile
-      info['-opts'].extend( ['-level',    '5.0']     )                          # Set the video codec level
+      encoder  = 'x265'
+      bitDepth = video_data.get('Bit_depth', '')
+      info['-opts'].extend( 
+        [
+            '-c:v',       'libx265',
+            '-preset',    'slow',                          # Set the video codec preset
+            'profile:v', f'main{bitDepth}',                      # Set the video codec profile
+            '-level',     '5.0',                          # Set the video codec level
+        ]
+      )
 
     # Set resolution and rate factor based on video height
     if video_data['Height'] <= 480:
@@ -375,7 +420,7 @@ class MediaInfo( object ):
 #        if video_data['Frame_rate_mode']  == 'CFR': 
 #          info['-filter'].append( 'yadif' )
 
-    info['file_info'] = ['{}p'.format( resolution ), encoder]
+    info['file_info'] = [f'{resolution}p', encoder]
   
     if 'Display_aspect_ratio' in video_tags and \
        'Original_display_aspect_ratio' in video_tags:
@@ -384,8 +429,8 @@ class MediaInfo( object ):
         x,y    = video_data['Display_aspect_ratio/String'].split(':')          # Get the x and y values of the display aspect ratio
         width  = video_data['Height'] * float(x)/float(y)                      # Compute new pixel width based on video height times the display ratio
         width -= (width % 16)                                                  # Ensure pixel width is multiple of 16
-        info['-filter'].append(
-          'setsar={:.0f}:{:.0f}'.format(width, video_data['Width'])
+        info['-filter'].append( 
+            f"setsar={width:.0f}:{video_data['Width']:.0f}" 
         )
 
     if len(info['-filter']) > 0:
@@ -418,37 +463,6 @@ class MediaInfo( object ):
       to identify tracks in MKVToolNix for each text stream of interest.
       Returns None if NO text streams found.
 
-    """
-
-    self.__log.info('Parsing text information...')                               # If verbose is set, print some output
-    if self.__mediainfo is None:       
-      self.__log.warning('No media information!')                                # Print a message
-      return None         
-    if 'Text' not in self.__mediainfo:         
-      self.__log.warning('No text information!')                                 # Print a message
-      return None      
-    if not isinstance( languages, (list, tuple) ): languages = (languages,)       # If language input is a scalar, convert to tuple
-
-    return self.__parse_vobsub( 
-        languages,
-        mpegts = (self.__mediainfo['General'][0]['Format'] == 'MPEG-TS')
-    )
-
-  ##############################################################################
-  def __parse_vobsub(self, languages, mpegts=False):
-    """
-    A private method for parsing text information for vobsub subtitle format
-
-    Arguments:
-        languages (array-like) : List of languages to extract subtitles for
-
-    Keyword arguments:
-        mpegtst (bool) : If set, then skip language checking because of
-            poor support; see note below
-
-    Returns:
-        None if there was an issue, list if subtitles to extract
-
     Note: 
       (20190219) - While this method will parse information from all the 
       text streams in the file, the ccextract
@@ -460,14 +474,26 @@ class MediaInfo( object ):
 
     """
 
+    self.__log.info('Parsing text information...')                               # If verbose is set, print some output
+    if self.__mediainfo is None:       
+      self.__log.warning('No media information!')                                # Print a message
+      return None         
+    if 'Text' not in self.__mediainfo:         
+      self.__log.warning('No text information!')                                 # Print a message
+      return None      
+    if not isinstance( languages, (list, tuple) ): languages = (languages,)       # If language input is a scalar, convert to tuple
+
+   
+    mpegts = (self.__mediainfo['General'][0]['Format'] == 'MPEG-TS')
+
     j, n_elems, info = 0, [], []                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
     for language in languages:                                                         # Iterate over all languages
       for track in self.__mediainfo['Text']:                                             # Iterate over all text information
-        lang3  = track.get( 'Language/String3', '' )
+        lang3  = track.get( 'Language_String3', '' )
         if (not mpegts) and (language != lang3): continue                                               # If the track language does NOT matche the current language
         idx    = track.get( 'ID',                '' )                                   # Get track ID returning empty string if not in dictionary
-        lang1  = track.get( 'Language/String',   '' )
-        lang2  = track.get( 'Language/String2',  '' )
+        lang1  = track.get( 'Language_String',   '' )
+        lang2  = track.get( 'Language_String2',  '' )
         elems  = track.get( 'count_of_elements', '' )
         frames = track.get( 'Frame_count',       '' )
         if 'Forced' in track:
@@ -507,76 +533,16 @@ class MediaInfo( object ):
     if len(n_elems) == 0:                                                         # If subtitle streams were found
       self.__log.warning(  'NO text stream(s) in file...')                         # If verbose is set, print some output
       return None  
-    else:
-      # Double check forced flag
-      max_elems = float( max(n_elems) )                                          # Get maximum number of elements over all text streams
-      for i in range(len(n_elems)):                                               # Iterate over all extensions
-        if max_elems > 0:                                                         # If the maximum number of elements in a text stream is greater than zero
-          if n_elems[i] / max_elems < 0.1:   
-            info[i]['ext']    += '.forced'                                       # If the number of VobSub images in a given track less than 10% of the number of images in the track with the most images, assume it contains forced subtitle and append '.forced' to the extension
-            info[i]['forced']  = True
-      if len(info) > 0:                                                           # If text info was parsed, i.e., the info dictionary is NOT empty,
-        return info                                                              # Return the info dictionary
-      else:                                                                       # Else
-        return None                                                              # Return None
 
-  ##############################################################################
-  def __parse_mpegTS(self, languages):
-    """
-    This has been depricated and will be removed in the future
+    # Double check forced flag
+    max_elems = float( max(n_elems) )                                          # Get maximum number of elements over all text streams
+    for i in range(len(n_elems)):                                               # Iterate over all extensions
+      if max_elems > 0:                                                         # If the maximum number of elements in a text stream is greater than zero
+        if (n_elems[i] / max_elems) < 0.1:   
+          info[i]['ext']    += '.forced'                                       # If the number of VobSub images in a given track less than 10% of the number of images in the track with the most images, assume it contains forced subtitle and append '.forced' to the extension
+          info[i]['forced']  = True
 
-    """
+    if len(info) > 0:                                                           # If text info was parsed, i.e., the info dictionary is NOT empty,
+      return info                                                              # Return the info dictionary
 
-    j, n_elems, info = 0, [], []                                                 # Initialize a counter, a list for all out file extensions, a list to store the number of elements in each text stream, and a dictionary
-    for language in languages:                                                         # Iterate over all languages
-      for track in self.__mediainfo['Text']:                                             # Iterate over all text information
-        lang3  = track.get( 'Language/String3', '' )
-        # The following line is commented because language information not available for DCCTV in mediainfo output, but may be in future
-        # if lang != lang3: continue                                               # If the track language does NOT matche the current language
-        idx    = track.get( 'ID',                '' )
-        lang1  = track.get( 'Language/String',   '' )
-        lang2  = track.get( 'Language/String2',  '' )
-        elems  = track.get( 'count_of_elements', '' )
-        frames = track.get( 'Frame_count',       '' )
-        if 'Forced' in track:
-          forced = True if track['Forced'].lower() == 'yes' else False
-        else:
-          forced = False
-
-        if lang3 != '':  
-          lang = lang3                                                # Append 2 character language code if language is present
-        elif lang2 != '':   
-          lang = lang2                                                # Append 3 character language code if language is present
-        elif lang1 != '':  
-          lang = lang1                                                # Append full language string
-        
-        if elems  != '':                                                          # If elems variable is NOT an empty string
-          n_elems.append( int(elems) )                                           # Append the number of VobSub images to the sub_elems list
-        elif frames != '':                                                        # If frames variable is NOT an empty string
-          n_elems.append( int(frames) )                                          # Append the number of VobSub images to the sub_frames list
-        else:                                                                     # If neither variable has a value
-          n_elems.append( 0 )                                                    # Append zero
-        info.append( {'lang1'  : lang1,
-                      'lang2'  : lang2,
-                      'lang3'  : lang3,
-                      'ext'    : f".{j}.{lang}",
-                      'forced' : forced,
-                      'track'  : j,
-                      'vobsub' : False,
-                      'srt'    : False} )                                        # Update a dictionary to the list. vobsub and srt tags indicate whether a file exists or not
-        j+=1                                                                     # Increment sub title track number counter
-    if len(n_elems) == 0:                                                         # If subtitle streams were found
-      self.__log.warning(  'NO text stream(s) in file...')                         # If verbose is set, print some output
-      return None  
-    else:
-      # Double check forced flag
-      max_elems = float( max(n_elems) )                                          # Get maximum number of elements over all text streams
-      for i in range(len(n_elems)):                                               # Iterate over all extensions
-        if max_elems > 0:                                                         # If the maximum number of elements in a text stream is greater than zero
-          if n_elems[i] / max_elems < 0.1:   
-            info[i]['ext']    += '.forced'                                       # If the number of VobSub images in a given track less than 10% of the number of images in the track with the most images, assume it contains forced subtitle and append '.forced' to the extension
-            info[i]['forced']  = True
-      if len(info) > 0:                                                           # If text info was parsed, i.e., the info dictionary is NOT empty,
-        return info                                                              # Return the info dictionary
-      else:                                                                       # Else
-        return None                                                              # Return None
+    return None                                                              # Return None
