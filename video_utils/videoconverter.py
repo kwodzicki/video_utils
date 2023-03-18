@@ -16,7 +16,6 @@ from .utils.ffmpeg_utils   import cropdetect, FFmpegProgress, progress
 from .utils.threadCheck import threadCheck 
 
 # Subtitle imports
-from .subtitles.opensubtitles import OpenSubtitles
 from .subtitles import subtitle_extract
 from .subtitles import vobsub_to_srt
 from .subtitles import ccextract 
@@ -31,7 +30,7 @@ from . import POPENPOOL
 
 _sePat = re.compile( r'[sS](\d{2,})[eE](\d{2,})' )                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
-class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
+class VideoConverter( ComRemove, MediaInfo ):
   """
   For converting video files h264 encoded files in either the MKV or MP4 container.
 
@@ -422,11 +421,8 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
     Try to get subtitles through various means
 
     Get subtitles for a movie/tv show via extracting VobSub(s) from the input
-    file and converting them to SRT file(s) OR downloadig them from opensubtitles.org.
-    If a file fails to convert, the VobSub files are removed and the program attempts
-    to download if SRTs are requested. If some languages requested were not found in 
-    the input file, a download is attempted. If no subtitles in input file, a download
-    is attempted. 
+    file and converting them to SRT file(s).
+    If a file fails to convert, the VobSub files are removed.
 
     Arguments:
       None
@@ -451,78 +447,41 @@ class VideoConverter( ComRemove, MediaInfo, OpenSubtitles ):
 
     if not isRunning(): return
 
-    # Extract VobSub(s) and convert to SRT based on keywords
-    def opensubs_all():
-      """Local function to download all subtitles from opensubtitles"""
-
-      self.__log.info("Attempting opensubtitles.org search...")                 # Logging information
-      self.login()                                                              # Login to the opensubtitles.org API
-      self.searchSubs()                                                         # Search for subtitles
-      if (self.subs is not None):                                               # If no subtitles are found
-        found = 0                                                              # Initialize found to zero (0)
-        for lang in self.subs:                                                  # Iterate over all languages in the sub titles dictionary
-          if self.subs[lang] is not None: found+=1                              # If one of the keys under that language is NOT None, then increment found
-        if (found > 0):                                                         # If found is greater than zero (0), then subtitles were found
-          self.saveSRT( self.outFile )                                          # Download the subtitles
-      self.logout()                                                             # Log out of the opensubtitles.org API
-
     ######
     if (not self.vobsub) and (not self.srt):                                    # If both vobsub AND srt are False
       return                                                                    # Return from the method
 
     self.text_info = self.get_text_info( self.lang )                            # Get and parse text information from the file
-
-    if not self.vobsub and not self.srt:
-      self.__log.debug("No subtitle options set")                               # Log some information
-      return
-
     if self.text_info is None:                                                  # If there is not text information, then we cannot extract anything
-      if self.srt:                                                              # If srt subtitles are requested
-        opensubs_all()                                                          # Run local function
       return
 
     if self.format == "MPEG-TS":                                                # If the input file format is MPEG-TS, then must use CCExtractor
       if ccextract.CLI:                                                         # If the ccextract function import successfully
         status = ccextract.ccextract( self.inFile, self.outFile, self.text_info )     # Run ccextractor
       else:
-        self.__log.warning("ccextractor failed to import, falling back to opensubtitles.org")
-        opensubs_all()                                                          # Run local function
+        self.__log.warning("ccextractor failed to import, nothing to do")
+        return
     elif not subtitle_extract.CLI:                                              # Assume other type of file
       self.__log.warning("vobsub extraction not possible")
-      if self.srt:                                                              # If the srt flag is set
-        self.__log.info("Falling back to opensubtitles.org for SRT files")
-        opensubs_all()                                                          # Run local function
-    else:
-      self.vobsub_status, vobsub_files = subtitle_extract.subtitle_extract( 
-        self.inFile, self.outFile, self.text_info, 
-        vobsub = self.vobsub,
-        srt    = self.srt )                                                     # Extract VobSub(s) from the input file and convert to SRT file(s).
-      self._createdFiles.extend( vobsub_files )                                 # Add list of files created by subtitles_extract to list of created files
-      if (self.vobsub_status < 2) and self.srt:                                 # If there weren't nay major errors in the vobsub extraction
-        if not vobsub_to_srt.CLI:                                               # If SRT output is enabled AND vobsub_to_srt imported correctly
-          self.__log.warning("vobsub2srt conversion not possible. Leaving vobsub files.")
-        else:
-          self.srt_status, srt_files = vobsub_to_srt.vobsub_to_srt(   
-            self.outFile, self.text_info,   
-            vobsub_delete = self.vobsub_delete,   
-            cpulimit      = self.cpulimit,   
-            threads       = self.threads )                                      # Convert vobsub to SRT files
-          self._createdFiles.extend( srt_files )
-        failed = [i for i in self.text_info if i["srt"] is False]		# Check for missing srt files
-        if len(failed) > 0:							# If missing files found
-          self.__log.info("Attempting opensubtitles.org search...")             # Logging information
-          self.login()							        # Log into opensubtitles
-          for i in range(len(self.text_info)):				        # Iterate over all entries in text_info
-            if self.text_info[i]["srt"]: continue				# If the srt file exists, skip
-            self.track_num  = self.text_info[i]["track"]
-            self.get_forced = self.text_info[i]["forced"]
-            self.searchSubs( lang = self.text_info[i]["lang3"] )		# Search for subtitles, use lang keyword to override class attribute; do so won't erase self.lang
-            tmpOut = self.saveSRT( file = self.outFile )			# Save subtitles, note that this may not actually work if noting was found
-            if tmpOut and (len(tmpOut) == 1):
-              if os.path.isfile(tmpOut[0]):					# If the subtitle file exists
-                self.text_info[i]["srt"] = True				        # update the srt presence flag
-                self._createdFiles.extend( tmpOut )				# Add subtitle file to list of created files
-          self.logout()						                # Log out to of opensubtitles
+      return
+
+    self.vobsub_status, vobsub_files = subtitle_extract.subtitle_extract( 
+      self.inFile, self.outFile, self.text_info, 
+      vobsub = self.vobsub,
+      srt    = self.srt,
+    )                                                     # Extract VobSub(s) from the input file and convert to SRT file(s).
+    self._createdFiles.extend( vobsub_files )                                 # Add list of files created by subtitles_extract to list of created files
+    if (self.vobsub_status < 2) and self.srt:                                 # If there weren't nay major errors in the vobsub extraction
+      if not vobsub_to_srt.CLI:                                               # If SRT output is enabled AND vobsub_to_srt imported correctly
+        self.__log.warning("vobsub2srt conversion not possible. Leaving vobsub files.")
+        return
+      self.srt_status, srt_files = vobsub_to_srt.vobsub_to_srt(   
+        self.outFile, self.text_info,   
+        vobsub_delete = self.vobsub_delete,   
+        cpulimit      = self.cpulimit,   
+        threads       = self.threads
+      )                                      # Convert vobsub to SRT files
+      self._createdFiles.extend( srt_files )
 
   ##############################################################################
   def _cleanUp(self, *args):
