@@ -84,7 +84,7 @@ class MediaInfo( object ):
 
     super().__init__(**kwargs)
     self.__log  = logging.getLogger(__name__)
-    self.cmd    = ['mediainfo', '--Full', '--Output={}'.format(OUTPUT_FMT) ]  # The base command for mediainfo; just add [self.inFile]
+    #self.cmd    = ['mediainfo', '--Full', '--Output={}'.format(OUTPUT_FMT) ]  # The base command for mediainfo; just add [self.inFile]
     self.inFile = inFile
 
   ################################################################################
@@ -384,13 +384,13 @@ class MediaInfo( object ):
       )
     else:                                                                       # Else, the video is either large or x265 has be requested
       encoder  = 'x265'
-      bitDepth = video_data.get('Bit_depth', '')
+      bitDepth = video_data.get('BitDepth', '')
       info['-opts'].extend( 
         [
-            '-c:v',       'libx265',
-            '-preset',    'slow',                          # Set the video codec preset
-            'profile:v', f'main{bitDepth}',                      # Set the video codec profile
-            '-level',     '5.0',                          # Set the video codec level
+            '-c:v',        'libx265',
+            '-preset',     'slow',                          # Set the video codec preset
+            '-profile:v', f'main{bitDepth}',                      # Set the video codec profile
+            '-level',      '5.0',                          # Set the video codec level
         ]
       )
 

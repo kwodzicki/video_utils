@@ -15,10 +15,12 @@ __doc__     = "Collection of utilities to manipulate video files; " + \
 # Set up the logger for the module
 log = logging.getLogger( __name__ )                                          # Get root logger based on package name
 log.setLevel(logging.DEBUG)                                                  # Set root logger level to debug
-log.addHandler( logging.StreamHandler() )
-log.handlers[0].setFormatter( screenFMT['formatter'] )
-log.handlers[0].setLevel( screenFMT['level'] )            # Set the format tot the screen format
-log.handlers[0].set_name( screenFMT['name'] )
+stream = logging.StreamHandler()
+stream.setFormatter( screenFMT['formatter'] )
+stream.setLevel( screenFMT['level'] )            # Set the format tot the screen format
+stream.set_name( screenFMT['name'] )
+
+log.addHandler( stream )
 
 # Check for required CLIs
 for cli in ['ffmpeg', 'mediainfo']:

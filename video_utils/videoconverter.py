@@ -16,6 +16,7 @@ from .utils.ffmpeg_utils   import cropdetect, FFmpegProgress, progress
 from .utils.threadCheck import threadCheck 
 
 # Subtitle imports
+from .subtitles import opensubtitles
 from .subtitles import subtitle_extract
 from .subtitles import vobsub_to_srt
 from .subtitles import ccextract 
@@ -30,7 +31,7 @@ from . import POPENPOOL
 
 _sePat = re.compile( r'[sS](\d{2,})[eE](\d{2,})' )                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
-class VideoConverter( ComRemove, MediaInfo ):
+class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
   """
   For converting video files h264 encoded files in either the MKV or MP4 container.
 

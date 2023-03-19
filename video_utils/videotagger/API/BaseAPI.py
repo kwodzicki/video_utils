@@ -59,7 +59,7 @@ class BaseAPI( object ):
   TVDb_URLMovie   = '{}/movies/{}'.format(     TVDb_URLBase,   '{}' )
   TVDb_URLSeries  = '{}/series/{}'.format(     TVDb_URLBase,   '{}' )
   TVDb_URLEpisode = '{}/episodes/{}'
-  TVDb_URLImage   = 'https://artworks.thetvdb.com/banners/v4/{}' 
+  TVDb_URLImage   = 'https://artworks.thetvdb.com/banners/{}' 
   __TVDb_Headers  = {'Content-Type': 'application/json'} 
 
   def __init__(self, *args, **kwargs):
