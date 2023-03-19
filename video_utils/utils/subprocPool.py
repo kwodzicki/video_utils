@@ -311,10 +311,10 @@ class PopenThread( Thread ):
     try:                                                                                # Try to start the process
       self._proc = Popen( *self._args, **kwargs )                                       # Start the process
     except FileNotFoundError as err:                                                    # On command not exist error
-      self.__log.error('Setting returncode to 127 (command not found): {}'.format(err)) # Log error
+      self.__log.error(f'Setting returncode to 127 (command not found): {err}')         # Log error
       self._returncode = 127                                                            # Set return code to 127; standard "command not found" value
     except Exception as err:                                                            # On exception
-      self.__log.error( 'Failed to start process: {}'.format(err) )                     # Log error
+      self.__log.error(f'Failed to start process: {err}')                               # Log error
       self._returncode = 256                                                            # Set to out-of-range code on any other error
     else:                                                                               # On sucess
       self.__log.debug('Process started')                                               # Inform that process running

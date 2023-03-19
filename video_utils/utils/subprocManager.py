@@ -14,10 +14,10 @@ try:
 except:
   logging.getLogger(__name__).warning(
     'cpulimit NOT found! Cannot limit CPU usage!'
-  );                                                                            # Log a warning
-  cpulimitInstalled = False;                                                    # Set global cpulimitInstalled flag to False;
+  )                                                                            # Log a warning
+  cpulimitInstalled = False                                                    # Set global cpulimitInstalled flag to False;
 else:
-  cpulimitInstalled = True;                                                       # Set global cpulimitInstalled flag to True
+  cpulimitInstalled = True                                                       # Set global cpulimitInstalled flag to True
 
 class SubprocManager(object):
   def __init__(self, cpulimit = None, threads = None, interval = None, **kwargs):
@@ -38,20 +38,20 @@ class SubprocManager(object):
 
     """
 
-    super().__init__(**kwargs);
-    self.__log           = logging.getLogger(__name__);                         # Get logger for the class
-    self.cpulimit      = cpulimit;                                              # Set cpulimit attribute to user input cpulimit; see @properties at bottom for defaults
-    self.threads       = threads;                                               # Set threads attribute to user input threads; see @properties at bottom for defaults
-    self.interval      = interval;                                              # Set interval attribute to user input interval; see @properties at bottom for defaults
-    self._logFMT       = 'Process {:3d} of {:3d} - {}';                         # Format for logging message
-    self.__n           =  0;                                                    # Counter for the process number being run
-    self.__nPopen      =  0;                                                    # Total number of process added
-    self.__queue       = [];                                                    # Empty list to queue process information
-    self.__procs       = [];                                                    # Empty list for Popen handles for process
-    self.__returncodes = [];
-    self.__cpuProcs    = [];                                                    # Empty list for Popen handles from cpulimit instances
+    super().__init__(**kwargs)
+    self.__log           = logging.getLogger(__name__)                          # Get logger for the class
+    self.cpulimit      = cpulimit                                               # Set cpulimit attribute to user input cpulimit; see @properties at bottom for defaults
+    self.threads       = threads                                                # Set threads attribute to user input threads; see @properties at bottom for defaults
+    self.interval      = interval                                               # Set interval attribute to user input interval; see @properties at bottom for defaults
+    self._logFMT       = 'Process {:3d} of {:3d} - {}'                          # Format for logging message
+    self.__n           =  0                                                     # Counter for the process number being run
+    self.__nPopen      =  0                                                     # Total number of process added
+    self.__queue       = []                                                     # Empty list to queue process information
+    self.__procs       = []                                                     # Empty list for Popen handles for process
+    self.__returncodes = []
+    self.__cpuProcs    = []                                                     # Empty list for Popen handles from cpulimit instances
     self.__exitID      = None
-    self.__threadID    = None;                                                  # Set _threadID attribute to None
+    self.__threadID    = None                                                   # Set _threadID attribute to None
     self.__runEvent    = Event()
 
   ##############################################################################
@@ -74,8 +74,8 @@ class SubprocManager(object):
 
     """
 
-    self.__queue.append( (args, kwargs,) );                                     # Append the Popen info to the queue as a tuple
-    self.__nPopen += 1;                                                         # Increment the number of processes to be run
+    self.__queue.append( (args, kwargs,) )                                      # Append the Popen info to the queue as a tuple
+    self.__nPopen += 1                                                          # Increment the number of processes to be run
 
   ##############################################################################
   def run(self, block = True):
@@ -92,12 +92,12 @@ class SubprocManager(object):
     """
 
     self.__runEvent.set()
-    self.__returncodes = [];                                                    # Reset __return codes to empty list
+    self.__returncodes = []                                                     # Reset __return codes to empty list
     self.__exitID      = Thread( target = self.__exit )
-    self.__threadID    = Thread( target = self.__thread );                      # Initialize Thread class
+    self.__threadID    = Thread( target = self.__thread )                       # Initialize Thread class
     self.__exitID.start()
-    self.__threadID.start();                                                    # Start the thread
-    if block: self.wait();                                                      # If block (default), wait for processes to complete
+    self.__threadID.start()                                                     # Start the thread
+    if block: self.wait()                                                       # If block (default), wait for processes to complete
 
   ##############################################################################
   def wait(self, timeout = None):
@@ -110,13 +110,13 @@ class SubprocManager(object):
     """
 
     if self.__threadID:                                                         # If the _threadID attribute valid; i.e., not None
-      self.__threadID.join(timeout = timeout);                                  # Try to join the thread
+      self.__threadID.join(timeout = timeout)                                   # Try to join the thread
       if self.__threadID.is_alive():                                            # If the thread is still alive
-        return False;                                                           # Return False
+        return False                                                            # Return False
       else:                                                                     # Else, thread is done
-        self.__threadID = None;                                                 # Set _threadID attribute to None;
-    self.__nPopen = 0;                                                          # Reste number of processes to zero (0)
-    return True;                                                                # Return True by default
+        self.__threadID = None                                                  # Set _threadID attribute to None;
+    self.__nPopen = 0                                                           # Reste number of processes to zero (0)
+    return True                                                                 # Return True by default
   ##############################################################################
   def kill(self):
     """Method to kill all running processes"""
@@ -140,15 +140,15 @@ class SubprocManager(object):
     self.__log.debug('Attempting to apply function to process')
     if args   is None: args   = ()
     if kwargs is None: kwargs = {}
-    if len(self.__procs) != 1: time.sleep(0.5);                                 # If no processes running, sleep for 500 ms to see if one will start
+    if len(self.__procs) != 1: time.sleep(0.5)                                  # If no processes running, sleep for 500 ms to see if one will start
     if len(self.__procs) != 1:                                                  # If there is NOT one process running
       if len(self.__procs) == 0:                                                # Check if no processes running
-        self.__log.error('No processes running!');                                # Log error
+        self.__log.error('No processes running!')                               # Log error
       else:                                                                     # Else, more than one
-        self.__log.error('More than one (1) process running!');                   # Log error
-      return False;                                                             # Return False
-    func( self.__procs[0][0], *args, **kwargs );                                # Apply the function to the only running process
-    return True;                                                                # Return True
+        self.__log.error('More than one (1) process running!')                  # Log error
+      return False                                                              # Return False
+    func( self.__procs[0][0], *args, **kwargs )                                 # Apply the function to the only running process
+    return True                                                                 # Return True
 
   ##############################################################################
   def __thread(self):
@@ -159,14 +159,14 @@ class SubprocManager(object):
 
     """
 
-    self.__n = 0;                                                               # Ensure the counter is at zero
+    self.__n = 0                                                                # Ensure the counter is at zero
     while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()) and (len(self.__queue) > 0): # While there are commands in the queue
       if len(self.__procs) == self.threads:                                     # If the number of allowable subprocess are running
-        self.__procCheck();                                                     # Wait for a process to finish
-      args, kwargs = self.__queue.pop(0);                                       # Pop off first element of the _queue
-      self.__Popen( args, **kwargs );                                           # Call method to start a new subprocess
+        self.__procCheck()                                                      # Wait for a process to finish
+      args, kwargs = self.__queue.pop(0)                                        # Pop off first element of the _queue
+      self.__Popen( args, **kwargs )                                            # Call method to start a new subprocess
     while (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()) and (len(self.__procs) > 0): # While there are processes running
-      self.__procCheck();                                                       # Wait for a process to finish
+      self.__procCheck()                                                        # Wait for a process to finish
     self.__runEvent.clear()                                                     # Clear the run event so the __exit thread quits
     self.__procs = []                                                           # Clear out Popen instances
   ##############################################################################
@@ -183,92 +183,92 @@ class SubprocManager(object):
     """
 
     if _sigintEvent.is_set() or _sigtermEvent.is_set(): return
-    self.__n += 1;                                                              # Increment n by one
-    single = kwargs.pop('single', False);                                       # Pop off the 'single' keyword argument, or get False if not keyword
-    stdout = kwargs.pop('stdout', DEVNULL);                                     # Set default stdout to DEVNULL
-    stderr = kwargs.pop('stderr', STDOUT);                                      # Set default stderr to STDOUT, which will be DEVNULL if default stdout is used
+    self.__n += 1                                                               # Increment n by one
+    single = kwargs.pop('single', False)                                        # Pop off the 'single' keyword argument, or get False if not keyword
+    stdout = kwargs.pop('stdout', DEVNULL)                                      # Set default stdout to DEVNULL
+    stderr = kwargs.pop('stderr', STDOUT)                                       # Set default stderr to STDOUT, which will be DEVNULL if default stdout is used
     
-    logType = 0;                                                                # Variable that will determine what type of logging is required; (0) no files, (1) stdout file, (2), stderr file, (3), both (1) and (2)
+    logType = 0                                                                 # Variable that will determine what type of logging is required; (0) no files, (1) stdout file, (2), stderr file, (3), both (1) and (2)
     if type(stdout) is str:                                                     # If stdout is string type
       if self.__makedirs( stdout, True ):                                       # Try to make directory tree
-        logType += 1;                                                           # Increment log type by 1
+        logType += 1                                                            # Increment log type by 1
       else:                                                                     # Else, make failed
-        stdout = DEVNULL;                                                       # Set stdout to DEVNULL
+        stdout = DEVNULL                                                        # Set stdout to DEVNULL
 
     if type(stderr) is str:                                                     # If stderr is string type
       if self.__makedirs( stderr ):                                             # Try to make directory tree
-        logType += 2;                                                           # Increment log type by 2
+        logType += 2                                                            # Increment log type by 2
       else:                                                                     # Else, make failed
-        stderr = STDOUT;                                                        # Set stderr to STDOUT
+        stderr = STDOUT                                                         # Set stderr to STDOUT
 
     self.__log.debug( f'Running command : {args}' )    
     if logType == 0:                                                            # If no log files are needed
-      proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs );         # Start the process
+      proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs )          # Start the process
     elif logType == 1:                                                          # Else, if stdout is a file
       with open( stdout, 'w' ) as stdout:                                       # Open file for writing
-        proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs );       # Start the process
+        proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs )        # Start the process
     elif logType == 2:                                                          # Else, if stderr is a file
       with open( stderr, 'w' ) as stderr:                                       # Open file for writing
-        proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs );       # Start the process
+        proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs )        # Start the process
     else:                                                                       # Else, both stdout and stderr must be files
       with open( stdout, 'w' ) as stdout:                                       # Open stdout file for writing
         with open( stderr, 'w' ) as stderr:                                     # Open stderr file for writing
-          proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs );     # Start the process
+          proc = Popen( args, stdout = stdout, stderr = stderr, **kwargs )      # Start the process
 
-    self.__log.info( self._logFMT.format(self.__n, self.__nPopen, 'Started!') ); # Logging information
+    self.__log.info( self._logFMT.format(self.__n, self.__nPopen, 'Started!') ) # Logging information
 
-    self.__procs.append( (proc, self.__n) );                                    # Append handle and process number tuple to the _procs attribute
+    self.__procs.append( (proc, self.__n) )                                     # Append handle and process number tuple to the _procs attribute
     if cpulimitInstalled and (self.cpulimit > 0) and (self.cpulimit < 100):     # If the cpulimit CLI is installed AND the cpulimit is greater than zero (0) AND less than 100
-      limit = self.cpulimit if single else self.cpulimit * self.threads;        # Set the cpu limit to threads times the current cpulimit percentage
-      # limit = '200' if limit > 200 else str( limit );                           # Make sure not more than 200
-      # limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', limit ];               # Set up the cpulimit command
-      limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', str(limit) ];            # Set up the cpulimit command
-      self.__cpuProcs.append( Popen(limit, stdout=DEVNULL, stderr=STDOUT) );    # Start new subprocess for CPU limit command and append handle to _cpuProcs
+      limit = self.cpulimit if single else self.cpulimit * self.threads         # Set the cpu limit to threads times the current cpulimit percentage
+      # limit = '200' if limit > 200 else str( limit )                          # Make sure not more than 200
+      # limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', limit ]              # Set up the cpulimit command
+      limit = [ 'cpulimit', '-p', str( proc.pid ), '-l', str(limit) ]           # Set up the cpulimit command
+      self.__cpuProcs.append( Popen(limit, stdout=DEVNULL, stderr=STDOUT) )     # Start new subprocess for CPU limit command and append handle to _cpuProcs
 
   ##############################################################################
   def __procCheck(self):
     """Private method to check for finished processes"""
 
     while all( [proc[0].poll() is None for proc in self.__procs] ):             # While all of the processes are working (remember _procs contains tuples)
-      time.sleep(self.interval);                                                # Sleep for the interval defined
+      time.sleep(self.interval)                                                 # Sleep for the interval defined
     for i in range( len(self.__procs) ):                                        # Iterate over all the process
       if self.__procs[i][0].returncode is not None:                             # If the process has finished (remember _procs contains tuples)
-        proc, n = self.__procs.pop( i );                                        # Pop off the (process, #) tuple
-        proc.communicate();                                                     # Ensure processes finished, just good practice
-        self.__log.info( self._logFMT.format( n, self.__nPopen, 'Finished!' ) );  # Log some information
+        proc, n = self.__procs.pop( i )                                         # Pop off the (process, #) tuple
+        proc.communicate()                                                      # Ensure processes finished, just good practice
+        self.__log.info( self._logFMT.format( n, self.__nPopen, 'Finished!' ) ) # Log some information
         try:                                                                    # Try to
-          cpuProc = self.__cpuProcs.pop( i );                                   # Pop off the cpulimit Popen handle for the process
+          cpuProc = self.__cpuProcs.pop( i )                                    # Pop off the cpulimit Popen handle for the process
         except:                                                                 # If there is an exception
-          pass;                                                                 # Do nothing, cpulimiting must be disabled
+          pass                                                                  # Do nothing, cpulimiting must be disabled
         else:                                                                   # Else, cpulimiting must be enabled
-          cpuProc.communicate();                                                # Ensure processes finished, just good practice 
-        self.__returncodes.append( proc.returncode );                           # Append the return code to the __returcodes attribute
+          cpuProc.communicate()                                                 # Ensure processes finished, just good practice 
+        self.__returncodes.append( proc.returncode )                            # Append the return code to the __returcodes attribute
         if proc.returncode != 0:                                                # If a non-zero returncode
           self.__log.warning( 
             self._logFMT.format( n, self.__nPopen, 'Non-zero returncode!!!' ) 
-          );                                                                    # Log some information
-        break;                                                                  # Break out of the for loop  
+          )                                                                     # Log some information
+        break                                                                   # Break out of the for loop  
 
    ##############################################################################
   def __makedirs( self, path, stdout = False ):
     """A private method to try to make parent directory for log files"""
 
-    errFMT = 'Error making path to {} file: {}. Using default logging';         # Format for logging error
+    errFMT = 'Error making path to {} file: {}. Using default logging'          # Format for logging error
     if stdout:                                                                  # If stdout True
-      errFMT = errFMT.format('stdout','{}');                                    # Update errFMT with stdout in first entry
+      errFMT = errFMT.format('stdout','{}')                                     # Update errFMT with stdout in first entry
     else:                                                                       # Else, must be stderr
-      errFMT = errFMT.format('stderr','{}');                                    # Update errFMT with stderr in first entry
+      errFMT = errFMT.format('stderr','{}')                                     # Update errFMT with stderr in first entry
 
-    dir = os.path.dirname( path );                                              # Get the directory name
+    dir = os.path.dirname( path )                                               # Get the directory name
     if not os.path.isdir( dir ):                                                # If the directory does NOT exist
       try:                                                                      # Try to...
-        os.makedirs( dir );                                                     # Make the directory tree
+        os.makedirs( dir )                                                      # Make the directory tree
       except:                                                                   # On exception; likely no write permissions on dst
         self.__log.warning( 
           self._logFMT.format( self.__n, self.__nPopen, errFMT.format(path) ) 
-        );                                                                      # Log information
-        return False;                                                           # Return False
-    return True;                                                                # Return True
+        )                                                                       # Log information
+        return False                                                            # Return False
+    return True                                                                 # Return True
   ##############################################################################
   def __exit(self, *args, **kwargs):
     """ 
@@ -279,33 +279,33 @@ class SubprocManager(object):
     while self.__runEvent.is_set():
       if _sigintEvent.wait( timeout = 0.5 ) or _sigtermEvent.wait( timeout = 0.5 ):
         self.__runEvent.clear()
-        for proc in self.__procs: proc[0].terminate()                               # Terminate all of the processes 
+        for proc in self.__procs: proc[0].terminate()                           # Terminate all of the processes 
 
   ##############################################################################
   @property
   def cpulimit(self):
-    return self.__cpulimit;                                                     # return _cpulimit
+    return self.__cpulimit                                                      # return _cpulimit
   @cpulimit.setter
   def cpulimit(self, value):
-    self.__cpulimit = 75 if (value is None) else int(value);                    # Set _cpulimit to defulat if value if value is None, else set to integer of value
+    self.__cpulimit = 75 if (value is None) else int(value)                     # Set _cpulimit to defulat if value if value is None, else set to integer of value
   ##############################################################################
   @property
   def threads(self):
-    return self.__threads;                                                      # return _threads
+    return self.__threads                                                       # return _threads
   @threads.setter
   def threads(self, value):
-    self.__threads = nthreads if (value is None) else int(value);               # Set _threads to default if value is None, else set to integer of value
-    if self.__threads < 1: self.__threads = 1;                                  # If _threads is less than one (1), set to one (1)
+    self.__threads = nthreads if (value is None) else int(value)                # Set _threads to default if value is None, else set to integer of value
+    if self.__threads < 1: self.__threads = 1                                   # If _threads is less than one (1), set to one (1)
   ##############################################################################
   @property
   def interval(self):
-    return self.__interval;                                                     # return _cpulimit
+    return self.__interval                                                      # return _cpulimit
   @interval.setter
   def interval(self, value):
-    self.__interval = 0.5 if (value is None) else float(value);                 # Set _interval to default if value is None, else set to float of value
-    if self.__interval < 0.01: self.__interval = 0.01;                          # If _interval is less than 0.01, set to 0.01
-    if self.__interval > 0.50: self.__interval = 0.50;                          # If _interval is greater than 0.5, set to 0.5; we want things to stay responsive
+    self.__interval = 0.5 if (value is None) else float(value)                  # Set _interval to default if value is None, else set to float of value
+    if self.__interval < 0.01: self.__interval = 0.01                           # If _interval is less than 0.01, set to 0.01
+    if self.__interval > 0.50: self.__interval = 0.50                           # If _interval is greater than 0.5, set to 0.5; we want things to stay responsive
   ##############################################################################
   @property
   def returncodes(self):
-    return self.__returncodes;                                                  # return _cpulimit
+    return self.__returncodes                                                   # return _cpulimit
