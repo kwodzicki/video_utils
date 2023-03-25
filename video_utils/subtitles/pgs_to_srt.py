@@ -21,6 +21,8 @@ from pgsrip.ripper import (
     PgsToSrtRipper,
 )
 
+from .srtUtils import srtCleanup
+
 PGS_HEADER = 13
 
 class MPath( MediaPath ):
@@ -123,3 +125,4 @@ def pgs_to_srt( pgsFile, lang ):
         return
 
     srt.save()
+    srtCleanup( srt.path )
