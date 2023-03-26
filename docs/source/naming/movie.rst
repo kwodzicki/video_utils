@@ -11,36 +11,47 @@ Movies
 
 The file name consists of two values separated by a period.
 The first value is TMDb movie number with ‘tmdb’ prepended (e.g., tmdb0123) [1]_.
-The second value is version information; e.g., Director’s Cut, Extended Edition, etc.
+The second value is edition information; e.g., Director’s Cut, Extended Edition, etc.,
+or extra content information such as behind the scenes, shorts, etc.
 If it is just a standard release, just leave this blank; e.g., tmdb0123..mkv.
+
+For different editions of a film, the following format is used [2]_:
+        edition-Director's Cut
+
+For extras and trailers, the following format is used [3]_:
+        The Making Of-behindthescenes
+
+where the 'behindthescenes' is the Extra_Type defined by Plex.
+
+When movie extras are input, output files are orgainzed based on the subdirectories hierarchy outline on the Plex website.[3]_
 
 Input File:
 ^^^^^^^^^^^
-    :purple:`tmdb9870`:black:`.`:salmon:`Unrated`:black:`.`:brown:`mkv`
+    :purple:`tmdb9870`:black:`.`:salmon:`edition-Unrated`:black:`.`:brown:`mkv`
 
 Output File:
 ^^^^^^^^^^^^
-    Forgetting Sarah Marshall :gold:`(2008)`:black:`.`:salmon:`Unrated`:black:`.`:purple:`tmdb9870`:black:`.`:blue:`480p`:black:`.`:red:`x264`:black:`.`:dodgerblue:`EN_AAC.EN_AC-3`:black:`.`:brown:`mp4`
+    Forgetting Sarah Marshall :gold:`(2008)`:black:`.`:salmon:`{edition-Unrated}`:black:`.`:purple:`{tmdb-9870}`:black:`.`:blue:`480p`:black:`.`:red:`x264`:black:`.`:dodgerblue:`EN_AAC.EN_AC-3`:black:`.`:brown:`mp4`
 
 Definitions:
 ^^^^^^^^^^^^
-+---------------------------+-------------------------------------------------------+
-| Forgetting Sarah Marshall | Name of the movie [2]_                                |
-+---------------------------+-------------------------------------------------------+
-| :gold:`2008`              | Year movie released                                   |
-+---------------------------+-------------------------------------------------------+
-| :salmon:`Unrated`         | Movie qualifier; Unrated, Special Edition, etc. [3]_  |
-+---------------------------+-------------------------------------------------------+
-| :purple:`tmdb9870`        | TMDb ID                                               |
-+---------------------------+-------------------------------------------------------+
-| :blue:`480p`              | Resolution of the movie                               |
-+---------------------------+-------------------------------------------------------+
-| :red:`x264`               | Video codec used for encoding                         |
-+---------------------------+-------------------------------------------------------+
-| :dodgerblue:`EN\_AAC`     | Audio language and codec for each audio track in file |
-+---------------------------+-------------------------------------------------------+
-| :brown:`mp4`              | Video container                                       |
-+---------------------------+-------------------------------------------------------+
++-----------------------------+-------------------------------------------------------+
+| Forgetting Sarah Marshall   | Name of the movie [4]_                                |
++-----------------------------+-------------------------------------------------------+
+| :gold:`2008`                | Year movie released                                   |
++-----------------------------+-------------------------------------------------------+
+| :salmon:`{edition-Unrated}` | Movie qualifier; Unrated, Special Edition, etc. [5]_  |
++-----------------------------+-------------------------------------------------------+
+| :purple:`{tmdb-9870}`       | TMDb ID                                               |
++-----------------------------+-------------------------------------------------------+
+| :blue:`480p`                | Resolution of the movie                               |
++-----------------------------+-------------------------------------------------------+
+| :red:`x264`                 | Video codec used for encoding                         |
++-----------------------------+-------------------------------------------------------+
+| :dodgerblue:`EN\_AAC`       | Audio language and codec for each audio track in file |
++-----------------------------+-------------------------------------------------------+
+| :brown:`mp4`                | Video container                                       |
++-----------------------------+-------------------------------------------------------+
 
 
 MediaInfoLib - v0.7.84 of Output File:
@@ -98,7 +109,13 @@ MediaInfoLib - v0.7.84 of Output File:
    It is possible to use TVDb movie ID here (prepend ‘tvdb’), but this has not been fully tested.
 
 .. [2]
-   Movie name is limited to 50 characters to minimize the likelihood of hitting the 255 character limit on most computers.
+   For more information about this tagging convention for multiple editions, see https://support.plex.tv/articles/multiple-editions/
 
 .. [3]
+   For more information about this tagging convention for extras, see https://support.plex.tv/articles/local-files-for-trailers-and-extras/
+
+.. [4]
+   Movie name is limited to 50 characters to minimize the likelihood of hitting the 255 character limit on most computers.
+
+.. [5]
    Version is limited to 20 characters to minimize the likelihood of hitting the 255 character limit on most computers.

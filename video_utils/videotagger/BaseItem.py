@@ -33,6 +33,11 @@ class BaseItem( BaseAPI ):
     self._tmdb      = False                                                             # Flag specifying if data from TMDb or TVDb
     self.URL        = None
 
+    self.extra_type = None
+    tmp = self._version.split('-')
+    if (len(tmp) > 1) and (tmp[0] != 'edition'):
+        self.extra_type = tmp[-1]
+        
   @property
   def isMovie(self):
     """bool: Identifies object as movie"""
@@ -50,6 +55,12 @@ class BaseItem( BaseAPI ):
     """bool: Identifies object as episode"""
 
     return self._isEpisode
+
+  @property
+  def isExtra(self):
+    """bool: Identifies object as extra"""
+
+    return self.extra_type is not None
 
   @property
   def isPerson(self):
@@ -388,7 +399,7 @@ class BaseItem( BaseAPI ):
     return data
 
   def _movieData(self, **kwargs):
-    title = '{} - {}'.format(self.title, self._version) if self._version else self.title
+    title = f'{self.title} - {self._version}' if self._version else self.title
     plots = self._getPlot()
     year  = str( self.release_date.year ) if isinstance(self.release_date, datetime) else ''
     data  = {'year'    : year, 
