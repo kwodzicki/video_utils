@@ -61,7 +61,7 @@ def genSubInfo( out_base, stream ):
 
     return None
 
-def subtitle_extract( in_file, out_base, text_info, vobsub=False, srt=False ): 
+def subtitle_extract( in_file, out_base, text_info, **kwargs ): 
     """
     Extract subtitle(s) from a file and convert them to SRT file(s).
     
@@ -73,7 +73,6 @@ def subtitle_extract( in_file, out_base, text_info, vobsub=False, srt=False ):
       text_info (dict): Data returned by call to :meth:`video_utils.mediainfo.MediaInfo.get_text_info`
     
     Keyword arguments:
-      vobsub (bool): Set to keep vobsub after extraction; Default removes file
       srt (bool): Set to convert vobsub to srt format; Default does NOT convert file
     
     Returns:

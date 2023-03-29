@@ -25,6 +25,26 @@ from .srtUtils import srtCleanup
 
 PGS_HEADER = 13
 
+def rmfile( *args ):
+    """
+    Remove file(s) without errors
+
+    Try to remove file(s); suppress errors
+
+    Arguments:
+        *args : Any number of files to remove
+
+    Returns:
+        None
+
+    """
+
+    for arg in args:
+        try:
+            os.remove( arg )
+        except:
+            pass
+
 class MPath( MediaPath ):
     """
     Overrides some of MediaPath functionality
@@ -58,12 +78,14 @@ class PgsParser( object ):
 
     def __init__(self, pgs, lang):
 
+        self.log = logging.getLogger(__name__)
         self.pgs = pgs
         self.media_path = MPath(pgs, lang)
 
-    def genSegments( self ):
+    def gen_segments( self ):
         """Generate segments from PGS file"""
-    
+
+        self.log.debug('Generating PGS segments')
         with open(self.pgs, 'rb') as iid:
             info = iid.read(PGS_HEADER)
             while info:
@@ -77,36 +99,38 @@ class PgsParser( object ):
                 yield segment_type( info+iid.read(size) )
                 info = iid.read(PGS_HEADER)
     
-    def genDisplaySets( self ):
+    def gen_display_sets( self ):
         """Generate DisplaySet(s) from PGS file"""
-    
+   
+        self.log.debug('Generating display sets') 
         index    = 0
         segments = []
-        for s in self.genSegments():
+        for s in self.gen_segments():
             segments.append( s )
             if s.type == SegmentType.END:
                 yield DisplaySet(index, segments)
                 segments = []
                 index += 1
     
-    def genPgsSubtitleItems( self ):
+    def gen_pgs_subtitle_items( self ):
         """Generate PgsSubtitleItem(s) from PGS file"""
 
+        self.log.debug('Generating subtitle items')
         index = 0
         sets  = []
-        for ds in self.genDisplaySets( ):
+        for ds in self.gen_display_sets( ):
             if sets and ds.is_start():
                 yield PgsSubtitleItem(index, self.media_path, sets )
                 sets   = []
                 index += 1
             sets.append( ds )
 
-def pgs_to_srt( pgsFile, lang ):
+def pgs_to_srt( out_file, text_info, delete_source=False, **kwargs ):
     """
     Convert PGS (.sup) to SRT
 
     Arguments:
-        pgsFile (path-like) : Location of source PGS
+        File (path-like) : Location of source PGS
             file to convert to SRT
         lang (str) : 2-character code for subtitle 
             language.
@@ -114,15 +138,38 @@ def pgs_to_srt( pgsFile, lang ):
     """
 
     log        = logging.getLogger( __name__ )
-    parse      = PgsParser( pgsFile, lang )
-    opts       = Options()
-    pgs        = Pgs(parse.media_path, opts, b'', '')
-    pgs._items = list( parse.genPgsSubtitleItems( ) )
+    supFile    = f"{out_file}{text_info['ext']}.sup"
+    srtFile    = f"{out_file}{text_info['ext']}.srt"
 
+    if os.path.isfile( srtFile ):
+        return 1, supFile
+
+    if not os.path.isfile( supFile ):
+        return 2, supFile
+
+    log.info( "Parsing PGS file : %s", supFile )
+    parse = PgsParser(supFile, text_info.get('lang3', 'und'))
+    opts  = Options()
+    pgs   = Pgs(parse.media_path, opts, b'', '')
+    pgs._items = list( parse.gen_pgs_subtitle_items( ) )
+    if len(pgs._items) == 0:
+        log.warning( "No subtitles found in PGS file, removing : %s", supFile )
+        rmfile( supFile, srtFile )
+        return 2, ''
+
+    log.info( "Converting images to SRT" )
     srt = PgsToSrtRipper( pgs, opts ).rip( None )
     if len(srt) == 0:
-        log.warning( f"No subtitles found for {pgsFile}" ) 
-        return
+        log.warning( "No subtitles converted to SRT : %s", supFile ) 
+        rmfile( srtFile )
+        return 2, ''
 
+    log.info( "Saving SRT data to file : %s", srt.path )
     srt.save()
     srtCleanup( srt.path )
+
+    if delete_source:
+        log.info( "Deleting PGS file : %s", supFile )
+        os.remove( supFile )
+
+    return 0, srt.path

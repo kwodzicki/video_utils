@@ -1,33 +1,26 @@
-# Built-in imports
 import logging
 import os, re, time
 from datetime import datetime
-from subprocess import PIPE, STDOUT
 
 from . import __name__ as __pkg_name__
 from . import __version__ as __pkg_version__
 from . import _sigintEvent, _sigtermEvent, isRunning
+from . import POPENPOOL
 
-# Parent classes
 from .mediainfo import MediaInfo
 from .comremove import ComRemove
 from .utils.handlers import RotatingFile
 from .utils.ffmpeg_utils   import cropdetect, FFmpegProgress, progress
 from .utils.threadCheck import threadCheck 
 
-# Subtitle imports
 from .subtitles import opensubtitles
 from .subtitles import subtitle_extract
-from .subtitles import vobsub_to_srt
-from .subtitles import ccextract 
+from .subtitles import sub_to_srt
 
-# Metadata imports
 from .videotagger import getMetaData
 
-# Logging formatter
 from .config import getComskipLog, getTranscodeLog, fileFMT
 
-from . import POPENPOOL
 
 _sePat = re.compile( r'[sS](\d{2,})[eE](\d{2,})' )                              # Matching pattern for season/episode files; lower/upper case 's' followed by 2 or more digits followed by upper/lower 'e' followed by 2 or more digits followed by ' - ' string
 
@@ -59,7 +52,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
                comdetect         = False,
                vobsub            = False, 
                srt               = False,
-               vobsub_delete     = False,
+               sub_delete_source = False,
                **kwargs):
     """
     Keyword arguments:
@@ -88,7 +81,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
        srt  (bool): Set to convert the extracted VobSub file(s) to SRT
                         format. Also enables opensubtitles.org downloading 
                         if no subtitles are found in the input file.
-       vobsub_delete (bool): Set to delete VobSub file(s) after they have been 
+       sub_delete_source (bool): Set to delete VobSub file(s) after they have been 
                         converted to SRT format. Used in conjunction with
                         srt keyword.
       username (str): User name for opensubtitles.org
@@ -108,8 +101,8 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     else:
       self.vobsub = vobsub
     self.srt = srt
-    if self.srt and (not vobsub_to_srt.CLI):
-      self.__log.warning("VobSub2SRT conversion is DISABLED! Check that vobsub2srt is installed and in your PATH")
+    #if self.srt and (not vobsub_to_srt.CLI):
+    #  self.__log.warning("VobSub2SRT conversion is DISABLED! Check that vobsub2srt is installed and in your PATH")
 
     if not isinstance(cpulimit, int): cpulimit = 75
     self.cpulimit = cpulimit
@@ -124,7 +117,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     self.miss_lang     = []
     self.x265          = x265
     self.remove        = remove
-    self.vobsub_delete = vobsub_delete
+    self.sub_delete_source = sub_delete_source
     self.inFile       = None
 
     if transcode_log is None:
@@ -148,7 +141,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     self.audio_info       = None                                                # Set audio_info to None by default
     self.text_info        = None                                                # Set text_info to None by default
     self.subtitle_ltf     = None                                                # Array to store subtitle language, track, forced (ltf) tuples
-    self.vobsub_status    = None                                                # Set vobsub_status to None by default
+    self.sub_status       = None                                                # Set sub_status to None by default
     self.srt_status       = None                                                # Set srt_status to None by default
     self.transcode_status = None                                                # Set transcode_status to None by default
     self.tagging_status   = None                                                # Set mp4tags_status to None by default
@@ -193,9 +186,9 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
   ################################################################################
   def transcode( self, inFile,
-        log_file          = None,
-        metaData          = None,
-        chapters          = False,
+        log_file  = None,
+        metaData  = None,
+        chapters  = False,
         **kwargs):
     """
     Actually transcode a file
@@ -432,7 +425,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
       None
 
     Returns:
-      Updates vobsub_status and creates/updates list of VobSubs that failed vobsub2srt conversion.
+      Updates sub_status and creates/updates list of VobSubs that failed vobsub2srt conversion.
 
     Return codes:
       - 0 : Completed successfully.
@@ -463,26 +456,27 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         self.__log.warning("ccextractor failed to import, nothing to do")
         return
     elif not subtitle_extract.CLI:                                              # Assume other type of file
-      self.__log.warning("vobsub extraction not possible")
+      self.__log.warning("subtitle extraction not possible")
       return
 
-    self.vobsub_status, vobsub_files = subtitle_extract.subtitle_extract( 
-      self.inFile, self.outFile, self.text_info, 
+    self.sub_status, sub_files = subtitle_extract.subtitle_extract( 
+      self.inFile, 
+      self.outFile, 
+      self.text_info, 
       vobsub = self.vobsub,
       srt    = self.srt,
     )                                                     # Extract VobSub(s) from the input file and convert to SRT file(s).
-    self._createdFiles.extend( vobsub_files )                                 # Add list of files created by subtitles_extract to list of created files
-    if (self.vobsub_status < 2) and self.srt:                                 # If there weren't nay major errors in the vobsub extraction
-      if not vobsub_to_srt.CLI:                                               # If SRT output is enabled AND vobsub_to_srt imported correctly
-        self.__log.warning("vobsub2srt conversion not possible. Leaving vobsub files.")
-        return
-      self.srt_status, srt_files = vobsub_to_srt.vobsub_to_srt(   
-        self.outFile, self.text_info,   
-        vobsub_delete = self.vobsub_delete,   
-        cpulimit      = self.cpulimit,   
-        threads       = self.threads
-      )                                      # Convert vobsub to SRT files
-      self._createdFiles.extend( srt_files )
+    self._createdFiles.extend( sub_files )                                 # Add list of files created by subtitles_extract to list of created files
+    if (self.sub_status > 1) or not self.srt:                                 # If there weren't nay major errors in the vobsub extraction
+      return
+
+    srt_files = sub_to_srt(   
+      self.outFile, self.text_info,   
+      delete_soure = self.sub_delete_source,   
+      cpulimit     = self.cpulimit,   
+      threads      = self.threads,
+    )                                      # Convert vobsub to SRT files
+    self._createdFiles.extend( srt_files )
 
   ##############################################################################
   def _cleanUp(self, *args):
