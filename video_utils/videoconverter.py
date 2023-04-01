@@ -14,6 +14,7 @@ from .utils.ffmpeg_utils   import cropdetect, FFmpegProgress, progress
 from .utils.threadCheck import threadCheck 
 
 from .subtitles import opensubtitles
+from .subtitles import ccextract
 from .subtitles import subtitle_extract
 from .subtitles import sub_to_srt
 
@@ -168,7 +169,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
   def outDir(self, val):
     if isinstance(val, str):
       if not os.path.isdir( val ):
-        os.makedirs( val, True )
+        os.makedirs( val, exist_ok=True )
       self.__outDir = val
     else:
       self.__outDir = os.path.expanduser('~')
@@ -272,13 +273,13 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     open(prog_file, 'a').close()                                                        # Touch inprogress file, acts as a kind of lock
 
     if kwargs.get('comdetect', self.comdetect):                                         # If the comdetect keywords is set; if key not given use class-wide setting
-      name = ''                                                                         # Default value for name keyword for removeCommercials method
+      name = ''                                                                         # Default value for name keyword for remove_commercials method
       if self.metaData is not None:                                                     # If metaData attribute is not None
         if self.metaData.isEpisode:                                                     # If metaData for episode
           name = str(self.metaData.Series)                                              # Get series information
         else:                                                                           # Else
           name = str(self.metaData)                                                     # Get movie information
-      status = self.removeCommercials( self.inFile, chapters = chapters, name = name )  # Try to remove commercials 
+      status = self.remove_commercials( self.inFile, chapters = chapters, name = name )  # Try to remove commercials 
       if isinstance(status, str):                                                       # If string instance, then is path to chapter file
         self.chapterFile = status                                                       # Set chatper file attribute to status; i.e., path to chapter file
       elif not status:                                                                  # Else, will be boolean
@@ -449,33 +450,33 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     if self.text_info is None:                                                  # If there is not text information, then we cannot extract anything
       return
 
+    srt_files = []
     if self.format == "MPEG-TS":                                                # If the input file format is MPEG-TS, then must use CCExtractor
       if ccextract.CLI:                                                         # If the ccextract function import successfully
-        status = ccextract.ccextract( self.inFile, self.outFile, self.text_info )     # Run ccextractor
+        srt_files = ccextract.ccextract( self.inFile, self.outFile, self.text_info )     # Run ccextractor
       else:
         self.__log.warning("ccextractor failed to import, nothing to do")
-        return
     elif not subtitle_extract.CLI:                                              # Assume other type of file
       self.__log.warning("subtitle extraction not possible")
-      return
+    else:
+      self.sub_status, sub_files = subtitle_extract.subtitle_extract( 
+        self.inFile, 
+        self.outFile, 
+        self.text_info, 
+        vobsub = self.vobsub,
+        srt    = self.srt,
+      )                                                     # Extract VobSub(s) from the input file and convert to SRT file(s).
+      self._createdFiles.extend( sub_files )                                 # Add list of files created by subtitles_extract to list of created files
+      if (self.sub_status > 1) or not self.srt:                                 # If there weren't nay major errors in the vobsub extraction
+        return
 
-    self.sub_status, sub_files = subtitle_extract.subtitle_extract( 
-      self.inFile, 
-      self.outFile, 
-      self.text_info, 
-      vobsub = self.vobsub,
-      srt    = self.srt,
-    )                                                     # Extract VobSub(s) from the input file and convert to SRT file(s).
-    self._createdFiles.extend( sub_files )                                 # Add list of files created by subtitles_extract to list of created files
-    if (self.sub_status > 1) or not self.srt:                                 # If there weren't nay major errors in the vobsub extraction
-      return
+      srt_files = sub_to_srt(   
+        self.outFile, self.text_info,   
+        delete_soure = self.sub_delete_source,   
+        cpulimit     = self.cpulimit,   
+        threads      = self.threads,
+      )                                      # Convert vobsub to SRT files
 
-    srt_files = sub_to_srt(   
-      self.outFile, self.text_info,   
-      delete_soure = self.sub_delete_source,   
-      cpulimit     = self.cpulimit,   
-      threads      = self.threads,
-    )                                      # Convert vobsub to SRT files
     self._createdFiles.extend( srt_files )
 
   ##############################################################################

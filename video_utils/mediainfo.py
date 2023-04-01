@@ -501,6 +501,7 @@ class MediaInfo( object ):
         else:
           forced = False
 
+        lang = ''
         if lang3 != '':  
           lang = lang3                                                # Append 2 character language code if language is present
         elif lang2 != '':   
@@ -515,21 +516,23 @@ class MediaInfo( object ):
         else:                                                                     # If neither variable has a value
           n_elems.append( 0 )                                                    # Append zero
 
-        info.append( 
-            {
-                'mkvID'  : str( int(idx)-1 ),
-                'format' : track.get('Format', ''), 
-                'lang1'  : lang1,
-                'lang2'  : lang2,
-                'lang3'  : lang3,
-                'ext'    : f".{j}.{lang}",
-                'forced' : forced,
-                'track'  : j,
-                'vobsub' : False,
-                'srt'    : False,                                        # Update a dictionary to the list. vobsub and srt tags indicate whether a file exists or not
-            }
-        )
+        track_info = {
+            'format' : track.get('Format', ''), 
+            'lang1'  : lang1,
+            'lang2'  : lang2,
+            'lang3'  : lang3,
+            'ext'    : f".{j}.{lang}",
+            'forced' : forced,
+            'track'  : j,
+            'vobsub' : False,
+            'srt'    : False,                                        # Update a dictionary to the list. vobsub and srt tags indicate whether a file exists or not
+        }
+        if not mpegts:
+            track_info.update( {'mkvID' : str( int(idx)-1 )} )
+
+        info.append(track_info) 
         j+=1                                                                     # Increment sub title track number counter
+
     if len(n_elems) == 0:                                                         # If subtitle streams were found
       self.__log.warning(  'NO text stream(s) in file...')                         # If verbose is set, print some output
       return None  

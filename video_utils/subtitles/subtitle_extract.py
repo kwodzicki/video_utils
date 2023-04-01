@@ -31,7 +31,7 @@ def checkFilesExist( files ):
             return False
     return True
 
-def genSubInfo( out_base, stream ):
+def gen_sub_info( out_base, stream ):
     """
     Generate information for subtitle streams
     
@@ -104,13 +104,13 @@ def subtitle_extract( in_file, out_base, text_info, **kwargs ):
     extract = [CLI, 'tracks', in_file]                                  # Initialize list to store command for extracting VobSubs from MKV files
 
     for i, stream in enumerate(text_info): 
-        subInfo  = genSubInfo( out_base, stream )
-        if checkFilesExist( subInfo['files'] ):
-            stream[ subInfo['subtype'] ] = True
+        sub_info  = gen_sub_info( out_base, stream )
+        if checkFilesExist( sub_info['files'] ):
+            stream[ sub_info['subtype'] ] = True
             continue
 
-        files[i] = subInfo 
-        extract.append( f"{stream['mkvID']}:{subInfo['files'][0]}" )
+        files[i] = sub_info 
+        extract.append( f"{stream['mkvID']}:{sub_info['files'][0]}" )
  
     if len(extract) == 3:  
         return 1, files  
