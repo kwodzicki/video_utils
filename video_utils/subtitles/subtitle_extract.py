@@ -11,7 +11,7 @@ except:
   logging.getLogger(__name__).error( f"{CLIName} is NOT installed" )
   CLI = None 
 
-def checkFilesExist( files ):
+def check_files_exist( files ):
     """
     Check that all files exist
 
@@ -31,7 +31,7 @@ def checkFilesExist( files ):
             return False
     return True
 
-def genSubInfo( out_base, stream ):
+def gen_sub_info( out_base, stream ):
     """
     Generate information for subtitle streams
     
@@ -55,39 +55,39 @@ def genSubInfo( out_base, stream ):
     if fmt == 'UTF-8':
         return dict(subtype='srt',    files=[f"{base}.srt"])
     elif fmt == 'VobSub':
-        return dict(subtype='vobsub', files=[f"{base}.srt", f"{base}.idx"])
+        return dict(subtype='vobsub', files=[f"{base}.sub", f"{base}.idx"])
     elif fmt == 'PGS':
         return dict(subtype='pgs',    files=[f"{base}.sup"])
 
     return None
 
-def subtitle_extract( in_file, out_base, text_info, vobsub=False, srt=False ): 
+def subtitle_extract( in_file, out_base, text_info, **kwargs ): 
     """
     Extract subtitle(s) from a file and convert them to SRT file(s).
     
     If a file fails to convert, the VobSub files are removed and the program continues.
     
     Arguments:
-      in_file (str): File to extract subtitles from
-      out_file (str): Base name for output file(s)
-      text_info (dict): Data returned by call to :meth:`video_utils.mediainfo.MediaInfo.get_text_info`
+        in_file (str): File to extract subtitles from
+        out_file (str): Base name for output file(s)
+        text_info (dict): Data returned by call to :meth:`video_utils.mediainfo.MediaInfo.get_text_info`
     
     Keyword arguments:
-      vobsub (bool): Set to keep vobsub after extraction; Default removes file
-      srt (bool): Set to convert vobsub to srt format; Default does NOT convert file
+        srt (bool): Set to convert image based subtitles to srt format;
+            Default does NOT convert file
     
     Returns:
-      int: Updates vobsub_status and creates/updates list of VobSubs that failed vobsub2srt conversion.
-      Returns codes for success/failure of extraction. Codes are as follows:
-    
-        -  0 : Completed successfully
-        -  1 : VobSub(s) already exist
-        -  2 : No VobSub(s) to extract
-        -  3 : Error extracting VobSub(s).
-        - 10 : mkvextract not found/installed
+        int: Updates subtitle_status and creates/updates list of subtitle
+            files that failed extraction
+            Return codes for success/failure of extraction. Codes are as follows:
+                -  0 : Completed successfully
+                -  1 : VobSub(s) already exist
+                -  2 : No VobSub(s) to extract
+                -  3 : Error extracting VobSub(s).
+                - 10 : mkvextract not found/installed
     
     Dependencies:
-      mkvextract - A CLI for extracting streams for an MKV file.
+        mkvextract - A CLI for extracting streams for an MKV file.
     
     """
 
@@ -105,13 +105,13 @@ def subtitle_extract( in_file, out_base, text_info, vobsub=False, srt=False ):
     extract = [CLI, 'tracks', in_file]                                  # Initialize list to store command for extracting VobSubs from MKV files
 
     for i, stream in enumerate(text_info): 
-        subInfo  = genSubInfo( out_base, stream )
-        if checkFilesExist( subInfo['files'] ):
-            stream[ subInfo['subtype'] ] = True
+        sub_info  = gen_sub_info( out_base, stream )
+        if check_files_exist( sub_info['files'] ):
+            stream[ sub_info['subtype'] ] = True
             continue
 
-        files[i] = subInfo 
-        extract.append( f"{stream['mkvID']}:{subInfo['files'][0]}" )
+        files[i] = sub_info 
+        extract.append( f"{stream['mkvID']}:{sub_info['files'][0]}" )
  
     if len(extract) == 3:  
         return 1, files  
@@ -121,11 +121,12 @@ def subtitle_extract( in_file, out_base, text_info, vobsub=False, srt=False ):
     status = call( extract, stdout = DEVNULL, stderr = STDOUT )            # Run command and dump all output and errors to /dev/null
    
     if status != 0:
+        log.warning( "Error extracting subtitles %d", status )
         return 3, files
      
     for ii, ff in files.items():
         text_info[ii][ ff['subtype'] ] = (
-            checkFilesExist( ff['files'] )
+            check_files_exist( ff['files'] )
         )
 
     return 0, files                                                           # Error extracting VobSub(s)

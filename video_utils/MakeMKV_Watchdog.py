@@ -128,17 +128,17 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
     return prev == curr
 
   @sendEMail
-  def _process(self, file):
+  def _process(self, fname):
 
-    if not self._checkSize( file ):                                           # If file size check fails, just return; this will block for a while
+    if not self._checkSize( fname ):                                           # If file size check fails, just return; this will block for a while
       return
 
     try:        
-      out_file = self.converter.transcode( file )                             # Convert file 
+      out_file = self.converter.transcode( fname )                             # Convert file 
     except:
       self.log.exception('Failed to convert file')
     else:
-      if out_file is not None and isRunning():
+      if isinstance(out_file, str) and isRunning():
         plexMediaScanner( 
           'TV Shows' if self.converter.metaData.isEpisode else 'Movies',
           path = os.path.dirname( out_file )
