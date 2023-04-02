@@ -1,195 +1,227 @@
+"""
+Utilties for interfacing with Plex
+
+While this package does very minimal direct interfacing with
+Plex, these utilites support functionality in other parts of
+this package.
+
+"""
+
 import logging
-import os, re, time, pickle
+import os
+import re
+import pickle
 from threading import Lock
 from getpass import getpass
 
 from plexapi.myplex import MyPlexAccount
 
-from ..config import PLEXTOKEN 
+from ..config import PLEXTOKEN
 from ..videotagger import TMDb, TVDb, Movie, Episode
 
 _tmdb = TMDb()
 _tvdb = TVDb()
 
-_se_pattern     = re.compile( r'[sS](\d{2,})[eE](\d{2,})' );                    # Pattern for locating season/episode numbering
-_year_pattern   = re.compile( r'\(([0-9]{4})\)' );                                      # Pattern for finding yea
-_date_pattern   = re.compile( r'\d{4}-\d{2}-\d{2} \d{2} \d{2} \d{2}') 
+# Pattern for locating season/episode numbering
+_se_pattern   = re.compile( r'[sS](\d{2,})[eE](\d{2,})' )
+# Pattern for finding year
+_year_pattern = re.compile( r'\(([0-9]{4})\)' )
+# Pattern for finding date in DVR recording
+_date_pattern = re.compile( r'\d{4}-\d{2}-\d{2} \d{2} \d{2} \d{2}')
 
-################################################################################
-def plexFile_Info( in_file ):
-  """ 
-  Function to extract series, season/episode, and episode title information from a file path
+def plex_file_info( in_file ):
+    """ 
+    Extract info from file path
 
-  Arguments:
-    in_file (str): Full path to the file to rename
+    Extracts series, season/episode, and episode title information from
+    a Plex DVR file path
 
-  Keyword arguments:
-    None.
+    Arguments:
+        in_file (str): Full path to the file to rename
 
-  Returns:
-    tuple: series name, season/episode or date, episode title, and file extension
+    Keyword arguments:
+        None.
 
-  """
+    Returns:
+        tuple: series name, season/episode or date, episode title, and file extension
 
-  log               = logging.getLogger(__name__);
-  log.debug( 'Getting information from file name' );
+    """
 
-  fileBase          = os.path.basename( in_file );                              # Get base name of input file
-  fname, ext        = os.path.splitext( fileBase )
+    log        = logging.getLogger(__name__)
+    log.debug( 'Getting information from file name' )
 
-  title    = None
-  year     = None
-  seasonEp = None
-  episode  = None
+    filebase   = os.path.basename( in_file )
+    fname, ext = os.path.splitext( filebase )
 
-  if _date_pattern.search( in_file ) is not None:                               # If the date pattern is found in the file name
-    log.warning( 'ISO date string found in file name; NO METADATA WILL BE DOWNLOADED!!!' )
-    return title, year, seasonEp, episode, ext
-    
-  try:
-    title, seasonEp, episode = fname.split(' - ');                                       # Split the file name on ' - '; not header information of function
-  except:
-    title = fname
-    log.warning('Error splitting file name, does it match Plex convention?')
+    title     = None
+    year      = None
+    season_ep = None
+    episode   = None
 
-  year = _year_pattern.findall( title )                                               # Try to find year in series name
-  if (len(year) == 1):                                                                # If year found
-    year  = int( year[0] )                                                            # Set year
-    title = _year_pattern.sub('', title)                                              # Remove year for series name
-  else:
-    year = None
-  title = title.strip()                                                               # Strip any leading/trailing spaces from series title
+    # If the date pattern is found in the file name
+    if _date_pattern.search( in_file ) is not None:
+        log.warning( 'ISO date string found in file name; NO METADATA WILL BE DOWNLOADED!!!' )
+        return title, year, season_ep, episode, ext
 
-  try:
-    seasonEp = _se_pattern.findall( seasonEp )[0]
-  except:
-    seasonEp = None
-  else:
-    if (len(seasonEp) == 2):
-      seasonEp = [int(i) for i in seasonEp] 
+    # Split the file name on ' - '; not header information of function
+    try:
+        title, season_ep, episode = fname.split(' - ')
+    except:
+        title = fname
+        log.warning('Error splitting file name, does it match Plex convention?')
+
+    # Try to find year in series name
+    year = _year_pattern.findall( title )
+    if len(year) == 1:
+        year  = int( year[0] )
+        title = _year_pattern.sub('', title)# Remove year for series name
     else:
-      seasonEp = None
+        year = None
+    title = title.strip()
 
-  return title, year, seasonEp, episode, ext
+    try:
+        season_ep = _se_pattern.findall( season_ep )[0]
+    except:
+        season_ep = None
+    else:
+        if len(season_ep) == 2:
+            season_ep = [int(i) for i in season_ep]
+        else:
+            season_ep = None
 
-################################################################################
+    return title, year, season_ep, episode, ext
+
 def plexDVR_Rename( in_file, hardlink = True ):
-  """ 
-  Function to rename Plex DVR files to match file nameing convetion.
+    """ 
+    Function to rename Plex DVR files to match file nameing convetion.
 
-  Arguments:
-    in_file (str): Full path to the file to rename
+    Arguments:
+        in_file (str): Full path to the file to rename
 
-  Keyword arguments:
-    hardlink (bool): if set to True, will rename input file, else
-               creates hard link to file. Default is to hard link
+    Keyword arguments:
+        hardlink (bool): if set to True, will rename input file, else
+            creates hard link to file. Default is to hard link
 
-  Returns:
-    Returns path to renamed file and tuple with parsed file information
+    Returns:
+        Returns path to renamed file and tuple with parsed file information
 
-  """
+    """
 
-  log     = logging.getLogger(__name__)
-  fileDir = os.path.dirname(  in_file )
-  title, year, seasonEp, episode, ext = plexFile_Info( in_file )
+    log      = logging.getLogger(__name__)
+    file_dir = os.path.dirname(  in_file )
+    title, year, season_ep, episode, ext = plex_file_info( in_file )
 
-  if all( v is None for v in [title, year, seasonEp, episode] ):                # If all the values are None, then date in file name
-    return in_file, None                                                        # Return the input file name AND None for metadata
- 
-  if not seasonEp:
-    log.warning( 'Season/episode info NOT found; assuming movie...things may break' )
-    metaData = _tmdb.search( title=title, year=year, episode=episode, seasonEp=seasonEp )    # Try to get IMDb id
-  else:
-    metaData = _tvdb.search( title=title, year=year, episode=episode, seasonEp=seasonEp )    # Try to get IMDb id
+    # If all the values are None, then date in file name
+    if all( v is None for v in [title, year, season_ep, episode] ):
+        return in_file, None
 
-  if len(metaData) != 1:                                                                # If NOT one (1) result from search
-    if len(metaData) > 1:                                                               # More than one
-      log.error('More than one movie/Tv show found, skipping')
-    elif len(metaData) == 0:                                                            # None
-      log.error('No ID found!')
-    metaData = None
-    if seasonEp:
-      new = Episode.getBasename( *seasonEp, episode )
+    if not season_ep:
+        log.warning( 'Season/episode info NOT found; assuming movie...things may break' )
+        # Search the movie database
+        metadata = _tmdb.search(
+            title    = title,
+            year     = year,
+            episode  = episode,
+            seasonEp = season_ep
+        )
     else:
-      new = Movie.getBasename( title, year )
-  else:
-    metaData = metaData[0]
-    new = metaData.getBasename() 
+        # Search the tv database
+        metadata = _tvdb.search(
+            title    = title,
+            year     = year,
+            episode  = episode,
+            seasonEp = season_ep
+        )
 
-  new = os.path.join( fileDir, new+ext )                                                # Build new file path
+    # If NOT one (1) result from search
+    if len(metadata) != 1:
+        if len(metadata) > 1:
+            log.error('More than one movie/Tv show found, skipping')
+        elif len(metadata) == 0:
+            log.error('No ID found!')
+        metadata = None
+        if season_ep:
+            new = Episode.getBasename( *season_ep, episode )
+        else:
+            new = Movie.getBasename( title, year )
+    else:
+        metadata = metadata[0]
+        new = metadata.getBasename()
 
-  if hardlink:                                                                          # If hardlink set
-    log.debug( 'Creating hard link to input file' )
-    if os.path.exists( new ):                                                           # If new file exists
-      try:                                                                              # Try to
-        os.remove( new )                                                                # Delete it
-      except:                                                                           # Fail silently
-        pass                                                                            #
-    try:                                                                                # Try to
-      os.link( in_file, new )                                                           # Create hard link to file with new file name
-    except Exception as err:                                                            # Catch exception
-      log.warning( 'Error creating hard link : {}'.format(err) )                        # Log exception
-  else:
-    log.debug( 'Renaming input file' )
-    os.replace( in_file, new )                                                          # Rename the file, overwiting destination if it exists
-  return new, metaData
+    # Build new file path
+    new = os.path.join( file_dir, new+ext )
 
-################################################################################
+    if hardlink:
+        log.debug( 'Creating hard link to input file' )
+        if os.path.exists( new ):
+            try:
+                os.remove( new )
+            except:
+                pass
+        try:
+            os.link( in_file, new )
+        except Exception as err:
+            log.warning( 'Error creating hard link : %s', err )
+    else:
+        log.debug( 'Renaming input file' )
+        os.replace( in_file, new )
+    return new, metadata
+
 class DVRqueue( list ):
-  """
-  Sub-class of list that writes list to pickled file on changes
+    """
+    Sub-class of list that writes list to pickled file on changes
 
-  This class acts to backup a list to file on disc so that DVR can
-  remember where it was in the event of a restart/power off. Whenever
-  the list is modified via the append, remove, etc methods, data are
-  written to disc.
+    This class acts to backup a list to file on disc so that DVR can
+    remember where it was in the event of a restart/power off. Whenever
+    the list is modified via the append, remove, etc methods, data are
+    written to disc.
 
-  """
+    """
 
-  def __init__(self, file):
-    super().__init__()
-    self.__file = file
-    self.__loadFile()
-    self.__lock = Lock()
-    self.__log  = logging.getLogger(__name__)
+    def __init__(self, file):
+        super().__init__()
+        self.__file = file
+        self.__load_file()
+        self.__lock = Lock()
+        self.__log  = logging.getLogger(__name__)
 
-  def append(self, val):
-    with self.__lock:
-      super().append(val)
-      self.__saveFile()
+    def append(self, val):
+        with self.__lock:
+            super().append(val)
+            self.__save_file()
 
-  def remove(self, val):
-    with self.__lock:
-      super().remove(val)
-      self.__saveFile()
+    def remove(self, val):
+        with self.__lock:
+            super().remove(val)
+            self.__save_file()
 
-  def pop(self, val):
-    with self.__lock:
-      pval = super().pop(val)
-      self.__saveFile()
-    return pval
+    def pop(self, val):
+        with self.__lock:
+            pval = super().pop(val)
+            self.__save_file()
+        return pval
 
-  def __saveFile(self):
-    if (len(self) > 0):
-      self.__log.debug( 'Storing list in : {}'.format( self.__file ) )
-      fdir = os.path.dirname(self.__file) 
-      if not os.path.isdir( fdir ):
-        self.__log.debug( 'Making directory : {}'.format( fdir ) )
-        os.makedirs( fdir )
-      with open(self.__file, 'wb') as fid:
-        pickle.dump( list(self), fid )
-    else:
-      self.__log.debug( 'No data in list, removing file : {}'.format( self.__file ) )
-      os.remove( self.__file )
+    def __save_file(self):
+        if len(self) > 0:
+            self.__log.debug( 'Storing list in : %s', self.__file )
+            fdir = os.path.dirname(self.__file)
+            if not os.path.isdir( fdir ):
+                self.__log.debug( 'Making directory : %s', fdir )
+                os.makedirs( fdir )
+            with open(self.__file, 'wb') as fid:
+                pickle.dump( list(self), fid )
+        else:
+            self.__log.debug( 'No data in list, removing file : %s', self.__file )
+            os.remove( self.__file )
 
-  def __loadFile(self):
-    if os.path.isfile(self.__file):
-      try:
-        with open(self.__file, 'rb') as fid:
-          self.extend( pickle.load(fid) )
-      except:
-        self.__log.error('Failed to load old queue. File corrupt?')
-        os.remove( self.__file )
+    def __load_file(self):
+        if os.path.isfile(self.__file):
+            try:
+                with open(self.__file, 'rb') as fid:
+                    self.extend( pickle.load(fid) )
+            except:
+                self.__log.error('Failed to load old queue. File corrupt?')
+                os.remove( self.__file )
 
 def getToken( login=False ):
     """
@@ -224,7 +256,8 @@ def getToken( login=False ):
         with open( PLEXTOKEN, 'wb' ) as oid:
             pickle.dump( info, oid )
         return info
-    elif os.path.isfile( PLEXTOKEN ):
+
+    if os.path.isfile( PLEXTOKEN ):
         with open( PLEXTOKEN, 'rb' ) as iid:
             return pickle.load( iid )
 
