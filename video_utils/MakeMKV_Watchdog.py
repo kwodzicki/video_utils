@@ -1,6 +1,17 @@
+"""
+Watchdog for MakeMKV output
+
+A watchdog is defined that monitors direcory(ies) for files 
+output by MakeMKV so that these files can be transcoded and add
+to Plex.
+
+"""
+
 import logging
 
-import os, time, re
+import os
+import time
+
 from threading import Thread
 from queue import Queue
 
@@ -16,157 +27,206 @@ TIMEOUT =  1.0
 SLEEP   = 30.0
 
 class MakeMKV_Watchdog( FileSystemEventHandler ):
-  def __init__(self, *args, **kwargs):
-    super().__init__()
-    self.log         = logging.getLogger(__name__)
-    self.log.info('Starting up...')
-
-    fileExt       = kwargs.pop('fileExt', None)                                     # Try to get fileExt keyword from keyword dictionary 
-    recursive     = kwargs.pop('recursive', False)                                  # Sets watchdog to recursive
-    if (fileExt is None):                                                           # If fileExt is None
-      self.fileExt = ('.mkv',)                                                      # Set to fileExt attribute to default of '.mkv'
-    elif isinstance(fileExt, str):                                                  # Else, if it is string
-      self.fileExt = (fileExt,)                                                     # Set fileExt attribute to tuple of fileExt
-    elif isinstance(fileExt, list):                                                 # Else, if it is list
-      self.fileExt = tuple(fileExt)                                                 # Set fileExt attribute to tuple of fileExt
-    else:                                                                           # Else
-      self.fileExt = fileExt                                                        # Set fileExt attribute using fileExt keyword value
-
-    self.converter = VideoConverter( **kwargs ) 
-    self.Queue     = Queue()                                                        # Initialize queue for sending files to converting thread
-    self.Observer  = Observer()                                                     # Initialize a watchdog Observer
-    for arg in args:                                                                # Iterate over input arguments
-      self.Observer.schedule( self, arg, recursive=recursive )                      # Add each input argument to observer as directory to watch; recursively
-      for file in self._getDirListing( arg ):                                       # Iterate over all files (if any) in the input directory
-        self.Queue.put( file )                                                      # Enqueue the file
- 
-    self.Observer.start()                                                           # Start the observer
-
-    self.__runThread = Thread( target = self._run )                                 # Thread for dequeuing files and converting
-    self.__runThread.start()                                                        # Start the thread
-
-  def on_created(self, event):
-    """Method to handle events when file is created."""
-
-    if event.is_directory: return                                                   # If directory; just return
-    if event.src_path.endswith( self.fileExt ):
-      self.Queue.put( event.src_path )                                              # Add split file path (dirname, basename,) tuple to to_convert list
-      self.log.debug( 'New file added to queue : {}'.format( event.src_path) )      # Log info
-
-  def on_moved(self, event):
-    """Method to handle events when file is created."""
-
-    if event.is_directory: return                                                   # If directory; just return
-    if event.dest_path.endswith( self.fileExt ):
-      self.Queue.put( event.dest_path )                                             # Add split file path (dirname, basename,) tuple to to_convert list
-      self.log.debug( 'New file added to queue : {}'.format( event.dest_path) )     # Log info
-
-  def join(self):
-    """Method to wait for the watchdog Observer to finish."""
-
-    self.Observer.join()                                                            # Join the observer thread
-
-  def _getDirListing(self, dir):
     """
-    Get list of files in a directory (non-recursive), that ends with given extension
-
-    Arguments:
-      dir (str): Path of directory to search
-
-    Keyword arguments:
-      None 
-
-    Returns:
-      list: Files
+    Watchdog for conversion of MakeMKV output
 
     """
 
-    files = []
-    for file in os.listdir(dir):
-      if file.endswith( self.fileExt ):
-        path = os.path.join( dir, file )
-        if os.path.isfile( path ):
-          files.append( path )
-    return files
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.log         = logging.getLogger(__name__)
+        self.log.info('Starting up...')
 
-  def _checkSize(self, file):
-    """
-    Method to check that file size has stopped changing
+        # Try to get file_ext keyword from keyword dictionary
+        file_ext   = kwargs.pop('fileExt', None)
+        # Sets watchdog to recursive
+        recursive = kwargs.pop('recursive', False)
 
-    Arguments:
-      file (str): Full path to a file
+        if file_ext is None:
+            self.file_ext = ('.mkv',)
+        elif isinstance(file_ext, str):
+            self.file_ext = (file_ext,)
+        elif isinstance(file_ext, list):
+            self.file_ext = tuple(file_ext)
+        else:
+            self.file_ext = file_ext
 
-    Keyword arguments:
-      None
+        self.converter = VideoConverter( **kwargs )
 
-    Returns:
-      None
+        # Initialize queue for sending files to converting thread
+        self.queue    = Queue()
+        # Initialize a watchdog Observer
+        self.observer = Observer()
 
-    """
+        # Iterate over input arguments
+        for arg in args:
+            self.observer.schedule( self, arg, recursive=recursive )
+            # Iterate over all files (if any) in the input directory
+            # Enque to the list
+            for fpath in self._get_dir_listing( arg ):
+                self.queue.put( fpath )
 
-    self.log.debug( f'Waiting for file to finish being created : {file}' )
-    prev = -1                                                                       # Set previous file size to -1
+        self.observer.start()
 
-    try:
-      curr = os.stat(file).st_size                                                  # Get current file size
-    except Exception as err:
-      self.log.debug( f"Failed to get file size : {err}" )
-      return False
+        self.__run_thread = Thread( target = self._run )
+        self.__run_thread.start()
 
-    while (prev != curr) and isRunning():                                           # While sizes differ and isRunning()
-      time.sleep(SLEEP)                                                             # Sleep a few seconds seconds
-      prev = curr                                                                   # Set previous size to current size
-      try:
-        curr = os.stat(file).st_size                                                  # Get current file size
-      except Exception as err:
-        self.log.debug( f"Failed to get file size : {err}" )
-        return False
+    def on_created(self, event):
+        """
+        Method to handle events when file is created.
 
-    if not isRunning():
-      return False
+        Arguments:
+            event () : Watchdog event
 
-    return prev == curr
+        Returns:
+            None.
 
-  @sendEMail
-  def _process(self, fname):
+        """
 
-    if not self._checkSize( fname ):                                           # If file size check fails, just return; this will block for a while
-      return
+        if event.is_directory:
+            return
+        if event.src_path.endswith( self.file_ext ):
+            self.queue.put( event.src_path )
+            self.log.debug( 'New file added to queue : %s', event.src_path )
 
-    try:        
-      out_file = self.converter.transcode( fname )                             # Convert file 
-    except:
-      self.log.exception('Failed to convert file')
-    else:
-      if isinstance(out_file, str) and isRunning():
-        plexMediaScanner( 
-          'TV Shows' if self.converter.metaData.isEpisode else 'Movies',
-          path = os.path.dirname( out_file )
-        )
- 
-  def _run(self, **kwargs):
-    """
-    A thread to dequeue video file paths and convert them
+    def on_moved(self, event):
+        """
+        Method to handle events when file is created.
 
-    Arguments:
-      None
+        Arguments:
+            event () : Watchdog Event
 
-    Keywords:
-      **kwargs
+        Returns:
+            None.
 
-    Returns:
-      None
+        """
 
-    """
+        if event.is_directory:
+            return
+        if event.dest_path.endswith( self.file_ext ):
+            self.queue.put( event.dest_path )
+            self.log.debug( 'New file added to queue : %s', event.dest_path )
 
-    while isRunning():                                                          # While the kill event is NOT set
-      try:                                                                      # Try
-        file = self.Queue.get( timeout = TIMEOUT )                              # Get a file from the queue; block for 0.5 seconds then raise exception
-      except:                                                                   # Catch exception
-        continue                                                                # Do nothing
+    def join(self):
+        """Method to wait for the watchdog Observer to finish."""
 
-      self._process( file )
-      self.Queue.task_done() 
+        self.observer.join()
 
-    self.log.info('MakeMKV watchdog stopped!')
-    self.Observer.stop()
+    def _get_dir_listing(self, root):
+        """
+        Get list of files in a directory (non-recursive), that ends with given extension
+
+        Arguments:
+            root (str): Path of directory to search
+
+        Keyword arguments:
+            None 
+
+        Returns:
+            list: Files
+
+        """
+
+        fpaths = []
+        for item in os.listdir(root):
+            if not item.endswith( self.file_ext ):
+                continue
+            fpath = os.path.join( root, item )
+            if os.path.isfile( fpath ):
+                fpaths.append( fpath )
+
+        return fpaths
+
+    def _check_size(self, fpath):
+        """
+        Method to check that file size has stopped changing
+
+        Arguments:
+            fpath (str): Full path to a file
+
+        Keyword arguments:
+            None
+
+        Returns:
+            None
+
+        """
+
+        self.log.debug( 'Waiting for file to finish being created : %s', fpath )
+        prev = -1
+
+        try:
+            curr = os.stat(fpath).st_size
+        except Exception as err:
+            self.log.debug( "Failed to get file size : %s", err )
+            return False
+
+        # While sizes differ and isRunning()
+        while (prev != curr) and isRunning():
+            time.sleep(SLEEP)
+            prev = curr
+            try:
+                curr = os.stat(fpath).st_size
+            except Exception as err:
+                self.log.debug( "Failed to get file size : %s", err )
+                return False
+
+        if not isRunning():
+            return False
+
+        return prev == curr
+
+    @sendEMail
+    def _process(self, fname):
+        """
+        Actual process a file
+
+        Arguments:
+            fname (str) : Full path of file to transcode
+
+        Returns:
+            None.
+
+        """
+
+        if not self._check_size( fname ):
+            return
+
+        try:
+            out_file = self.converter.transcode( fname )
+        except:
+            self.log.exception('Failed to convert file')
+            return
+
+        if isinstance(out_file, str) and isRunning():
+            plexMediaScanner(
+                'TV Shows' if self.converter.metaData.isEpisode else 'Movies',
+                path = os.path.dirname( out_file )
+            )
+
+    def _run(self):
+        """
+        A thread to dequeue video file paths and convert them
+
+        Arguments:
+            None
+
+        Keywords:
+            **kwargs
+
+        Returns:
+            None
+
+        """
+
+        while isRunning():
+            try:
+                fpath = self.queue.get( timeout = TIMEOUT )
+            except:
+                continue
+
+            self._process( fpath )
+            self.queue.task_done()
+
+        self.log.info('MakeMKV watchdog stopped!')
+        self.observer.stop()
