@@ -491,7 +491,7 @@ class MediaInfo( object ):
       for track in self.__mediainfo['Text']:                                             # Iterate over all text information
         lang3  = track.get( 'Language_String3', '' )
         if (not mpegts) and (language != lang3): continue                                               # If the track language does NOT matche the current language
-        idx    = track.get( 'ID',                '' )                                   # Get track ID returning empty string if not in dictionary
+        idx    = track.get( 'StreamOrder',       '' )                                   # Get track ID returning empty string if not in dictionary
         lang1  = track.get( 'Language_String',   '' )
         lang2  = track.get( 'Language_String2',  '' )
         elems  = track.get( 'count_of_elements', '' )
@@ -517,7 +517,7 @@ class MediaInfo( object ):
 
         info.append( 
             {
-                'mkvID'  : str( int(idx)-1 ),
+                'mkvID'  : idx ),
                 'format' : track.get('Format', ''), 
                 'lang1'  : lang1,
                 'lang2'  : lang2,
