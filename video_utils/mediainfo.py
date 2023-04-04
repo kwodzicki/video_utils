@@ -523,7 +523,7 @@ class MediaInfo( ):
                 lang3  = track.get( 'Language_String3', '' )
                 if (not mpegts) and (language != lang3):
                     continue
-                idx    = track.get( 'ID',                '' )
+                idx    = track.get( 'StreamOrder',       '' )
                 lang1  = track.get( 'Language_String',   '' )
                 lang2  = track.get( 'Language_String2',  '' )
                 elems  = track.get( 'count_of_elements', '' )
@@ -562,7 +562,7 @@ class MediaInfo( ):
                     'srt'    : False,
                 }
                 if not mpegts:
-                    track_info.update( {'mkvID' : str( int(idx)-1 )} )
+                    track_info.update( {'mkvID' : idx} )
 
                 info.append(track_info)
                 j+=1
