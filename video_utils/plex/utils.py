@@ -91,7 +91,7 @@ def plex_file_info( in_file ):
 
     return title, year, season_ep, episode, ext
 
-def plexDVR_Rename( in_file, hardlink = True ):
+def plex_dvr_rename( in_file, hardlink = True ):
     """ 
     Function to rename Plex DVR files to match file nameing convetion.
 
@@ -223,7 +223,7 @@ class DVRqueue( list ):
                 self.__log.error('Failed to load old queue. File corrupt?')
                 os.remove( self.__file )
 
-def getToken( login=False ):
+def get_token( login=False ):
     """
     Use plexapi to get token for server
 
@@ -250,7 +250,7 @@ def getToken( login=False ):
 
         info = {
             'baseurl' : plex._baseurl,
-            'token'   : plex._token
+            'token'   : plex._token,
         }
 
         with open( PLEXTOKEN, 'wb' ) as oid:

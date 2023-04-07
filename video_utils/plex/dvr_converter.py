@@ -12,8 +12,8 @@ import os
 from .. import isRunning#_sigintEvent, _sigtermEvent
 from ..videoconverter import VideoConverter
 
-from .plexMediaScanner import plexMediaScanner
-from .utils import plexDVR_Rename
+from .plex_media_scanner import plex_media_scanner
+from .utils import plex_dvr_rename
 
 
 class DVRconverter(VideoConverter):
@@ -109,7 +109,7 @@ class DVRconverter(VideoConverter):
         else:
             # Try to rename the input file using standard convention and get
             # parsed file info; creates hard link to source file
-            fname, metadata = plexDVR_Rename( inFile )
+            fname, metadata = plex_dvr_rename( inFile )
             # if the rename fails
             if not fname:
                 self.log.critical('Error renaming file: %s', inFile)
@@ -147,7 +147,7 @@ class DVRconverter(VideoConverter):
             # Set arguments for PlexMediaScanner
             args   = ('TV Shows',)
             kwargs = {'path' : os.path.dirname( inFile )}
-            plexMediaScanner( *args, **kwargs )
+            plex_media_scanner( *args, **kwargs )
             # If no_remove is NOT set, then we want to delete inFile and rescan
             # the directory so original file is removed from Plex
             if not no_remove:
@@ -156,6 +156,6 @@ class DVRconverter(VideoConverter):
                 # Plex Media Scanner for no reason
                 if not os.path.isfile( inFile ):
                     self.log.debug('Original file removed, rescanning: %s', inFile)
-                    plexMediaScanner( *args, **kwargs )
+                    plex_media_scanner( *args, **kwargs )
 
         return success, out_file

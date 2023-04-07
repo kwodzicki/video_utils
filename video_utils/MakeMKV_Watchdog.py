@@ -20,7 +20,7 @@ from watchdog.events import FileSystemEventHandler
 
 from . import isRunning
 from .videoconverter import VideoConverter
-from .plex.plexMediaScanner import plexMediaScanner
+from .plex.plex_media_scanner import plex_media_scanner
 from .utils.handlers import sendEMail
 
 TIMEOUT =  1.0
@@ -199,7 +199,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
             return
 
         if isinstance(out_file, str) and isRunning():
-            plexMediaScanner(
+            plex_media_scanner(
                 'TV Shows' if self.converter.metaData.isEpisode else 'Movies',
                 path = os.path.dirname( out_file )
             )

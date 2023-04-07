@@ -13,7 +13,7 @@ from ..videotagger import TMDb
 from ..videotagger import TVDb
 from ..videotagger.Movie import TMDbMovie
 from ..videotagger.Episode import TVDbEpisode
-from ..plex.plexMediaScanner import plexMediaScanner as PMS
+from ..plex.plex_media_scanner import plex_media_scanner as PMS
 
 IMDBID   = re.compile( '\.(tt\d+)\.' )
 SEASONEP = re.compile( '[sS](\d{2,})[eE](\d{2,})' )

@@ -20,14 +20,14 @@ from watchdog.events import FileSystemEventHandler
 from .. import isRunning#_sigintEvent, _sigtermEvent
 from ..config import plex_dvr
 from ..utils.handlers import sendEMail
-from .DVRconverter import DVRconverter
+from .dvr_converter import DVRconverter
 from .utils import DVRqueue
 
 RECORDTIMEOUT = 86400.0
 TIMEOUT       =     1.0
 SLEEP         =     1.0
 
-class Plex_DVR_Watchdog( FileSystemEventHandler ):
+class PlexDVRWatchdog( FileSystemEventHandler ):
     """Class to watch for, and convert, new DVR recordings"""
 
     PURGE_INTERVAL = 10800.0

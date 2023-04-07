@@ -8,14 +8,14 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from . import isRunning
-from .plex.plexMediaScanner import plexMediaScanner
+from .plex.plex_mediaScanner import plex_media_scanner
 from .utils.handlers import sendEMail
 
 TIMEOUT = 1.0
 SLEEP   = 5.0
 SLEEP   = 1.0
 
-scanMusic = lambda : plexMediaScanner('Music')
+scanMusic = lambda : plex_media_scanner('Music')
  
 class Music_Watchdog( FileSystemEventHandler ):
   def __init__(self, outdir, *args, **kwargs):
