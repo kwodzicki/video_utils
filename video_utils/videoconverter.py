@@ -147,7 +147,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     self.transcode_status = None                                                # Set transcode_status to None by default
     self.tagging_status   = None                                                # Set mp4tags_status to None by default
     
-    self.IMDb             = None
+    self.imdb             = None
     self.metaData         = None
     self.metaKeys         = None
 

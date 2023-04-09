@@ -1,16 +1,21 @@
+"""
+Wrapper utils for running ccextractor CLI
+
+"""
+
 import logging
 import os
-from subprocess import Popen, STDOUT, DEVNULL
+from subprocess import run, STDOUT, DEVNULL
 
 from ..utils.checkCLI import checkCLI
 
-CLIName = 'ccextractor'
+CLINAME = 'ccextractor'
 try:
-    CLI = checkCLI( CLIName )
+    CLI = checkCLI( CLINAME )
 except:
     logging.getLogger(__name__).warning(
         "'%s' is NOT installed or not in your PATH!",
-        CLIName,
+        CLINAME,
     )
     CLI = None
 
@@ -54,7 +59,7 @@ def ccextract( in_file, out_base, text_info ):
 
     log  = logging.getLogger(__name__)                                           # Set up logger
     if CLI is None:
-        log.warning( "%s CLI not found; cannot extract!", CLIName )
+        log.warning( "%s CLI not found; cannot extract!", CLINAME )
         return None
 
     # Get list of files that were originally in the directory
@@ -62,9 +67,8 @@ def ccextract( in_file, out_base, text_info ):
 
     fname = out_base + text_info[0]['ext'] + '.srt'
     cmd   = [CLI, '-autoprogram', in_file, '-o', fname]
-    log.debug( "%s command: %s", CLIName, ' '.join(cmd) )
-    proc = Popen( cmd, stdout = DEVNULL, stderr = STDOUT )
-    proc.communicate()
+    log.debug( "%s command: %s", CLINAME, ' '.join(cmd) )
+    proc = run( cmd, stdout=DEVNULL, stderr=STDOUT, check=False )
     new_files = [item for item in dir_list(out_base) if item not in orig]
     if proc.returncode != 0:
         log.error('Something went wrong extracting subtitles, removing any files')
