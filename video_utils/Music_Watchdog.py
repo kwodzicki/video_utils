@@ -9,7 +9,7 @@ from watchdog.events import FileSystemEventHandler
 
 from . import isRunning
 from .plex.plex_mediaScanner import plex_media_scanner
-from .utils.handlers import sendEMail
+from .utils.handlers import send_email
 
 TIMEOUT = 1.0
 SLEEP   = 5.0
@@ -113,7 +113,7 @@ class Music_Watchdog( FileSystemEventHandler ):
       else:
         fdir = os.path.dirname( fdir )
 
-#  @sendEMail
+#  @send_email
   def _process(self, fPath):
     if self._checkSize( fPath ):                                                   # Wait to make sure file finishes copying/moving
       for srcDir in self.srcDirs:

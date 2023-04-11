@@ -3,7 +3,7 @@ import os, stat, yaml
 import argparse
 
 from ..version import __version__
-from ..utils.threadCheck import HALFTHREADS
+from ..utils import HALFTHREADS
 
 PKGNAME   = __name__.split('.')[0]                                                        # Get root name of package 
 HOME      = os.path.expanduser('~')

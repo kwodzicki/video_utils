@@ -1,843 +1,996 @@
+"""
+FFMpeg utilities
+
+"""
+
 import logging
-import os, time, re, json
-import numpy as np
+import os
+import time
+import re
+import json
 from datetime import datetime, timedelta
-from subprocess import Popen, check_output, PIPE, STDOUT, DEVNULL
+from subprocess import Popen, run, check_output, PIPE, STDOUT, DEVNULL
+
+import numpy as np
 
 from .. import _sigintEvent, _sigtermEvent
 from .. import POPENPOOL
 
-_progPat = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' )                              # Regex pattern for locating file duration in ffmpeg ouput 
-_durPat  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' )                         # Regex pattern for locating file processing location
-_cropPat = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' )                                  # Regex pattern for extracting crop information
-_resPat  = re.compile( r'(\d{3,5}x\d{3,5})' )                                           # Regex pattern for video resolution
-_durPat  = re.compile( r'Duration: ([^,]*)' )
-_info    = 'Estimated Completion Time: {}'                                              # String formatter for conversion progress
+# Regex pattern for locating file duration in ffmpeg ouput
+PROGPAT = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' )
+# Regex pattern for extracting crop information
+CROPPAT = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' )
+# Regex pattern for video resolution
+RESPAT  = re.compile( r'(\d{3,5}x\d{3,5})' )
+# Regex pattern for locating file processing location
+#DURPAT  = re.compile( r'Duration: (\d{2}:\d{2}:\d{2}.\d{2})' )
+DURPAT  = re.compile( r'Duration: ([^,]*)' )
+# String formatter for conversion progress
+ESTCOMP = 'Estimated Completion Time: %s'
 
-_toSec   = np.array( [3600, 60, 1], dtype = np.float32 )                                # Array for conversion of hour/minutes/seconds to total seconds
-_chunk   = np.full( (128, 4), np.nan )                                                  # Base numpy chunk
+# Array for conversion of hour/minutes/seconds to total seconds
+TOSEC   = np.array( [3600, 60, 1], dtype = np.float32 )
+# Base numpy chunk
+CHUNK   = np.full( (128, 4), np.nan )
 
-TIME_BASE   = '1/1000000000'                                                            # Default time_base for chapters
-PREROLL     = -1.0                                                                      # Padding before beginning of chapter
-POSTROLL    =  1.0                                                                      # Padding after end of chapter
+# Default time_base for chapters
+TIME_BASE   = '1/1000000000'
+# Padding before beginning of chapter
+PREROLL     = -1.0
+# Padding after end of chapter
+POSTROLL    =  1.0
 
-CROPTHRES   = 0.95                                                                      # Threshold for cropping. If the ratio of crop size to original is >= this value, no cropping done. The width and height are check separately
+# Threshold for cropping. If the ratio of crop size to original is >= this
+# value, no cropping done. The width and height are check separately
+CROPTHRES   = 0.95
 
-HEADERFMT   = ';FFMETADATA{}' + os.linesep                                              # Format for FFMETADATA file header
-METADATAFMT = '{}={}' + os.linesep                                                      # Format string for a FFMETADATA metadata tag
-CHAPTERFMT  = ['[CHAPTER]', 'TIMEBASE={}', 'START={}', 'END={}', 'title={}', '']        # Format of CHAPTER block in FFMETADATA file
-CHAPTERFMT  = os.linesep.join( CHAPTERFMT )                                             # Join CHAPTER block format list on operating system line separator
+# Format for FFMETADATA file header
+HEADERFMT   = ';FFMETADATA{}' + os.linesep
+# Format string for a FFMETADATA metadata tag
+METADATAFMT = '{}={}' + os.linesep
+# Format of CHAPTER block in FFMETADATA file
+CHAPTERFMT  = ['[CHAPTER]', 'TIMEBASE={}', 'START={}', 'END={}', 'title={}', '']
+# Join CHAPTER block format list on operating system line separator
+CHAPTERFMT  = os.linesep.join( CHAPTERFMT )
 
-class FFMetaData( object ):
-  """For creating a FFMetaData file for input into ffmpeg CLI"""
+class FFMetaData( ):
+    """For creating a FFMetaData file for input into ffmpeg CLI"""
 
-  def __init__(self, version = 1):
-    self.__log     = logging.getLogger(__name__)
-    self._version  = version
-    self._metadata = {}
-    self._chapters = []
-    self._chapter  = 1
- 
-  def addMetadata(self, **kwargs):
+    def __init__(self, version = 1):
+
+        self._version  = version
+        self._metadata = {}
+        self._chapters = []
+        self._chapter  = 1
+
+    def add_metadata(self, **kwargs):
+        """
+        Method to add new metadata tags to FFMetaData file
+
+        Arguments:
+            None
+
+        Keyword arguments:
+            **kwargs : Any key/value pair where key is a valid metadata tag
+                and value is the value for the tag. 
+
+        Returns:
+            None
+
+        """
+
+        self._metadata.update( kwargs )
+
+    def add_chapter(self, *args, **kwargs):
+        """
+        Method to add chapter marker to FFMetaData file
+
+        Arguments:
+            If one (1) input:
+                Must be Chapter instance
+            If three (3) inputs:
+                start  : Start time of chapter (float or datetime.timedelta)
+                end    : End time of chapter (float or datetime.timedelta)
+                title  : Chapter title (str)
+
+        Keyword arguments:
+            time_base : String of form 'num/den’, where num and den are integers. 
+                If the time_base is missing then start/end times are assumed to be in nanosecond.
+                Ignored if NOT three (3) inputs.
+
+        Returns:
+            None
+
+        """
+
+        if len(args) == 1:
+            chapter = args[0]
+        elif len(args) == 3:
+            if isinstance(args[0], timedelta):
+                start = args[0].total_seconds()
+            if isinstance(args[1], timedelta):
+                end   = args[1].total_seconds()
+
+            chapter   = Chapter()
+            time_base = kwargs.get('time_base', TIME_BASE)
+            if isinstance(time_base, str):
+                # Get the numberator and denominator as integers
+                num, den = map(int, time_base.split('/'))
+                # Do den/num to get factor to go from seconds to time_base
+                factor   = den / num
+            else:
+                raise Exception( "time_base must be a string of format 'num/den'!" )
+            chapter.time_base = time_base
+            # Get total seconds from timedelta, apply factor, then convert to integer
+            chapter.start     = round( start * factor )
+            # Do same for end time
+            chapter.end       = round( end * factor )
+            chapter.title     = args[2]
+        else:
+            raise Exception( "Incorrect number of arguments!" )
+
+        # If chapter title matches generic title
+        if re.match('Chapter\s\d?', chapter.title):
+            # Reset chapter number title
+            chapter.title = f"Chapter {self._chapter:02d}"
+
+        # Append tuple of information to _chapters attribute
+        self._chapters.append( chapter.to_ffmetadata() )
+        self._chapter += 1
+
+    def save(self, fpath):
+        """
+        Method to write ffmetadata to file
+
+        Arguments:
+            fpath (str): Full path of file to write to
+
+        Keyword arguments:
+          None
+
+        Returns:
+          str: Returns the fpath input
+
+        """
+
+        with open(fpath, 'w') as fid:
+            # Write header to file
+            fid.write( HEADERFMT.format( self._version ) )
+
+            for key, val in self._metadata.items():
+                # Write metadata
+                fid.write( METADATAFMT.format(key, val) )
+
+            # Add space between header/metadata and chapter(s)
+            fid.write( os.linesep )
+            # Iterate over all chapters
+            for info in self._chapters:
+                # Write the chapter info
+                fid.write( info )
+                fid.write( os.linesep )
+
+        self._chapters = []
+        self._chapter = 1
+        return fpath
+
+class Chapter( ):
+    """Represents a chapter in a video file"""
+
+    def __init__(self, chapter=None):
+        self._data = chapter if isinstance(chapter, dict) else {}
+
+    def __repr__(self):
+        return f"<{self.title} : {self.start_time}s --> {self.end_time}s>"
+
+    @property
+    def time_base(self):
+        """Time base for start/end values"""
+
+        return self._data.get('time_base', TIME_BASE)
+
+    @time_base.setter
+    def time_base(self, val):
+
+        # Set time_base to new value
+        self._data['time_base'] = val
+        # Get new numerator and denominator
+        self._num, self._den = map(int, val.split('/'))
+        start_time = self.start_time
+        # Set start_time to current start_time; will trigger conversion of start
+        if isinstance(start_time, float):
+            self.start_time = start_time
+        end_time = self.end_time
+        # Set end_time to current end_time; will trigger conversion of end
+        if isinstance(end_time, float):
+            self.end_time = end_time
+
+    @property
+    def start(self):
+        """Start time of chapter, in time base units"""
+
+        return self._data.get('start', 0)
+
+    @start.setter
+    def start(self, val):
+        self._data['start']      = val
+        self._data['start_time'] = self.base2seconds( val )
+
+    @property
+    def end(self):
+        """End time of chapter, in time base units"""
+
+        return self._data.get('end', 0)
+
+    @end.setter
+    def end(self, val):
+
+        self._data['end']      = val
+        self._data['end_time'] = self.base2seconds( val )
+
+    @property
+    def start_time(self):
+        """Start time of chapter in seconds"""
+
+        return self._data.get('start_time', 0)
+
+    @start_time.setter
+    def start_time(self, val):
+
+        self._data['start_time'] = val
+        self._data['start']      = self.seconds2base( val )
+
+    @property
+    def end_time(self):
+        """End time of chapter in seconds"""
+
+        return self._data.get('end_time', 0)
+
+    @end_time.setter
+    def end_time(self, val):
+
+        self._data['end_time'] = val
+        self._data['end']      = self.seconds2base( val )
+
+    @property
+    def title(self):
+        """Chapter title"""
+
+        key = 'tags'
+        if key in self._data:
+            return self._data[key].get('title', '')
+        return None
+
+    @title.setter
+    def title(self, val):
+
+        key  = 'tags'
+        tags = self._data.get(key, None)
+        if not isinstance(tags, dict):
+            self._data[key] = {}
+        self._data[key]['title'] = val
+
+    def _convert_timebase(self, in_int, in_float, time_base):
+        """
+        Convert to new time_base
+
+        Arguments:
+            in_int     : Value of time in time_base units
+            in_float   : Value of time in seconds
+            time_base : str contianing new time_base
+
+        Keyword arguments:
+            None
+
+        Returns:
+            tuple: (in_int, in_float) where in_int is in requested time_base
+
+        """
+
+        # If requested time_base NOT match time_base
+        if time_base != self.time_base:
+            # Get numerator and denominator of new time_base
+            num, den = map(int, time_base.split('/'))
+            # Cross multiply original time_base with new time_base
+            factor   = (self._num * den) / (self._den * num)
+            # Convert integer time to new base, return float
+            return  round(in_int * factor), in_float
+        return in_int, in_float
+
+    def to_ffmetadata(self):
+        """Method that returns information in format for FFMETADATA file"""
+
+        return CHAPTERFMT.format(self.time_base, self.start, self.end, self.title)
+
+    def base2seconds(self, val):
+        """Method that converts value in time_base units to seconds"""
+
+        return val * self._num / self._den
+
+    def seconds2base(self, val):
+        """Method that converts value in seconds to time_base units"""
+
+        return round( val * self._den / self._num )
+
+    def get_start(self, time_base = None):
+        """Method to return chapter start time in time_base and seconds units"""
+
+        if time_base:
+            return self._convert_timebase( *self.get_start(), time_base )
+        return self.start, self.start_time
+
+    def get_end(self, time_base = None):
+        """Method to return chapter end time in time_base and seconds units"""
+
+        if time_base:
+            return self._convert_timebase( *self.get_end(), time_base )
+        return self.end, self.end_time
+
+    def add_offset(self, offset, flag = 2):
+        """
+        To adjust the start, end, or both times
+
+        Arguments:
+            offset (float): Offset time in seconds
+
+        Keyword arguments:
+            flag (int): Set to:
+                0 - to add offset to start time,
+                1 - to add offset to end time,
+                2 - (default) add offset to start and end
+        Returns:
+            None: updates internal attributes
+
+        """
+
+        if isinstance(offset, timedelta):
+            offset = offset.total_seconds()
+        if flag == 2:
+            self.start_time += offset# offset start time
+            self.end_time   += offset# Offset end time
+        elif flag == 1:# If flag is 1
+            self.end_time   += offset# Offset end_time
+        elif flag == 0:
+            self.start_time += offset# Offset start time
+
+def cropdetect_cmd(infile, start_time, seg_len, threads):
     """
-    Method to add new metadata tags to FFMetaData file
+    Generate ffmpeg command list for crop detection
 
     Arguments:
-      None
+        infile (str) : File to read from
+        start_time (timedelta) : Start time for segment
+        seg_len (timedelta) : Length of segment for crop detection
+        threads (int) : number of threads to let ffmpeg use
 
     Keyword arguments:
-      Any key/value pair where key is a valid metadata tag and value is the value for the tag. 
+        None.
 
     Returns:
-      None:
+        list : Command to be run using subprocess.Popen
 
     """
 
-    self._metadata.update( kwargs )
+    if not isinstance(start_time, timedelta):
+        raise Exception('start_time must be datetime.timedelta object')
+    if not isinstance(seg_len,      timedelta):
+        raise Exception('seg_len must be datetime.timedelta object')
+    if not isinstance(threads,       int):
+        raise Exception('threads must be int')
+    # Return the list with command
+    return [
+        'ffmpeg',
+        '-nostats',
+        '-threads', str(threads),
+        '-ss', str(start_time),
+        '-i', infile,
+        '-max_muxing_queue_size', '1024', 
+        '-t', str(seg_len), 
+        '-vf', 'cropdetect',
+        '-f', 'null',
+        '-',
+    ]
 
-  def addChapter(self, *args, **kwargs):
+def cropdetect( infile, seg_len = 20, threads = None):
     """
-    Method to add chapter marker to FFMetaData file
+    Use FFmpeg to to detect a cropping region for video files
 
     Arguments:
-      If one (1) input:
-        Must be Chapter instance
-      If three (3) inputs:
-        start  : Start time of chapter (float or datetime.timedelta)
-        end    : End time of chapter (float or datetime.timedelta)
-        title  : Chapter title (str)
+        infile (str): Path to input file for crop detection
 
     Keyword arguments:
-      time_base : String of form 'num/den’, where num and den are integers. 
-        If the time_base is missing then start/end times are assumed to be in nanosecond.
-        Ignored if NOT three (3) inputs.
+        seg_len : Length of video, in seconds, starting from beginning to use
+            for crop detection, default is 20 seconds
 
     Returns:
-      None
+        FFmpeg video filter in the format :code:`crop=w:h:x:y` or
+             None if no cropping detected
 
     """
 
-    if len(args) == 1:
-      chapter = args[0]
-    elif len(args) == 3:
-      if isinstance(args[0], timedelta):
-        start = arg[0].total_seconds()
-      if isinstance(args[1], timedelta):
-        end   = args[1].total_seconds()
+    log     = logging.getLogger(__name__)
 
-      chapter   = Chapter()
-      time_base = kwargs.get('time_base', TIME_BASE)
-      if isinstance(time_base, str):                                                    # If is string
-        num, den = map(int, time_base.split('/'))                                       # Get the numberator and denominator as integers
-        factor   = den / num                                                            # Do den/num to get factor to go from seconds to time_base
-      else:
-        raise Exception( "time_base must be a string of format 'num/den'!" )
-      chapter.time_base = time_base 
-      chapter.start     = round( args[0] * factor )                                     # Get total seconds from timedelta, apply factor, then convert to integer
-      chapter.end       = round( args[1] * factor )                                     # Do same for end time
-      chapter.title     = args[2]
-    else:
-      raise Exception( "Incorrect number of arguments!" )
+    # Set default value for number of threads
+    threads = max(
+        threads if isinstance(threads, int) else POPENPOOL.threads,
+        1,
+    )
 
-    if re.match('Chapter\s\d?', chapter.title):                                         # If chapter title matches generic title
-      chapter.title = 'Chapter {:02d}'.format(self._chapter)                            # Reset chapter number title
+    # Initialize video resolution to None
+    res  = None
+    # Counter for number of crop regions detected
+    n_crop   = 0
+    # Initialize list of 4 lists for crop parameters
+    whxy = [ [] for i in range(4) ]
+    seg_len = timedelta(seconds = seg_len)
+    start_time   = timedelta(seconds = 0)
+    crop = CHUNK.copy()
 
-    self._chapters.append( chapter.toFFMetaData() )                                     # Append tuple of information to _chapters attribute
-    self._chapter += 1
+    log.debug( 'Detecting crop using chunks of length %f', seg_len )
 
-  def save(self, filePath):
+    detect = True
+    while detect and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):
+        detect = False
+        log.debug( 'Checking crop starting at %f', start_time )
+        # Generate command for crop detection
+        cmd  = cropdetect_cmd( infile, start_time, seg_len, threads )
+        # Start the command, piping stdout and stderr to a pipe
+        with Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True) as proc:
+            line = proc.stdout.readline()
+            while line != '':
+                # If resolution not yet found
+                if res is None:
+                    # Try to find resolution information
+                    res = RESPAT.findall( line )
+                    # Set res to resolution if len of res is 1, else set back to None
+                    res = [int(i) for i in res[0].split('x')] if len(res) == 1 else None
+
+                # Try to find pattern in line
+                whxy = CROPPAT.findall( line )
+                # If found the pattern
+                if len(whxy) == 1:
+                    if not detect:
+                        detect = True
+                    # If the current row is outside of the number of rows
+                    if n_crop == crop.shape[0]:
+                        # Concat a new chunk onto the array
+                        crop = np.concatenate( [crop, CHUNK], axis = 0 )
+                    # Split the string on colon
+                    crop[n_crop,:] = np.array( [int(i) for i in whxy[0].split(':')] )
+                    n_crop += 1
+                line = proc.stdout.readline()
+
+        start_time += timedelta( seconds = 60 * 5 )
+
+    # If resolution is still None
+    if res is None:
+        log.error('Could not determine video resolution, will NOT crop!')
+        return None
+
+    # Compute maximum across all values
+    max_vals = np.nanmax(crop, axis = 0)
+    x_width  = max_vals[0]# First value is maximum width
+    y_width  = max_vals[1]# Second is maximum height
+
+    x_check = x_width/res[0]# Compute ratio of cropping width to source width
+    y_check = y_width/res[1]# Compute ratio of cropping height to source height
+
+    # If crop width and height are atleast 50% of video width and height
+
+    if (x_check <= 0.5) or (y_check <= 0.5):
+        log.debug( 'No cropping region detected' )
+        return None
+
+    # If the crop size is the same as the input size
+    if (x_width == res[0]) and (y_width == res[1]):
+        log.debug( 'Crop size same as input size, NOT cropping' )
+        return None
+
+    if (x_check >= CROPTHRES) and (y_check >= CROPTHRES):
+        log.debug(
+            'Crop size very similar to input size (%0.0fx%0.0f vs. %dx%d), NOT cropping',
+            x_width,
+            y_width,
+            *res,
+        )
+        return None
+
+    if x_check >= CROPTHRES:
+        # If x ratio is above CROPTHRES, then set xWidth to resolution width
+        x_width = res[0]
+    if y_check >= CROPTHRES:
+        # If y ratio is above CROPTHRES, then set yWidth to resolution height
+        y_width = res[1]
+
+    # Compute x-offset, this is half of the difference between video width and
+    # crop width because applies to both sizes of video
+    x_offset = (res[0] - x_width) // 2
+    # Compute x-offset, this is half of the difference between video height and
+    # crop height because applies to both top and bottom of video
+    y_offset = (res[1] - y_width) // 2
+
+    crop = np.asarray( (x_width, y_width, x_offset, y_offset), dtype = np.uint16 )
+
+    log.debug( 'Values for crop: %s', crop )
+    return 'crop={}:{}:{}:{}'.format( *crop )
+
+def total_seconds( *args ):
     """
-    Method to write ffmetadata to file
+    Convert time strings to the total number of seconds represented by the time
 
     Arguments:
-      filePath (str): Full path of file to write to
+        *args: One or more time strings of format HH:MM:SS
 
     Keyword arguments:
-      None
+        None.
 
     Returns:
-      str: Returns the filePath input
+        Returns a numpy array of total number of seconds in time
 
     """
 
-    with open(filePath, 'w') as fid:                                            # Open file for writing
-      fid.write( HEADERFMT.format( self._version ) )                       # Write header to file
+    # Iterate over all arugments, splitting on colon (:), converting to numpy
+    # array, and converting each time element to seconds
+    times = [np.array(arg.split(':'), dtype=np.float32)*TOSEC for arg in args]
+    # Convert list of numpy arrays to 2D numpy array, then compute sum of
+    # seconds across second dimension
+    return np.array( times ).sum( axis=1 )
 
-      for key, val in self._metadata.items():                                   # Iterate over all key/value pairs in metadata dictionary
-        fid.write( METADATAFMT.format(key, val) )                          # Write metadata
-
-      fid.write( os.linesep )                                                   # Add space between header/metadata and chapter(s)
-      for info in self._chapters:                                               # Iterate over all chapters
-        fid.write( info )                                                       # Write the chapter info
-        fid.write( os.linesep )                                                 # Write extra space between chapters
-
-    self._chapters = []
-    self._chapter = 1
-    return filePath                                                             # Return file path
-
-###############################################################################
-class Chapter( object ):
-  """Represents a chapter in a video file"""
-
-  def __init__(self, chapter=None):
-    self._data     = chapter if isinstance(chapter, dict) else {}
-    time_base      = self.time_base
-    start          = self.start
-    end            = self.end
-    self.time_base = time_base
-    self.start     = start
-    self.end       = end
-
-  def __repr__(self):
-    return '<{} : {}s --> {}s>'.format(self.title, self.start_time, self.end_time)    
-
-  @property
-  def time_base(self):
-    """Time base for start/end values"""
-
-    return self._data.get('time_base', TIME_BASE)
-
-  @time_base.setter
-  def time_base(self, val):
-    self._data['time_base'] = val                                                       # Set time_base to new value
-    self._num, self._den = map(int, val.split('/'))                                     # Get new numerator and denominator
-    start_time = self.start_time
-    if isinstance(start_time, float):
-      self.start_time = start_time                                                   # Set start_time to current start_time; will trigger conversion of start
-    end_time   = self.end_time                                                     # Set end_time to current end_time; will trigger conversion of end
-    if isinstance(end_time, float):
-      self.end_time   = end_time                                                     # Set end_time to current end_time; will trigger conversion of end
-
-  @property
-  def start(self):
-    """Start time of chapter, in time base units"""
-
-    return self._data.get('start', 0)
-
-  @start.setter
-  def start(self, val):
-    self._data['start']      = val
-    self._data['start_time'] = self.base2seconds( val )
-
-  @property
-  def end(self):
-    """End time of chapter, in time base units"""
-
-    return self._data.get('end', 0)
-
-  @end.setter
-  def end(self, val):
-    self._data['end']      = val
-    self._data['end_time'] = self.base2seconds( val )
-
-  @property
-  def start_time(self):
-    """Start time of chapter in seconds"""
-
-    return self._data.get('start_time', 0)
-
-  @start_time.setter
-  def start_time(self, val):
-    self._data['start_time'] = val
-    self._data['start']      = self.seconds2base( val )
-
-  @property
-  def end_time(self):
-    """End time of chapter in seconds"""
-
-    return self._data.get('end_time', 0)
-
-  @end_time.setter
-  def end_time(self, val):
-    self._data['end_time'] = val
-    self._data['end']      = self.seconds2base( val )
-
-  @property
-  def title(self):
-    """Chapter title"""
-
-    key = 'tags'
-    if key in self._data:
-      return self._data[key].get('title', '')
-
-  @title.setter
-  def title(self, val):
-    key  = 'tags'
-    tags = self._data.get(key, None)
-    if not isinstance(tags, dict):
-      self._data[key] = {}
-    self._data[key]['title'] = val
-
-  def _convertTimebase(self, inInt, inFloat, time_base):
+class FFmpegProgress( ):
     """
-    Convert to new time_base
+    Monitor FFMpeg progress
 
-    Arguments:
-      inInt     : Value of time in time_base units
-      inFloat   : Value of time in seconds
-      time_base : str contianing new time_base
-
-    Keyword arguments:
-      None
-
-    Returns:
-      tuple: (inInt, inFloat) where inInt is in requested time_base
+    Class for monitoring output from ffmpeg to determine how much
+    time remains in the conversion.
 
     """
 
-    if time_base != self.time_base:                                                     # If requested time_base NOT match time_base
-      num, den = map(int, time_base.split('/'))                                         # Get numerator and denominator of new time_base
-      factor   = (self._num * den) / (self._den * num)                                  # Cross multiply original time_base with new time_base
-      return  round(inInt * factor), inFloat                                            # Convert integer time to new base, return float
-    return inInt, inFloat
+    def __init__(self, interval = 60.0, nintervals = None):
+        """
 
-  def toFFMetaData(self):
-    """Method that returns information in format for FFMETADATA file"""
+        Arguments:
+            None
 
-    return CHAPTERFMT.format(self.time_base, self.start, self.end, self.title)
+        Keyword arguments:
+            interval (float): The update interval, in seconds, to log time remaining info.
+                Default is sixty (60) seconds, or 1 minute.
+            nintervals (int): Set to number of updates you would like to be logged about
+                progress. Default is to log as many updates as it takes
+                at the interval requested. Setting this keyword will 
+                override the value set in the interval keyword.
+                Note that the value of interval will be used until the
+                first log, after which point the interval will be updated
+                based on the remaing conversion time and the requested
+                number of updates
 
-  def base2seconds(self, val):
-    """Method that converts value in time_base units to seconds"""
+        Returns:
+            Object
 
-    return val * self._num / self._den
+        """
 
-  def seconds2base(self, val):
-    """Method that converts value in seconds to time_base units"""
+        self.log = logging.getLogger(__name__)
+        # Initialize t0 and t1 to the same time; i.e., now
+        self.time0  = self.time1 = time.time()
+        self.dur        = None
+        self.interval   = interval
+        self.nintervals = nintervals
 
-    return round( val * self._den / self._num )
+    def progress(self, in_val):
+        """Get progress of FFMpeg transcode"""
 
-  def getStart(self, time_base = None):
-    """Method to return chapter start time in time_base and seconds units"""
+        if isinstance( in_val, Popen ):
+            self._subprocess( in_val )
+        else:
+            self._process_line( in_val )
 
-    if time_base:
-      return self._convertTimebase( *self.getStart(), time_base )
-    return self.start, self.start_time
+    def _subprocess( self, proc ):
+        if proc.stdout is None:
+            self.log.error(
+                'Subprocess stdout is None type! No progess to print!'
+            )
+            return
+        if not proc.universal_newlines:
+            self.log.error(
+                'Must set universal_newlines to True in call to Popen! No progress to print!'
+            )
+            return
 
-  def getEnd(self, time_base = None):
-    """Method to return chapter end time in time_base and seconds units"""
+        # Read a line from stdout for while loop start
+        line = proc.stdout.readline()
+        while line != '':
+            self._process_line( line )
+            line = proc.stdout.readline()
 
-    if time_base:
-      return self._convertTimebase( *self.getEnd(), time_base )
-    return self.end, self.end_time
+    def _process_line( self, line ):
 
-  def addOffset(self, offset, flag = 2):
-    """
-    To adjust the start, end, or both times
-
-    Arguments:
-      offset (float): Offset time in seconds
-
-    Keyword arguments:
-      flag (int): Set to: 0 - to add offset to start time,
-                          1 - to add offset to end time,
-                          2 - (default) add offset to start and end
-    Returns:
-      None: updates internal attributes
-
-    """
-
-    if isinstance(offset, timedelta):
-      offset = offset.total_seconds()
-    if flag == 2:                                                                       # If flag is 2
-      self.start_time += offset                                                         # offset start time
-      self.end_time   += offset                                                         # Offset end time
-    elif flag == 1:                                                                     # If flag is 1
-      self.end_time   += offset                                                         # Offset end_time
-    elif flag == 0:                                                                     # If flag is 0
-      self.start_time += offset                                                         # Offset start time
-
-def cropDetectCMD(infile, ss, dt, threads):                                             # Local function to build command for ffmpeg
-  """
-  Generate ffmpeg command list for crop detection
-
-  Arguments:
-    infile (str): File to read from
-    ss       : timedelta; Start time for segment
-    dt       : timedelta; Length of segment for crop detection
-    threads  : int; number of threads to let ffmpeg use
-
-  Keyword arguments:
-    None.
-
-  Returns:
-    list : Command to be run using subprocess.Popen
-
-  """
-
-  # Check inputs string, convert to string if NOT
-#  if not isinstance(ss,      str): ss      = str(ss)
-#  if not isinstance(dt,      str): dt      = str(dt)
-#  if not isinstance(threads, str): threads = str(threads)
-
-  if not isinstance(ss,      timedelta): raise Exception('ss must be datetime.timedelta object')#ss      = str(ss)
-  if not isinstance(dt,      timedelta): raise Exception('dt must be datetime.timedelta object')#dt      = str(dt)
-  if not isinstance(threads,       int): raise Exception('threads must be int')#threads = str(threads)
-  # Return the list with command
-  return ['ffmpeg', '-nostats',
-          '-threads', str(threads),
-          '-ss', str(ss),
-          '-i', infile,
-          '-max_muxing_queue_size', '1024', 
-          '-t', str(dt), 
-          '-vf', 'cropdetect',
-          '-f', 'null',
-          '-'] 
+        # If the file duration has NOT been set yet
+        if self.dur is None:
+            # Try to find the file duration pattern in the line
+            tmp = DURPAT.findall( line )
+            if len(tmp) == 1:
+                # Compute the total number of seconds in the file,
+                # take element zero as returns list
+                self.dur = total_seconds( tmp[0] )[0]
+        # Else, if the amount of time between the last logging and now is
+        # greater or equal to the interval
+        elif (time.time()-self.time1) >= self.interval:
+            # Update the time at which we are logging
+            self.time1 = time.time()
+            # Look for progress time in the line
+            tmp     = PROGPAT.findall( line )
+            # If progress NOT found; or multiple found, return
+            if len(tmp) != 1:
+                return
+            # Compute the elapsed time
+            elapsed = self.time1 - self.time0
+            # Compute total number of seconds comverted so far, take element
+            # zero as returns list
+            prog    = total_seconds( tmp[0] )[0]
+            # Ratio of real-time seconds per seconds of video processed
+            ratio   = elapsed / prog
+            # Multiply ratio by the number of seconds of video left to convert
+            remain  = ratio * (self.dur - prog)
+            # Compute estimated completion time
+            end_time = datetime.now() + timedelta( seconds=remain )
+            # Log information
+            self.log.info( ESTCOMP, end_time )
+            if (self.nintervals is not None) and (self.nintervals > 1):
+                self.nintervals -= 1
+                self.interval    = remain / float(self.nintervals)
 
 
-###############################################################################
-def cropdetect( infile, dt = 20, threads = None):
-  """
-  Use FFmpeg to to detect a cropping region for video files
-
-  Arguments:
-    infile (str): Path to input file for crop detection
-
-  Keyword arguments:
-    dt  : Length of video, in seconds, starting from beginning to use
-          for crop detection, default is 20 seconds
-
-  Returns:
-    FFmpeg video filter in the format :code:`crop=w:h:x:y` or None if no cropping detected
-
-  """
-
-  log     = logging.getLogger(__name__);                                                # Get a logger
-
-  threads = threads if isinstance(threads, int) else POPENPOOL.threads                  # Set default value for number of threads
-  if threads < 0: threads = 1
-
-  whxy    = [ [] for i in range(4) ];                                                   # Initialize list of 4 lists for crop parameters
-  res     = None;                                                                       # Initialize video resolution to None
-  dt      = timedelta(seconds = dt)                                                     # Get nicely formatted time
-  ss      = timedelta(seconds = 0)
-  nn      = 0;                                                                          # Counter for number of crop regions detected
-  crop    = _chunk.copy();                                                              # List of crop regions
-
-  log.debug( 'Detecting crop using chunks of length {}'.format( dt ) );
-
-  detect = True;                                                                        # Set detect to True; flag for crop detected
-  while detect and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):        # While detect is True, keep iterating
-    detect = False;                                                                     # Set detect to False; i.e., at beginning of iteration, assume no crop found
-    log.debug( 'Checking crop starting at {}'.format( ss ) )
-    cmd    = cropDetectCMD( infile, ss, dt, threads )                                   # Generate command for crop detection
-    proc   = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True )          # Start the command, piping stdout and stderr to a pipe
-    line   = proc.stdout.readline()                                                     # Read line from pipe
-    while line != '':                                                                   # While line is not empty
-      if res is None:                                                                   # If resolution not yet found
-        res = _resPat.findall( line )                                                   # Try to find resolution information
-        res = [int(i) for i in res[0].split('x')] if len(res) == 1 else None            # Set res to resolution if len of res is 1, else set back to None
-
-      whxy = _cropPat.findall( line )                                                   # Try to find pattern in line
-      if len(whxy) == 1:                                                                # If found the pattern
-        if not detect: detect = True                                                    # If detect is False, set to True
-        if (nn == crop.shape[0]):                                                       # If the current row is outside of the number of rows
-          crop = np.concatenate( [crop, _chunk], axis = 0 )                             # Concat a new chunk onto the array
-        #log.debug( 'Crop : {}'.format(whxy) )
-        crop[nn,:] = np.array( [int(i) for i in whxy[0].split(':')] )                   # Split the string on colon
-        nn += 1                                                                         # Increment nn counter
-      line = proc.stdout.readline()                                                     # Read another line form pipe
-    proc.communicate()                                                                  # Wait for FFmpeg to finish cleanly
-    ss += timedelta( seconds = 60 * 5 )                                                 # Increment ss by 5 minutes
-
-  if res is None:                                                                       # If resolution is still None
-    log.error('Could not determine video resolution, will NOT crop!')                   # Log error
-    return None                                                                         # Return None
-
-  maxVals = np.nanmax(crop, axis = 0)                                                   # Compute maximum across all values
-  xWidth  = maxVals[0]                                                                  # First value is maximum width
-  yWidth  = maxVals[1]                                                                  # Second is maximum height
-
-  xCheck = xWidth/res[0]                                                                # Compute ratio of cropping width to source width
-  yCheck = yWidth/res[1]                                                                # Compute ratio of cropping height to source height
-  if (xCheck > 0.5) and (yCheck > 0.5):                                                 # If crop width and height are atleast 50% of video width and height
-    if (xWidth == res[0]) and (yWidth == res[1]):                                       # If the crop size is the same as the input size
-      log.debug( 'Crop size same as input size, NOT cropping' )                         # Debug info
-      return None                                                                       # Return None
-    elif (xCheck < CROPTHRES) or (yCheck < CROPTHRES):                                  # If either to x or y ratio is below the CROPTHRES 
-      if (xCheck >= CROPTHRES): xWidth = res[0]                                         # If x ratio is above CROPTHRES, then set xWidth to resolution width
-      if (yCheck >= CROPTHRES): yWidth = res[1]                                         # If y ratio is above CROPTHRES, then set yWidth to resolution height                                     
-    else:                                                                               # Else, crop is too close to original, so do nothing
-      log.debug( 'Crop size very similar to input size ({:0.0f}x{:0.0f} vs. {:d}x{:d}), NOT cropping'.format(xWidth, yWidth, *res) )
-      return None
-
-    xOffset = (res[0] - xWidth) // 2                                                    # Compute x-offset, this is half of the difference between video width and crop width because applies to both sizes of video
-    yOffset = (res[1] - yWidth) // 2                                                    # Compute x-offset, this is half of the difference between video height and crop height because applies to both top and bottom of video
-    crop    = np.asarray( (xWidth, yWidth, xOffset, yOffset), dtype = np.uint16 )       # Numpy array containing crop width/height of offsets as unsigned 16-bit integers
-
-    log.debug( 'Values for crop: {}'.format(crop) )                                     # Debug info
-    return 'crop={}:{}:{}:{}'.format( *crop )                                           # Return formatted string with crop option
-  log.debug( 'No cropping region detected' )
-  return None                                                                           # Return None b/c if made here, no crop detected
-
-###############################################################################
-def totalSeconds( *args ):
-  """
-  Convert time strings to the total number of seconds represented by the time
-
-  Arguments:
-    *args: One or more time strings of format HH:MM:SS
-
-  Keyword arguments:
-    None.
-
-  Returns:
-    Returns a numpy array of total number of seconds in time
-
-  """
-
-  times = [np.array(arg.split(':'), dtype=np.float32)*_toSec for arg in args]         # Iterate over all arugments, splitting on colon (:), converting to numpy array, and converting each time element to seconds
-  return np.array( times ).sum( axis=1 )                                              # Conver list of numpy arrays to 2D numpy array, then compute sum of seconds across second dimension
-
-###############################################################################
-class FFmpegProgress(object):
-  """Class for monitoring output from ffmpeg to determine how much time remains in the conversion."""
-
-  def __init__(self, interval = 60.0, nintervals = None):
-    """
-    Arguments:
-      None
-    Returns:
-      Object
-    Keyword arguments:
-      interval (float): The update interval, in seconds, to log time remaining info.
-                    Default is sixty (60) seconds, or 1 minute.
-      nintervals (int): Set to number of updates you would like to be logged about
-                    progress. Default is to log as many updates as it takes
-                    at the interval requested. Setting this keyword will 
-                    override the value set in the interval keyword.
-                    Note that the value of interval will be used until the
-                    first log, after which point the interval will be updated
-                    based on the remaing conversion time and the requested
-                    number of updates
-
-    """
-
-    self.log = logging.getLogger(__name__)                                          # Initialize logger for the function
-    self.t0  = self.t1 = time.time()                                                      # Initialize t0 and t1 to the same time; i.e., now
-    self.dur        = None                                                             # Initialize dur to None; this is the file duration
-    self.interval   = interval
-    self.nintervals = nintervals
-
-  def progress(self, inVal):
-    if isinstance( inVal, Popen ):
-      self._subprocess( inVal )
-    else:
-      self._processLine( inVal )
-
-  def _subprocess( self, proc ):
-    if proc.stdout is None:                                                     # If the stdout of the process is None
-      log.error( 'Subprocess stdout is None type! No progess to print!' );    # Log an error
-      return                                                                 # Return
-    if not proc.universal_newlines:                                             # If universal_newlines was NOT set on Popen initialization
-      log.error( 'Must set universal_newlines to True in call to Popen! No progress to print!' ); # Log an error
-      return                                                                 # Return
-
-    line = proc.stdout.readline();                                           # Read a line from stdout for while loop start
-    while (line != ''):                                                         # While the line is NOT empty
-      self._processLine( line )
-      line = proc.stdout.readline();                                          # Read the next line
-
-  def _processLine( self, line ):
-    if self.dur is None:                                                         # If the file duration has NOT been set yet
-      tmp = _durPat.findall( line );                                      # Try to find the file duration pattern in the line
-      if len(tmp) == 1:                                                   # If the pattern is found
-        self.dur = totalSeconds( tmp[0] )[0];                            # Compute the total number of seconds in the file, take element zero as returns list
-    elif (time.time()-self.t1) >= self.interval:                                      # Else, if the amount of time between the last logging and now is greater or equal to the interval
-      self.t1  = time.time();                                                  # Update the time at which we are logging
-      tmp      = _progPat.findall( line );                                     # Look for progress time in the line
-      if len(tmp) == 1:                                                   # If progress time found
-        elapsed = self.t1 - self.t0                                              # Compute the elapsed time
-        prog    = totalSeconds( tmp[0] )[0]                             # Compute total number of seconds comverted so far, take element zero as returns list
-        ratio   = elapsed / prog                                       # Ratio of real-time seconds per seconds of video processed
-        remain  = ratio * (self.dur - prog)                                 # Multiply ratio by the number of seconds of video left to convert
-        endTime = datetime.now() + timedelta( seconds=remain )         # Compute estimated completion time
-        self.log.info( _info.format( endTime ) )                            # Log information
-        if (self.nintervals is not None) and (self.nintervals > 1):               # If the adaptive interval keyword is set AND nn is greater than zero
-          self.nintervals -= 1                                            # Decrement nintervals
-          self.interval    = remain / float(self.nintervals)                   # Set interval to remaining time divided by nn
-
-
-###############################################################################
 def progress( proc, interval = 60.0, nintervals = None ):
-  """
-  Parse output from ffmpeg to determine how much time remains in the conversion.
+    """
+    Parse output from ffmpeg to determine how much time remains in the conversion.
 
-  Arguments:
-    proc (Popen): A subprocess.Popen instance. The stdout of Popen must be set
-             to subprocess.PIPE and the stderr must be set to 
-             subprocess.STDOUT so that all information runs through 
-             stdout. The universal_newlines keyword must be set to True
-             as well
+    Arguments:
+        proc (Popen): A subprocess.Popen instance. The stdout of Popen must be set
+            to subprocess.PIPE and the stderr must be set to 
+            subprocess.STDOUT so that all information runs through 
+            stdout. The universal_newlines keyword must be set to True
+            as well
 
-  Keyword arguments:
-    interval  (float): The update interval, in seconds, to log time remaining info.
-                  Default is sixty (60) seconds, or 1 minute.
-    nintervals (int): Set to number of updates you would like to be logged about
-                  progress. Default is to log as many updates as it takes
-                  at the interval requested. Setting this keyword will 
-                  override the value set in the interval keyword.
-                  Note that the value of interval will be used until the
-                  first log, after which point the interval will be updated
-                  based on the remaing conversion time and the requested
-                  number of updates
+    Keyword arguments:
+        interval  (float): The update interval, in seconds, to log time remaining info.
+            Default is sixty (60) seconds, or 1 minute.
+        nintervals (int): Set to number of updates you would like to be logged about
+            progress. Default is to log as many updates as it takes
+            at the interval requested. Setting this keyword will 
+            override the value set in the interval keyword.
+            Note that the value of interval will be used until the
+            first log, after which point the interval will be updated
+            based on the remaing conversion time and the requested
+            number of updates
 
-  Returns:
-    Returns nothing. Does NOT wait for the process to finish so MUST handle
-    that in calling function
+    Returns:
+        Returns nothing. Does NOT wait for the process to finish so MUST handle
+            that in calling function
 
-  """
+    """
 
-  log = logging.getLogger(__name__);                                          # Initialize logger for the function
-  if proc.stdout is None:                                                     # If the stdout of the process is None
-    log.error( 'Subprocess stdout is None type! No progess to print!' );    # Log an error
-    return;                                                                 # Return
-  if not proc.universal_newlines:                                             # If universal_newlines was NOT set on Popen initialization
-    log.error( 'Must set universal_newlines to True in call to Popen! No progress to print!' ); # Log an error
-    return;                                                                 # Return
+    log = logging.getLogger(__name__)
+    if proc.stdout is None:
+        log.error(
+            'Subprocess stdout is None type! No progess to print!'
+        )
+        return
+    if not proc.universal_newlines:
+        log.error(
+            'Must set universal_newlines to True in call to Popen! No progress to print!'
+        )
+        return
 
-  t0 = t1 = time.time();                                                      # Initialize t0 and t1 to the same time; i.e., now
-  dur     = None;                                                             # Initialize dur to None; this is the file duration
-  line    = proc.stdout.readline();                                           # Read a line from stdout for while loop start
-  while (line != ''):                                                         # While the line is NOT empty
-    if dur is None:                                                         # If the file duration has NOT been set yet
-      tmp = _durPat.findall( line );                                      # Try to find the file duration pattern in the line
-      if len(tmp) == 1:                                                   # If the pattern is found
-        dur     = totalSeconds( tmp[0] )[0];                            # Compute the total number of seconds in the file, take element zero as returns list
-    elif (time.time()-t1) >= interval:                                      # Else, if the amount of time between the last logging and now is greater or equal to the interval
-      t1  = time.time();                                                  # Update the time at which we are logging
-      tmp = _progPat.findall( line );                                     # Look for progress time in the line
-      if len(tmp) == 1:                                                   # If progress time found
-        elapsed = t1 - t0;                                              # Compute the elapsed time
-        prog    = totalSeconds( tmp[0] )[0]                             # Compute total number of seconds comverted so far, take element zero as returns list
-        ratio   = elapsed / prog;                                       # Ratio of real-time seconds per seconds of video processed
-        remain  = ratio * (dur - prog);                                 # Multiply ratio by the number of seconds of video left to convert
-        endTime = datetime.now() + timedelta( seconds=remain );         # Compute estimated completion time
-        log.info( _info.format( endTime ) );                            # Log information
-        if (nintervals is not None) and (nintervals > 1):               # If the adaptive interval keyword is set AND nn is greater than zero
-          nintervals -= 1;                                            # Decrement nintervals
-          interval    = remain / float(nintervals);                   # Set interval to remaining time divided by nn
-    line = proc.stdout.readline();                                          # Read the next line
-  return
+    # Initialize t0 and t1 to the same time; i.e., now
+    time0 = time1 = time.time()
+    dur     = None
+    line    = proc.stdout.readline()
+    while line != '':
+        if dur is None:
+            # Try to find the file duration pattern in the line
+            tmp = DURPAT.findall( line )
+            # If the pattern is found
+            if len(tmp) == 1:
+                # Compute the total number of seconds in the file, take
+                # element zero as returns list
+                dur = total_seconds( tmp[0] )[0]
+        # Else, if the amount of time between the last logging and now is
+        # greater or equal to the interval
+        elif (time.time()-time1) >= interval:
+            # Update the time at which we are logging
+            time1  = time.time()
+            # Look for progress time in the line
+            tmp = PROGPAT.findall( line )
+            # If progress time found
+            if len(tmp) == 1:
+                # Compute the elapsed time
+                elapsed = time1 - time0
+                # Compute total number of seconds comverted so far, take
+                # element zero as returns list
+                prog    = total_seconds( tmp[0] )[0]
+                # Ratio of real-time seconds per seconds of video processed
+                ratio   = elapsed / prog
+                # Multiply ratio by the number of seconds of video left to convert
+                remain  = ratio * (dur - prog)
+                # Compute estimated completion time
+                end_time = datetime.now() + timedelta( seconds=remain )
+                log.info( ESTCOMP, end_time )
+                if (nintervals is not None) and (nintervals > 1):
+                    nintervals -= 1
+                    interval    = remain / float(nintervals)
+        line = proc.stdout.readline()
+    return
 
-########################################################
-def getVideoLength(in_file):
-  """Returns float length of video, in seconds"""
+def get_video_length(in_file):
+    """Returns float length of video, in seconds"""
 
-  proc = Popen( ['ffmpeg', '-i', in_file], stdout=PIPE, stderr=STDOUT)
-  info = proc.stdout.read().decode()
-  dur  = _durPat.findall( info )
-  if (len(dur) == 1):
-    hh, mm, ss = [float(i) for i in dur[0].split(':')]
-    dur = hh*3600.0 + mm*60.0 + ss
-  else:
-    dur = 86400.0
-  return dur
+    with Popen( ['ffmpeg', '-i', in_file], stdout=PIPE, stderr=STDOUT) as proc:
+        info = proc.stdout.read().decode()
+    dur  = DURPAT.findall( info )
+    if len(dur) == 1:
+        hour, minute, second = [float(i) for i in dur[0].split(':')]
+        return hour*3600.0 + minute*60.0 + second
+    return 86400.0
 
-###############################################################################
-def checkIntegrity(filePath):
-  """
-  Test the integrity of a video file.
+def check_integrity(fpath):
+    """
+    Test the integrity of a video file.
 
-  Runs ffmpeg with null output, checking errors for 'overread'. If overread found,
-  then return False, else True
+    Runs ffmpeg with null output, checking errors for 'overread'. If overread found,
+    then return False, else True
 
-  Arguments:
-    filePath (str): Full path of file to check
+    Arguments:
+        fpath (str): Full path of file to check
 
-  Keyword arguments:
-    None
+    Keyword arguments:
+        None
 
-  Returns:
-    bool: True if no overread errors, False otherwise
+    Returns:
+        bool: True if no overread errors, False otherwise
 
-  """
+    """
 
-  cmd  = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', 
-            '-i', filePath, '-f', 'null', '-']                                              # Command to run
-  proc = Popen( cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)                   # Run ffmpeg command
-  line = proc.stdout.readline()                                                             # Read line from stdout
-  while (line != ''):                                                                       # While line is NOT empty
-    if ('overread' in line):                                                                # If 'overread' in line
-      proc.terminate()                                                                      # Terminate process
-      proc.communicate()                                                                    # Wait for proc to finish
-      return False                                                                          # Return False
-    line = proc.stdout.readline()                                                           # Read another line
+    cmd  = ['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1',
+              '-i', fpath, '-f', 'null', '-']
+    with Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True) as proc:
+        line = proc.stdout.readline()
+        while line != '':
+            if 'overread' in line:
+                return False
+            line = proc.stdout.readline()
+    return True
 
-  proc.communicate()                                                                        # Make sure process done
-  return True                                                                               # Return True
-
-###############################################################################
-def _testFile():                                                                 
+def _test_file():
     """This is a grabage function used only for testing during development."""
 
-    infile   = '/mnt/ExtraHDD/Movies/short.mp4'                                 
-    outfile  = os.path.join(os.path.dirname(infile), 'tmp1.mp4')                 
+    infile   = '/derechoPool/Archive/video_utils_test_files/bluray/tmdb156022..mkv'
+    outfile  = os.path.join(os.path.dirname(infile), 'tmp1.mp4')
 
-    cmd      = ['ffmpeg', '-nostdin', '-y', '-i', infile]                       
-    cmd     += ['-c:v', 'libx264']                                              
-    cmd     += ['-c:a', 'copy']                                                 
-    cmd     += ['-threads', '1']                                                
-    cmd     += [outfile]              
+    cmd      = ['ffmpeg', '-nostdin', '-y', '-i', infile]
+    cmd     += ['-c:v', 'libx264']
+    cmd     += ['-c:a', 'copy']
+    cmd     += ['-threads', '1']
+    cmd     += [outfile]
     print( ' '.join(cmd) )
-    proc = Popen( cmd, stdout = PIPE, stderr = STDOUT, universal_newlines=True) 
-    progress( proc, interval = 10.0, nintervals = None); 
-    proc.communicate()                                                          
 
-###############################################################################
-def getChapters(inFile):
-  """
-  Function for extract chapter information from video
+    with Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True) as proc:
+        progress( proc, interval = 10.0, nintervals = None)
 
-  Arguments:
-    inFile (str): Path of file to extract chapter information from
+    #proc = Popen( cmd, stdout = PIPE, stderr = STDOUT, universal_newlines=True)
+    #progress( proc, interval = 10.0, nintervals = None)
+    #proc.communicate()
 
-  Keyword arguments:
-    None
+def get_chapters(fpath):
+    """
+    Function for extract chapter information from video
 
-  Returns:
-    List of Chapter objects if chapters exist, None otherwise
+    Arguments:
+        fpath (str): Path of file to extract chapter information from
 
-  """
+    Keyword arguments:
+        None
 
-  cmd = ['ffprobe', '-i', inFile, '-print_format', 'json', 
-         '-show_chapters', '-loglevel', 'error']                                        # Command to get chapter information
-  try:                                                                                  # Try to...
-    chaps = str(check_output( cmd ), 'utf-8')                                           # Get chapter information from ffprobe
-  except:                                                                               # On exception
-    print('Failed to get chapter information')                                          # Print a message
-    return None                                                                         # Return
-  return [ Chapter(chap) for chap in json.loads( chaps )['chapters'] ]               # Parse the chapter information
+    Returns:
+        List of Chapter objects if chapters exist, None otherwise
 
-###############################################################################
-def partialExtract( inFile, outFile, startOffset, duration, chapterFile = None ):
-  """
-  Function for extracting video segement
+    """
 
-  Arguments:
-    inFile (str): Path of file to extract segment from
-    outFile (str): Path of file to extract segment to
-    startOffset (float,timedelta): Segment start time in input file.
-                   If float, units must be seconds.
-    duration (float,timedelta): Segment duration
-                   If float, units must be seconds.
+    log = logging.getLogger(__name__)
+    cmd = ['ffprobe', '-i', fpath, '-print_format', 'json',
+           '-show_chapters', '-loglevel', 'error']
+    try:
+        chaps = str(check_output( cmd ), 'utf-8')
+    except:
+        log.error('Failed to get chapter information')
+        return None
+    return [ Chapter(chap) for chap in json.loads( chaps )['chapters'] ]
 
-  Keyword arguments:
-    chapterFile (str): Path to ffmetadata file specifying chapters for new segment
+def partial_extract( in_file, out_file, start_offset, duration, chapter_file = None ):
+    """
+    Function for extracting video segement
 
-  Returns:
-    bool: True on successful extraction, False otherwise
+    Arguments:
+        in_file (str): Path of file to extract segment from
+        out_file (str): Path of file to extract segment to
+        start_offset (float,timedelta): Segment start time in input file.
+            If float, units must be seconds.
+        duration (float,timedelta): Segment duration
+            If float, units must be seconds.
 
-  """
+    Keyword arguments:
+        chapter_file (str): Path to ffmetadata file specifying chapters for new segment
 
-  if not isinstance(startOffset, timedelta):                                            # Ensure startOffset is timedelta
-    startOffset = timedelta(seconds = startOffset)
-  if not isinstance(duration, timedelta):                                               # Ensure duration is timedelta
-    duration    = timedelta(seconds = duration)
-  cmd  = ['ffmpeg', '-y', '-v', 'quiet', '-stats']                                      # Base command
-  cmd += ['-ss', str( startOffset ), '-t',  str( duration )]                            # Set starting read position and read for durtation for input file
-  cmd += ['-i', inFile]                                                                 # Set input file
-  if chapterFile:                                                                       # If chapter file specified
-    cmd += ['-i', chapterFile, '-map_chapters', '1']                                    # Add chapter file to command
-  cmd += ['-codec', 'copy']                                                             # Set codec to copy and map stream to all
-  cmd += ['-ss', '0', '-t',  str( duration ) ]                                          # Set start time and duration for output  file
-  cmd += [outFile]                                                                      # Set up list for command to split file
-  proc = Popen(cmd, stderr=DEVNULL)                                                     # Write errors to /dev/null
-  proc.communicate();                                                                   # Wait for command to complete
-  if proc.returncode != 0:                                                              # If return code is NOT zero
-    return False                                                                        # Return
-  return True
+    Returns:
+        bool: True on successful extraction, False otherwise
 
-###############################################################################
-def splitOnChapter(inFile, nChapters):
-  """
-  Split a video file based on chapters.
+    """
 
-  The idea is that if a TV show is ripped with multiple episodes in one file, 
-  assuming all episodes have the same number of chapters, one can split the file into
-  individual episode files.
+    # Ensure start_offset is timedelta
+    if not isinstance(start_offset, timedelta):
+        start_offset = timedelta(seconds = start_offset)
 
-  Arguments:
-    inFile (str): Full path to the file that is to be split.
-    nChapters (int,list): The number of chapters in each episode.
+    # Ensure duration is timedelta
+    if not isinstance(duration, timedelta):
+        duration = timedelta(seconds = duration)
 
-  Keyword arguments:
-    None
+    cmd  = ['ffmpeg', '-y', '-v', 'quiet', '-stats']
+    # Set starting read position and read for durtation for input file
+    cmd += ['-ss', str( start_offset ), '-t',  str( duration )]
+    cmd += ['-i', in_file]
+    if chapter_file:
+        # Add chapter file to command
+        cmd += ['-i', chapter_file, '-map_chapters', '1']
+    # Set codec to copy and map stream to all
+    cmd += ['-codec', 'copy']
+    # Set start time and duration for output  file
+    cmd += ['-ss', '0', '-t',  str( duration ) ]
+    cmd += [out_file]
+    proc = run(cmd, stderr=DEVNULL, check=False)
+    return proc.returncode == 0
 
-  Returns:
-    Outputs n files, where n is equal to the total number
-    of chapters in the input file divided by nChaps.
+def split_on_chapter(in_file, n_chapters):
+    """
+    Split a video file based on chapters.
 
-  """
+    The idea is that if a TV show is ripped with multiple episodes in one file, 
+    assuming all episodes have the same number of chapters, one can split the file into
+    individual episode files.
 
-  chapters = getChapters( inFile )                                                      # Get all chapters from file
-  if not chapters: return                                                               # If no chapters, return
+    Arguments:
+        in_file (str): Full path to the file that is to be split.
+        n_chapters (int,list): The number of chapters in each episode.
 
-  if isinstance(nChapters, (tuple,list)):                                               # If nChapters is eterable
-    nChapters = [int(n) for n in nChapters]                                             # Ensure all values are integers
-  elif type(nChapters) is not int:                                                      # Else
-    nChapters = int(nChapters);                                                         # Ensure that nChap is type int
-  
-  fileDir, fileBase = os.path.split(inFile)                                             # Get input file directory and base name
-  fileBase, fileExt = os.path.splitext(fileBase)                                        # Get input file name and extension
+    Keyword arguments:
+        None
 
-  ffmeta   = FFMetaData()                                                               # Initialize FFMetaData instance
-  splitFMT = 'split_{:03d}'+fileExt                                                     # Set file name format for split files
-  chapName = 'split.chap'                                                               # Set file name for chapter metadata file
-  num      = 0                                                                          # Set split file number
-  sID      = 0                                                                          # Set chater starting number
-  while sID < len(chapters):                                                            # While chapters left
-    width    = nChapters[num] if isinstance(nChapters, (tuple,list)) else nChapters     # Get number of chapters to process; i.e., width of video segment
-    eID      = sID + width                                                              # Set chapter ending index
-    preroll  = PREROLL  if sID > 0 else 0.0                                             # Set local preroll
-    postroll = POSTROLL if eID < len(chapters) else 0.0                                 # Set local postroll
-    chaps    = chapters[sID:eID]                                                        # Subset chapters
-    start    = chaps[ 0].start_time                                                     # Get chapter start time
-    end      = chaps[-1].end_time                                                       # Get chapter end time
-    startD   = timedelta(seconds = start + preroll)                                     # Set start time for segement with preroll adjustment
-    dur      = timedelta(seconds = end   + postroll) - startD                           # Set segment duration with postroll adjustment
-    nn       = len(chaps)                                                               # Determine number of chapers; may be less than width if use fixed width
-    for i in range(nn):                                                                 # Iterate over chapter subset
-      if i == 0:                                                                        # If first chapter
-        chaps[i].addOffset(-start, 0)                                                   # Set chapter start offset to zero
-        chaps[i].addOffset(-start-preroll,1)                                            # Set chapter end offset to PREROLL greater than start to compensate for pre-roll
-      elif i == (nn-1):                                                                 # If on last chapter
-        chaps[i].addOffset(-start-preroll, 0)                                           # Adjust starting
-        chaps[i].end_time = dur.total_seconds()                                         # Set end_time to segment duration
-      else:                                                                             # Else
-        chaps[i].addOffset( -start-preroll )                                            # Adjust start and end times compenstating for pre-roll
-      ffmeta.addChapter( chaps[i] )
+    Returns:
+        Outputs n files, where n is equal to the total number
+            of chapters in the input file divided by n_chaps.
 
-    splitName = splitFMT.format(num)                                                    # Set file name
-    splitFile = os.path.join( fileDir, splitName )                                      # Set output segement file path
-    chapFile  = os.path.join( fileDir, chapName)                                        # Set segment chapter file
-    ffmeta.save(chapFile)                                                               # Create the FFMetaData file
-    if not partialExtract( inFile, splitFile, startD, dur, chapterFile=chapFile ):      # Try to extract segment
-      break                                                                             # Return on error
-    num += 1                                                                            # Increment split number
-    sID  = eID                                                                          # Set sID to eID
-  os.remove( chapFile )                                                                 # Remove the chapter file
+    """
 
-#if __name__ == "__main__":
-#  import argparse;                                                              # Import library for parsing
-#  parser = argparse.ArgumentParser(description="Split on Chapter");             # Set the description of the script to be printed in the help doc, i.e., ./script -h
-#  parser.add_argument("file",          type=str, help="Input file to split"); 
-#  parser.add_argument("-n", "--nchap", type=int, help="Number of chapters per track"); 
-#  args = parser.parse_args();                                                   # Parse the arguments
-#
-#  splitOnChapter( args.file, args.nchap );
+    # Get all chapters from file
+    chapters = get_chapters( in_file )
+    if not chapters:
+        return
 
-###############################################################################
-def combine_mp4_files(outFile, *args):
-  """
-  Function for combining multiple (2+) mp4 files into a single mp4 file; ffmpeg CLI required
+    # If n_chapters is iterable
+    if isinstance(n_chapters, (tuple,list)):
+        # Ensure all values are integers
+        n_chapters = [int(n) for n in n_chapters]
+    elif not isinstance(n_chapters, int):
+        # Ensure that n_chap is type int
+        n_chapters = int(n_chapters)
 
-  Arguments:
-    inFiles (str): List of input file paths
-    outFile (str): Output (combined) file path
+    # Get input file directory and base name
+    in_dir, _ = os.path.split(in_file)
 
-  Keyword arguments:
-    None
+    # Get input file name and extension
+    _, in_ext = os.path.splitext(in_file)
 
-  Returns:
-    None
+    ffmeta    = FFMetaData()
+    split_fmt = 'split_{:03d}'+in_ext
+    chap_name = 'split.chap'
+    num       = 0# Set split file number
+    s_id      = 0# Set chater starting number
+    while s_id < len(chapters):
+        # Get number of chapters to process; i.e., width of video segment
+        e_id = (
+            s_id + 
+            n_chapters[num] if isinstance(n_chapters, (tuple,list)) else n_chapters
+        )
+        # Set local preroll
+        preroll  = PREROLL  if s_id > 0 else 0.0
+        # Set local postroll
+        postroll = POSTROLL if e_id < len(chapters) else 0.0
+        # Subset chapters
+        chaps    = chapters[s_id:e_id]
+        # Get chapter start time
+        start    = chaps[ 0].start_time
+        # Get chapter end time
+        end      = chaps[-1].end_time
+        # Set start time for segement with preroll adjustment
+        start_d  = timedelta(seconds = start + preroll)
+        # Set segment duration with postroll adjustment
+        dur      = timedelta(seconds = end   + postroll) - start_d
+        # Determine number of chapers; may be less than width if use fixed width
+        for i, chap in enumerate(chaps):
+            if i == 0:# First chapter
+                # Set chapter start offset to zero
+                chap.add_offfset(-start, 0)
+                # Set chapter end offset to PREROLL greater than start to
+                # compensate for pre-roll
+                chap.add_offset(-start-preroll,1)
+            elif i == (len(chaps)-1):# If on last chapter
+                # Adjust starting
+                chap.add_offset(-start-preroll, 0)
+                # Set end_time to segment duration
+                chap.end_time = dur.total_seconds()
+            else:
+                # Adjust start and end times compenstating for pre-roll
+                chap.add_offset( -start-preroll )
+            ffmeta.add_chapter( chap )
 
-  """
+        # Set output segement file path
+        split_file = os.path.join( in_dir, split_fmt.format(num) )
+        # Set segment chapter file
+        chap_file  = os.path.join( in_dir, chap_name)
+        # Create the FFMetaData file
+        ffmeta.save(chap_file)
+        if not partial_extract( in_file, split_file, start_d, dur, chapter_file=chap_file ):
+            break
+        num += 1# Increment split number
+        s_id  = e_id# Set s_id to e_id
+    os.remove( chap_file )# Remove the chapter file
 
-  log = logging.getLogger( __name__ )
-  if len(args) < 2:                                                          # If there are less than 2 ipputs
-    log.critical('Need at least two (2) input files!')
-    return;                                                                     # Return from function
-  tmpFiles = [ '.'.join(f.split('.')[:-1])+'.ts' for f in args]                 # Iterate over inFiles list and create intermediate TS file paths
+def combine_mp4_files(out_file, *args):
+    """
+    Function for combining multiple (2+) mp4 files into a single mp4 file; ffmpeg CLI required
 
-  cmdTS = ['ffmpeg', '-y', '-nostdin', 
-    '-i',      '', 
-    '-c',     'copy', 
-    '-bsf:v', 'h264_mp4toannexb',
-    '-f',     'mpegts', ''
-  ];                                                                            # List with options for creating intermediate files
-  cmdConcat = ['ffmpeg', '-nostdin', 
-    '-i',     'concat:{}'.format( '|'.join(tmpFiles) ),
-    '-c',     'copy', 
-    '-bsf:a', 'aac_adtstoasc',
-    outFile
-  ];                                                                            # List with options for combining TS files back into MP4
-  for i in range(len(args)):                                                 # Iterate over all the input files
-    cmdTS[4], cmdTS[-1] = args[i], tmpFiles[i];                              # Set input/output files in the cmdTS list
-    proc = POPENPOOL.Popen_async( cmdTS.copy() )
-  proc.wait()
-  POPENPOOL.wait()
-  proc = POPENPOOL.Popen_async( cmdConcat )
-  proc.wait()
+    Arguments:
+        inFiles (str): List of input file paths
+        out_file (str): Output (combined) file path
 
-  for f in tmpFiles:                                                            # Iterate over the temporary files
-    if os.path.isfile(f):                                                       # If the file exists
-      os.remove(f);                                                             # Delete it
+    Keyword arguments:
+        None
 
-#if __name__ == "__main__":
-#  import argparse
-#  parser = argparse.ArgumentParser(description="Simple python wrapper for FFmpeg to combine multiple mp4 files")
-#  parser.add_argument('inputs', nargs='+', help='input file(s) to combine')
-#  parser.add_argument('output', help='Name of the output file')
-#  args = parser.parse_args()
-#  combine_mp4_files( args.output, *args.inputs );
+    Returns:
+        None
 
+    """
+
+    log = logging.getLogger( __name__ )
+    if len(args) < 2:
+        log.critical('Need at least two (2) input files!')
+        return
+
+    # Iterate over inFiles list and create intermediate TS file paths
+    tmp_files = [ '.'.join(f.split('.')[:-1])+'.ts' for f in args]
+
+    # List with options for creating intermediate files
+    cmd_ts = ['ffmpeg', '-y', '-nostdin',
+      '-i',      '', 
+      '-c',     'copy', 
+      '-bsf:v', 'h264_mp4toannexb',
+      '-f',     'mpegts', ''
+    ]
+
+    # List with options for combining TS files back into MP4
+    cmd_concat = ['ffmpeg', '-nostdin',
+      '-i',     'concat:{}'.format( '|'.join(tmp_files) ),
+      '-c',     'copy', 
+      '-bsf:a', 'aac_adtstoasc',
+      out_file
+    ]
+
+    for arg, tmp in zip(args, tmp_files):
+        # Set input/output files in the cmd_ts list
+        cmd_ts[4], cmd_ts[-1] = arg, tmp
+        proc = POPENPOOL.popen_async( cmd_ts.copy() )
+
+    proc.wait()
+    POPENPOOL.wait()
+    proc = POPENPOOL.popen_async( cmd_concat )
+    proc.wait()
+
+    for tmp in tmp_files:# Iterate over the temporary files
+        if os.path.isfile(tmp):# If the file exists
+            os.remove(tmp)# Delete it

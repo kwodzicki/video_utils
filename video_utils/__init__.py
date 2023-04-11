@@ -4,7 +4,7 @@ import signal
 from threading import Event
 
 from .version import __version__
-from .utils.checkCLI import checkCLI
+from .utils.check_cli import check_cli
 from .config import screenFMT, DATADIR
 
     
@@ -25,7 +25,7 @@ log.addHandler( stream )
 # Check for required CLIs
 for cli in ['ffmpeg', 'mediainfo']:
   try:
-    checkCLI( cli )
+    check_cli( cli )
   except Exception as err:
     log.critical( err )
 
@@ -49,7 +49,7 @@ def isRunning():
 signal.signal(signal.SIGINT,  _handle_sigint)
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
-from .utils.subprocPool import PopenPool
+from .utils.subproc_pool import PopenPool
 POPENPOOL = PopenPool()
 
 del cli, screenFMT

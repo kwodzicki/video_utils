@@ -11,7 +11,7 @@ from .mediainfo import MediaInfo
 from .comremove import ComRemove
 from .utils.handlers import RotatingFile
 from .utils.ffmpeg_utils   import cropdetect, FFmpegProgress, progress
-from .utils.threadCheck import threadCheck 
+from .utils import thread_check 
 
 from .subtitles import opensubtitles
 from .subtitles import ccextract
@@ -107,7 +107,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
     if not isinstance(cpulimit, int): cpulimit = 75
     self.cpulimit = cpulimit
-    self.threads  = threadCheck( threads )
+    self.threads  = thread_check( threads )
 
     # Set up all the easy parameters first
     self.outDir        = kwargs.get('outDir', None)
@@ -136,7 +136,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     if (len(self.lang) == 0):							# If lang is empty list
       self.lang = ["eng"]                                                       # Set default language to english 
     
-    self.chapterFile      = None
+    self.chapter_file      = None
 
     self.video_info       = None                                                # Set video_info to None by default
     self.audio_info       = None                                                # Set audio_info to None by default
@@ -245,7 +245,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
       return False                                                              # Return
 
     start_time            = datetime.now()                                      # Set start date
-    self.chapterFile      = None                                                # Reset chapterFile to None
+    self.chapter_file     = None                                                # Reset chapter_file to None
     self.transcode_status = None                                                # Reset transcode status to None
     self._createdFiles    = []                                                  # Reset created files list
 
@@ -259,7 +259,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         self.transcode_status = 1
         if self.remove:
           self._cleanUp( self.inFile )                                                  # If remove is set, remove the source file
-        self.chapterFile = self._cleanUp( self.chapterFile )
+        self.chapter_file = self._cleanUp( self.chapter_file )
         return False                                                                   # Return to halt the function
       elif self._being_converted( outFile ):                                            # Inprogress file exists, check if output file size is changing
         self.__log.info("It seems another process is creating the output file")         # The output file size is changing, so assume another process is interacting with it
@@ -281,7 +281,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
           name = str(self.metaData)                                                     # Get movie information
       status = self.remove_commercials( self.inFile, chapters = chapters, name = name )  # Try to remove commercials 
       if isinstance(status, str):                                                       # If string instance, then is path to chapter file
-        self.chapterFile = status                                                       # Set chatper file attribute to status; i.e., path to chapter file
+        self.chapter_file = status                                                       # Set chatper file attribute to status; i.e., path to chapter file
       elif not status:                                                                  # Else, will be boolean
         self.transcode_status = 5
         if isRunning():
@@ -298,17 +298,17 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     stderr   = RotatingFile( self.transcode_log, callback=progress.progress )
     kwargs   = {'threads'            : self.threads,
                 'stderr'             : stderr,
-                'universal_newlines' : True}                                            # Initialzie keyword arguments from Popen_async method
+                'universal_newlines' : True}                                            # Initialzie keyword arguments from popen_async method
 
     self.__log.debug( f"ffmpeg cmd: {' '.join(self.ffmpeg_cmd)}" )
     try:
-      proc = POPENPOOL.Popen_async( self.ffmpeg_cmd, **kwargs )                         # Submit command to subprocess pool
+      proc = POPENPOOL.popen_async( self.ffmpeg_cmd, **kwargs )                         # Submit command to subprocess pool
     except:
       proc = None
     else:
       proc.wait()
 
-    self.chapterFile = self._cleanUp( self.chapterFile )                                # Clean up chapter file
+    self.chapter_file = self._cleanUp( self.chapter_file )                                # Clean up chapter file
 
     try: 
       self.transcode_status = proc.returncode                                           # Set transcode_status      
@@ -564,9 +564,9 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
     """
 
-    if isinstance(self.chapterFile, str) and os.path.isfile(self.chapterFile):  # If the chapter file exits
-      self.__log.info( f"Adding chapters from file : {self.chapterFile}" )
-      chapters = ["-i", self.chapterFile, "-map_metadata", "1"]                 # Append to command and set meta data mapping from file
+    if isinstance(self.chapter_file, str) and os.path.isfile(self.chapter_file):  # If the chapter file exits
+      self.__log.info( f"Adding chapters from file : {self.chapter_file}" )
+      chapters = ["-i", self.chapter_file, "-map_metadata", "1"]                 # Append to command and set meta data mapping from file
     else:
       chapters = ["-map_chapters", "0"]                                         # Else, enable mapping of chapters from source file
 

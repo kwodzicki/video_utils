@@ -4,7 +4,7 @@ import sys
 from video_utils import log
 log.handlers[0].setLevel(logging.INFO)
 
-from video_utils.utils.updateFileNames import updateFileNames 
+from video_utils.utils.update_file_fames import update_file_names 
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('indir', nargs='+', help='Directories to rename files in')
@@ -12,4 +12,4 @@ parser.add_argument('--root', type=str, help='Directories to rename files in')
 parser.add_argument('--dbID', type=str, help='Directories to rename files in')
 parser.add_argument('--dvdOrder', action='store_true', help='Match episodes based on DVD order')
 args = parser.parse_args()
-updateFileNames( *args.indir, rootdir=args.root, dbID = args.dbID, dvdOrder=args.dvdOrder)
+update_file_names( *args.indir, rootdir=args.root, dbID = args.dbID, dvdOrder=args.dvdOrder)

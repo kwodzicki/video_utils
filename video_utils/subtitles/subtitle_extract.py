@@ -7,11 +7,11 @@ import logging
 import os
 from subprocess import call, DEVNULL, STDOUT
 
-from ..utils.checkCLI import checkCLI
+from ..utils.check_cli import check_cli
 
 CLINAME = 'mkvextract'
 try:
-    CLI = checkCLI( CLINAME )
+    CLI = check_cli( CLINAME )
 except:
     logging.getLogger(__name__).error( "%s is NOT installed", CLINAME )
     CLI = None

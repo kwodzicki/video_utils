@@ -4,13 +4,13 @@ from mutagen import mp4
 from xml.etree import ElementTree as ET
 from subprocess import Popen, STDOUT, DEVNULL
 
-from ..utils.checkCLI import checkCLI
+from ..utils.check_cli import check_cli
 from .utils import downloadCover
 
 from . import COMMON2MP4, COMMON2MKV
 
 try:
-    MKVPROPEDIT = checkCLI( 'mkvpropedit' )
+    MKVPROPEDIT = check_cli( 'mkvpropedit' )
 except:
     logging.getLogger(__name__).error('mkvpropedit NOT installed')
     MKVPROPEDIT = None

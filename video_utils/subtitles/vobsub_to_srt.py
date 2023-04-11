@@ -6,13 +6,13 @@ Utilities for converting VobSubs to SRT
 import logging
 import os
 
-from ..utils.checkCLI import checkCLI
-from ..utils.subprocPool import PopenThread
+from ..utils.check_cli import check_cli
+from ..utils.subproc_pool import PopenThread
 from .srt_utils import srt_cleanup
 
 CLINAME = 'vobsub2srt'
 try:
-    CLI = checkCLI( CLINAME )
+    CLI = check_cli( CLINAME )
 except:
     logging.getLogger(__name__).warning( "%s is NOT installed", CLINAME )
     CLI = None

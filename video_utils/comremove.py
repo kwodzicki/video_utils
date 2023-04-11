@@ -12,12 +12,12 @@ import os
 from datetime import timedelta
 
 from . import config, POPENPOOL
-from .utils.checkCLI import checkCLI
-from .utils.ffmpeg_utils import getVideoLength, FFMetaData
+from .utils.check_cli import check_cli
+from .utils.ffmpeg_utils import get_video_length, FFMetaData
 from .utils.handlers import RotatingFile
 
 try:
-    COMSKIP = checkCLI( 'comskip' )
+    COMSKIP = check_cli( 'comskip' )
 except:
     logging.getLogger(__name__).error(
         "comskip is NOT installed or not in your PATH!"
@@ -25,7 +25,7 @@ except:
     COMSKIP = None
 
 
-#from .utils.subprocManager import SubprocManager
+#from .utils.subproc_manager import SubprocManager
 
 # Following code may be useful for fixing issues with audio in
 # video files that cut out
@@ -220,7 +220,7 @@ class ComRemove( ):
             }
         else:
             kwargs = {}
-        proc = POPENPOOL.Popen_async(cmd, threads = self.threads, **kwargs)
+        proc = POPENPOOL.popen_async(cmd, threads = self.threads, **kwargs)
 
         # Wait for 8 hours for comskip to finish; this should be more than enough time
         if not proc.wait( timeout = 8 * 3600 ):
@@ -273,7 +273,7 @@ class ComRemove( ):
         # Generate file name for chapter metadata
         metafile    = os.path.join( fdir, f"{fname}.chap" )
 
-        file_length  = getVideoLength(in_file)
+        file_length  = get_video_length(in_file)
 
         ffmeta      = FFMetaData()
         with open(edl_file, 'r') as fid:
@@ -285,14 +285,14 @@ class ComRemove( ):
                 if com_start > 1.0:
                     # From seg_start to com_start is NOT commercial
                     title = show_seg.format(segment)
-                    ffmeta.addChapter( seg_start, com_start, title )
+                    ffmeta.add_chapter( seg_start, com_start, title )
                     self.__log.debug(
                         '%s - %0.2f to %0.2f s',
                         title, seg_start, com_start
                     )
                     # From com_start to com_end is commercial
                     title = com_seg.format(commercial)
-                    ffmeta.addChapter( com_start, com_end, title )
+                    ffmeta.add_chapter( com_start, com_end, title )
                     self.__log.debug(
                         '%s - %0.2f to %0.2f s',
                         title, com_start, com_end,
@@ -308,7 +308,7 @@ class ComRemove( ):
 
         # If the time differences is greater than a few seconds
         if (file_length - seg_start) >= 5.0:
-            ffmeta.addChapter( seg_start, file_length, show_seg.format(segment) )
+            ffmeta.add_chapter( seg_start, file_length, show_seg.format(segment) )
 
         ffmeta.save( metafile )
 
@@ -355,7 +355,7 @@ class ComRemove( ):
                         ['-ss', str(seg_start), '-t', str(seg_dura), '-c', 'copy', outfile]
                     )
                     tmpfiles.append( outfile )
-                    procs.append( POPENPOOL.Popen_async( cmd, threads=1 ) )
+                    procs.append( POPENPOOL.popen_async( cmd, threads=1 ) )
 
                 # The start of the next segment of the show is the end time
                 # of the current commerical break
@@ -396,7 +396,7 @@ class ComRemove( ):
         outfile = os.path.join(self.__outdir, outfile)
 
         cmd     = self._comjoin + [infiles, '-c', 'copy', '-map', '0', outfile]
-        proc    = POPENPOOL.Popen_async( cmd )
+        proc    = POPENPOOL.popen_async( cmd )
         proc.wait()
         for fname in tmpfiles:
             self.__log.debug('Deleting temporary file: %s', fname)

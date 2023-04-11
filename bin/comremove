@@ -3,7 +3,7 @@
 import argparse;                                                              # Import library for parsing
 from video_utils.version   import __version__;
 from video_utils.comremove import ComRemove;
-from video_utils.utils.threadCheck import MAXTHREADS
+from video_utils.utils import MAXTHREADS
 from video_utils.config import COMSKIPINI
 
 if __name__ == "__main__":

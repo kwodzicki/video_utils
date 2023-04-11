@@ -7,11 +7,11 @@ from uuid import uuid4
 from mutagen import mp4
 
 from ..config import CACHEDIR
-from ..utils.checkCLI import checkCLI 
+from ..utils.check_cli import check_cli 
 from . import MP42COMMON, MKV2COMMON
 
 try:
-  MKVEXTRACT = checkCLI('mkvextract')
+  MKVEXTRACT = check_cli('mkvextract')
 except:
   MKVEXTRACT = None
 

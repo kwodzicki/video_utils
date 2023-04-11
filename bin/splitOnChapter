@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from video_utils.utils.ffmpeg_utils import splitOnChapter
+from video_utils.utils.ffmpeg_utils import split_on_chapter
 
 parser = argparse.ArgumentParser()
 parser.add_argument('file', type=str, help="Full path of file to split")
@@ -10,5 +10,5 @@ parser.add_argument('chapters', type=int, nargs='*', help='Number of chapters in
 args = parser.parse_args()
 if len(args.chapters) == 1: args.chapters = args.chapters[0]
 
-splitOnChapter( args.file, args.chapters )
+split_on_chapter( args.file, args.chapters )
 

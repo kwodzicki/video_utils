@@ -21,7 +21,7 @@ from watchdog.events import FileSystemEventHandler
 from . import isRunning
 from .videoconverter import VideoConverter
 from .plex.plex_media_scanner import plex_media_scanner
-from .utils.handlers import sendEMail
+from .utils.handlers import send_email
 
 TIMEOUT =  1.0
 SLEEP   = 30.0
@@ -176,7 +176,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
         return prev == curr
 
-    @sendEMail
+    @send_email
     def _process(self, fname):
         """
         Actual process a file

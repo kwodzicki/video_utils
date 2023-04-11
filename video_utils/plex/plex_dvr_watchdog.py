@@ -19,7 +19,7 @@ from watchdog.events import FileSystemEventHandler
 
 from .. import isRunning#_sigintEvent, _sigtermEvent
 from ..config import plex_dvr
-from ..utils.handlers import sendEMail
+from ..utils.handlers import send_email
 from .dvr_converter import DVRconverter
 from .utils import DVRqueue
 
@@ -265,7 +265,7 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
         if status != 0:
             self.log.error( 'Script failed with exit code : %s', status )
 
-    @sendEMail
+    @send_email
     def _process(self, fpath):
         """Actually process a file"""
 

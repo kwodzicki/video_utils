@@ -7,11 +7,11 @@ import logging
 import os
 from subprocess import run, STDOUT, DEVNULL
 
-from ..utils.checkCLI import checkCLI
+from ..utils.check_cli import check_cli
 
 CLINAME = 'ccextractor'
 try:
-    CLI = checkCLI( CLINAME )
+    CLI = check_cli( CLINAME )
 except:
     logging.getLogger(__name__).warning(
         "'%s' is NOT installed or not in your PATH!",
