@@ -946,8 +946,8 @@ def combine_mp4_files(out_file, *args):
     Function for combining multiple (2+) mp4 files into a single mp4 file; ffmpeg CLI required
 
     Arguments:
-        inFiles (str): List of input file paths
         out_file (str): Output (combined) file path
+        *args (str): Any number of input file paths
 
     Keyword arguments:
         None
@@ -962,7 +962,7 @@ def combine_mp4_files(out_file, *args):
         log.critical('Need at least two (2) input files!')
         return
 
-    # Iterate over inFiles list and create intermediate TS file paths
+    # Iterate over input files and create intermediate TS file paths
     tmp_files = [ '.'.join(f.split('.')[:-1])+'.ts' for f in args]
 
     # List with options for creating intermediate files

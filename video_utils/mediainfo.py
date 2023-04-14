@@ -73,7 +73,7 @@ def mediainfo( fname ):
 class MediaInfo( ):
     """Class that acts as wrapper for mediainfo CLI"""
 
-    def __init__( self, inFile = None, **kwargs ):
+    def __init__( self, infile = None, **kwargs ):
         """
         Initialize MediaInfo class
 
@@ -84,7 +84,7 @@ class MediaInfo( ):
            None
 
         Keyword arguments:
-           inFile (str): Path of file to run mediainfo on
+           infile (str): Path of file to run mediainfo on
            Various others...
 
         Returns:
@@ -94,15 +94,15 @@ class MediaInfo( ):
 
         super().__init__(**kwargs)
         self.__log  = logging.getLogger(__name__)
-        self.inFile = inFile
+        self.infile = infile
 
     @property
-    def inFile(self):
-        return self.__inFile
-    @inFile.setter
-    def inFile(self, value):
-        self.__inFile = value
-        if self.__inFile is None:
+    def infile(self):
+        return self.__infile
+    @infile.setter
+    def infile(self, value):
+        self.__infile = value
+        if self.__infile is None:
             self.__mediainfo = None
         else:
             self.__mediainfo = mediainfo( value )
@@ -175,7 +175,7 @@ class MediaInfo( ):
         """Method that will run when the file attribute is changed"""
 
         self.__log.info('Running mediainfo command...')
-        xmlstr = subproc.check_output( self.cmd  + [self.inFile] )
+        xmlstr = subproc.check_output( self.cmd  + [self.infile] )
         root   = ET.fromstring( xmlstr )
         data   = {}
 

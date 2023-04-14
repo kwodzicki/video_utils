@@ -200,7 +200,7 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
         if isinstance(out_file, str) and isRunning():
             plex_media_scanner(
-                'TV Shows' if self.converter.metaData.isEpisode else 'Movies',
+                'TV Shows' if self.converter.metadata.isEpisode else 'Movies',
                 path = os.path.dirname( out_file )
             )
 

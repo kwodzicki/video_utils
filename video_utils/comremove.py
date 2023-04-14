@@ -192,7 +192,7 @@ class ComRemove( ):
 
         self.__log.info( 'Running comskip to locate commercial breaks')
 
-        # If no outDir set, store input file directory in attribute
+        # If no outdir set, store input file directory in attribute
         if self.__outdir is None:
             self.__outdir  = os.path.dirname( in_file )
         # Store Input file extension in attrubute

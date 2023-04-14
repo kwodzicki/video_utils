@@ -18,19 +18,19 @@ except:
 TVDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by TheTVDB.com, but we are not endorsed or certified by TheTVDB.com or its affiliates. See website at https://thetvdb.com/.'
 TMDB_ATTRIBUTION = 'TV and/or Movie information and images are provided by themoviedb.com (TMDb), but we are not endorsed or certified by TMDb or its affiliates. See website at https://themoviedb.org/.'
 
-def get_version(metaData):
+def get_version(metadata):
     """
     Extract version from meta data
 
     Arguments:
-        metaData (dict) : Metadata for file
+        metadata (dict) : Metadata for file
 
     Returns:
         str : The version of the file
 
     """
 
-    version = metaData.pop('version', '').split('-')
+    version = metadata.pop('version', '').split('-')
     if (len(version) > 1) and (version[0] == 'edition'):
         return '-'.join(version[1:])
     return ''
@@ -63,7 +63,7 @@ def _updateComment( comment ):
 
 
 ########################################################################
-def toMP4( metaData ):
+def toMP4( metadata ):
     """
     Convert internal tags to MP4 tags
 
@@ -78,9 +78,9 @@ def toMP4( metaData ):
 
     """
 
-    keys = list( metaData.keys() )                                            # Get list of all keys currently in dictioanry
+    keys = list( metadata.keys() )                                            # Get list of all keys currently in dictioanry
     for key in keys:                                                          # Iterate over all keys
-        val     = metaData.pop( key )                                         # Get value in key; poped off so no longer exists in dict
+        val     = metadata.pop( key )                                         # Get value in key; poped off so no longer exists in dict
         keyFunc = COMMON2MP4.get( key, None )                                 # Get keyFunc value from MP4KEYS; default to None
         if keyFunc:                                                           # If not None
             if isinstance( keyFunc, tuple ):                                  # If keyFunc is a tuple
@@ -88,11 +88,11 @@ def toMP4( metaData ):
                 val = keyFunc[1]( val )                                       # Encode values
             else:                                                             # Else
                 key = keyFunc                                                 # Get new key
-            metaData[key] = val                                               # Write encoded data under new key back into metadata
-    return metaData                                                           # Return metadata
+            metadata[key] = val                                               # Write encoded data under new key back into metadata
+    return metadata                                                           # Return metadata
 
 ########################################################################
-def toMKV( metaData ):
+def toMKV( metadata ):
     """
     Convert internal tags to MKV tags
 
@@ -107,21 +107,21 @@ def toMKV( metaData ):
 
     """
 
-    keys = list( metaData.keys() )                                            # Get list of keys currently in dictionary
+    keys = list( metadata.keys() )                                            # Get list of keys currently in dictionary
     for key in keys:                                                          # Iterate over keys
-        val = metaData.pop(key)                                               # Get value in key; popped off so no longer exists in dict
+        val = metadata.pop(key)                                               # Get value in key; popped off so no longer exists in dict
         if key in COMMON2MKV:                                                 # If key exists in MKVKEYS
-            metaData[ COMMON2MKV[key] ] = val                                 # Write data udner new key back into metadata
-    return metaData                                                           # Return metadata
+            metadata[ COMMON2MKV[key] ] = val                                 # Write data udner new key back into metadata
+    return metadata                                                           # Return metadata
 
 ################################################################################
-def mp4Tagger( file, metaData ):
+def mp4Tagger( fpath, metadata ):
     """
     Parse information from the IMDbPY API and write Tag data to MP4 files.
 
     Arguments:
-        file (str): Full path of file to write metadata to.
-        metaData (dict): Dictionary of meta data where keys are internal
+        fpath (str): Full path of file to write metadata to.
+        metadata (dict): Dictionary of meta data where keys are internal
             metadata keys and values are metadata values
 
     Keyword arguments:
@@ -143,27 +143,27 @@ def mp4Tagger( file, metaData ):
 
     log = logging.getLogger(__name__)                                                     # Set up a logger
     log.debug( 'Testing file is MP4' )                                                    # Debugging information
-    if not file.endswith('.mp4'):                                                         # If the input file does NOT end in '.mp4'
+    if not fpath.endswith('.mp4'):                                                         # If the input file does NOT end in '.mp4'
         log.error('Input file is NOT an MP4!!!')
         return 1                                                                            # Print message and return code one (1)
 
     log.debug( 'Testing file too large' )                                                 # Debugging information
-    if os.stat(file).st_size > sys.maxsize:                                               # If the file size is larger than the supported maximum size
+    if os.stat(fpath).st_size > sys.maxsize:                                               # If the file size is larger than the supported maximum size
         log.error('Input file is too large!')
         return 11                                                                           # Print message and return code eleven (11)
 
-    version = get_version( metaData )
-    comment = _updateComment( metaData.get('comment',   '') )
-    metaData.update( {'comment' : comment } )
-    metaData  = toMP4(metaData)
-    if len(metaData) == 0:
+    version = get_version( metadata )
+    comment = _updateComment( metadata.get('comment',   '') )
+    metadata.update( {'comment' : comment } )
+    metadata  = toMP4(metadata)
+    if len(metadata) == 0:
         log.warning('No metadata, cannot write tags')
         return 3
 
-    filedir, filebase = os.path.dirname( file ), os.path.basename( file )                 # Get the directory and baseanem of the file
+    filedir, filebase = os.path.split( fpath )
 
     log.debug('Loading file using mutagen.mp4.MP4')                                       # Debugging information
-    handle = mp4.MP4(file)                                                                # Initialize mutagen MP4 handler
+    handle = mp4.MP4(fpath)                                                                # Initialize mutagen MP4 handler
     log.debug('Attempting to add tag block to file')                                      # Debugging information
     try:                                                                                  # Try to...
         handle.add_tags()                                                                   # Add new tags to the file
@@ -180,14 +180,14 @@ def mp4Tagger( file, metaData ):
         log.error( e.__str__() );                                                           # Log the error
         return 5;                                                                           # Return code 5
     log.debug('Setting basic inforamtion')                                                # Debugging information
-    for key, val in metaData.items():
+    for key, val in metadata.items():
         if key == 'covr' and val != '':
             fmt  = mp4.AtomDataType.PNG if val.endswith('png') else mp4.AtomDataType.JPEG     # Set format for the image
             if os.path.isfile( val ):                                                         # If value is local file
                 with open(val, 'rb') as fid: data = fid.read()                                  # Read in data from file
             else:
                 log.debug('Attempting to get coverart')                                         # Debugging information
-                _, data = downloadCover( file, val, text = version )                            # Download the data
+                _, data = downloadCover( fpath, val, text = version )                            # Download the data
             if data is not None:
                 val = [ mp4.MP4Cover( data, fmt ) ]                                             # Add image to file
             else:
@@ -206,12 +206,12 @@ def mp4Tagger( file, metaData ):
     return 0
 
 ################################################################################
-def deleteAttachments( file, n = 10 ):
+def deleteAttachments( fpath, n = 10 ):
     """
     Delete a bunch of attachments in an MKV file
 
     Arguments:
-        file (str): Full path to file
+        fpath (str): Full path to file
 
     Keywords:
         n (int): Number of attachments to try to delete
@@ -223,7 +223,7 @@ def deleteAttachments( file, n = 10 ):
 
     if not MKVPROPEDIT: return
 
-    cmd  = [MKVPROPEDIT, file]
+    cmd  = [MKVPROPEDIT, fpath]
     for i in range(n):
         cmd += ['--delete-attachment', str(i)] 
     proc = Popen( cmd, stdout=DEVNULL, stderr=STDOUT )
@@ -278,13 +278,13 @@ def addTag( ele, key, val ):
     ET.SubElement(simple, 'String').text = val                                            # Set element string to val
 
 ################################################################################
-def mkvTagger( file, metaData ):
+def mkvTagger( fpath, metadata ):
     """
     Parse information from the IMDbPY API and write Tag data to MP4 files.
 
     Arguments:
-        file (str): Full path of file to write metadata to.
-        metaData (dict): Meta data where keys are internal metadata keys and values are metadata values
+        fpath (str): Full path of file to write metadata to.
+        metadata (dict): Meta data where keys are internal metadata keys and values are metadata values
 
     Keyword arguments:
         None.
@@ -309,23 +309,23 @@ def mkvTagger( file, metaData ):
         return 4
 
     log.debug( 'Testing file is MKV' )                                        # Debugging information
-    if not file.endswith('.mkv'):                                             # If the input file does NOT end in '.mp4'
+    if not fpath.endswith('.mkv'):                                             # If the input file does NOT end in '.mp4'
         log.error('Input file is NOT an MKV!!!'); return 1                    # Print message and return code one (1)
 
     log.debug( 'Testing file too large' )                                     # Debugging information
-    if os.stat(file).st_size > sys.maxsize:                                   # If the file size is larger than the supported maximum size
+    if os.stat(fpath).st_size > sys.maxsize:                                   # If the file size is larger than the supported maximum size
         log.error('Input file is too large!'); return 11                      # Print message and return code eleven (11)
         
-    version = get_version( metaData )
-    comment = _updateComment( metaData.get('comment',   '') )
-    metaData.update( {'comment' : comment } )
-    metaData  = toMKV( metaData )
+    version = get_version( metadata )
+    comment = _updateComment( metadata.get('comment',   '') )
+    metadata.update( {'comment' : comment } )
+    metadata  = toMKV( metadata )
 
-    if len(metaData) == 0:
+    if len(metadata) == 0:
         log.warning('No metadata, cannot write tags')
         return 3
 
-    fileDir, fileBase = os.path.split( file )                                 # Get the directory and baseanem of the file
+    fileDir, fileBase = os.path.split( fpath )                                 # Get the directory and baseanem of the file
     xmlFile           = os.path.join( fileDir, 'tags.xml' )                   # Set xml file path
 
     log.debug('Setting basic inforamtion');                                   # Debugging information
@@ -333,12 +333,12 @@ def mkvTagger( file, metaData ):
     tags = {}                                                                 # Dictionary for storing XML elements
 
     coverFile = None
-    for key, val in metaData.items():                                         # Iterate over all key/value pairs in metadata dictionary
+    for key, val in metadata.items():                                         # Iterate over all key/value pairs in metadata dictionary
         if key == 'covr':                                                     # If key is covr
             if os.path.isfile( val ):                                         # If value is local file
                 coverFile = val                                               # Set coverFile to val
             else:                                                             # Else, try to download
-                coverFile, _ = downloadCover( file, val, text = version )     # Download cover
+                coverFile, _ = downloadCover( fpath, val, text = version )     # Download cover
         else:                                                                 # Else
             TargetTypeValue, tag = key                                        # Get TargetTypeValue and tag from the key tuple
             if TargetTypeValue not in tags:                                   # If the TargetTypeValue is not in tags
@@ -347,10 +347,10 @@ def mkvTagger( file, metaData ):
 
     ET.ElementTree(top).write( xmlFile )                                      # Write xml data to file
 
-    cmd = [MKVPROPEDIT, file, '-t', 'all:{}'.format(xmlFile)]                 # Set base command for adding tags
+    cmd = [MKVPROPEDIT, fpath, '-t', 'all:{}'.format(xmlFile)]                 # Set base command for adding tags
 
-    if coverFile and os.path.isfile( coverFile ):                             # If the 'full-size cover url' is in the metaData
-        deleteAttachments( file )                                             # Delete any existing attachments
+    if coverFile and os.path.isfile( coverFile ):                             # If the 'full-size cover url' is in the metadata
+        deleteAttachments( fpath )                                             # Delete any existing attachments
         cmd += ['--attachment-name', 'Poster']                                # Set attachment name to Poster
         cmd += ['--add-attachment',  coverFile]                               # Add covert art file
 
@@ -371,13 +371,13 @@ def mkvTagger( file, metaData ):
     return 0
 
 ########################################################################
-def writeTags( file, metaData, **kwargs ):
+def writeTags( fpath, metadata, **kwargs ):
     """
     Wrapper for mp4Tagger and mkvTagger
 
     Arguments:
-        file (str): Full path of file to write tags to
-        metaData (dict): Dictionary with tag/values to write
+        fpath (str): Full path of file to write tags to
+        metadata (dict): Dictionary with tag/values to write
 
     Keyword argumetns:
         Various; passed directory to mp4Tagger or mkvTagger
@@ -389,10 +389,10 @@ def writeTags( file, metaData, **kwargs ):
 
     log = logging.getLogger(__name__)
 
-    if file.endswith('.mp4'):
-        return mp4Tagger( file, metaData = metaData )
-    elif file.endswith('.mkv'):
-        return mkvTagger( file, metaData = metaData )
+    if fpath.endswith('.mp4'):
+        return mp4Tagger( fpath, metadata = metadata )
+    elif fpath.endswith('.mkv'):
+        return mkvTagger( fpath, metadata = metadata )
 
-    log.error('Unsupported file type : {}'.format(file))
+    log.error('Unsupported file type : {}'.format(fpath))
     return False
