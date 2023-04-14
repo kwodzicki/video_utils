@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
     if pid_running( MakeMKVFMT['pidFile'] ):
         log.critical( '%s instance already running!', parser.prog )
-        exit(1)
+        sys.exit(1)
 
     if args.fileExt is not None:
         args.fileExt = [item for sublist in args.fileExt for item in sublist]

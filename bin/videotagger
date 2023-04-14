@@ -1,91 +1,151 @@
 #!/usr/bin/env python3
+"""
+CLI for videotagging
+
+"""
+
 import logging
-import os, sys, argparse;                                                                # Import library for parsing
+import os
+import sys
+import argparse
 
 try:
-  from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtWidgets import QApplication
 except:
-  QApplication = None
+    QApplication = None
 
 import video_utils
 from video_utils.mediainfo import MediaInfo
 from video_utils.videotagger import getMetaData
 
 if QApplication is not None:
-  from video_utils.videotagger import gui
+    from video_utils.videotagger import gui
 
-def tagFile( args ):
-  if not args.path.endswith('.mp4') and not args.path.endswith('.mkv'):
-    video_utils.log.critical('File must be MP4 or MKV!')
-    return False
-  metadata = getMetaData( args.path, dbID=args.dbID, seasonEp=args.season_episode, dvdOrder=args.dvdOrder )
-  metadata.addComment(
-    'Metadata written with {} version {}.'.format(video_utils.__name__, video_utils.__version__)
-  )
-  try:
-    metadata.writeTags( args.path )
-  except:
-    video_utils.log.critical('Failed to write tags')
-    return False 
-  if args.rename:
-    mediainfo = MediaInfo( args.path ) 
-    video     = mediainfo.get_video_info()
-    audio     = mediainfo.get_audio_info()
-    _, ext    = os.path.splitext( args.path )
-    newDir    = metadata.getDirname(root = args.rename)
-    if not os.path.isdir( newDir ):
-      os.makedirs( newDir, exist_ok = True )
-    newFile = [metadata.getBasename()] + video['file_info'] + audio['file_info']
-    newPath = os.path.join( newDir, '.'.join(newFile) + ext )
-    video_utils.log.info('Renaming file: {} ---> {}'.format(args.path, newPath))
-    os.rename( args.path, newPath )
-  return True
+def tag_file( args ):
+    """
+    Tag video file with metadata
+
+    """
+
+    if not args.path.endswith( ('.mkv', '.mp4') ):
+        video_utils.log.critical('File must be MP4 or MKV!')
+        return False
+    metadata = getMetaData(
+        args.path,
+        dbID     = args.dbID,
+        seasonEp = args.season_episode,
+        dvdOrder = args.dvdOrder,
+    )
+    metadata.addComment(
+        f'Metadata written with {video_utils.__name__} version {video_utils.__version__}.'
+    )
+    try:
+        metadata.writeTags( args.path )
+    except:
+        video_utils.log.critical('Failed to write tags')
+        return False
+    if args.rename:
+        mediainfo = MediaInfo( args.path )
+        video     = mediainfo.get_video_info()
+        audio     = mediainfo.get_audio_info()
+        _, ext    = os.path.splitext( args.path )
+        new_dir   = metadata.getDirname(root = args.rename)
+        os.makedirs( new_dir, exist_ok = True )
+        new_file = [metadata.getBasename()] + video['file_info'] + audio['file_info']
+        new_path = os.path.join( new_dir, '.'.join(new_file) + ext )
+        video_utils.log.info('Renaming file: %s ---> %s', args.path, new_path)
+        os.rename( args.path, new_path )
+    return True
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Write metadata to MP4 and MKV files");               # Set the description of the script to be printed in the help doc, i.e., ./script -h
-  parser.add_argument("path",   type=str, nargs='?', help="Path to file to write tags to."); 
-  parser.add_argument("--dbID", type=str, help="TVDb or TMDb ID, should start with 'tvdb' or 'tmdb', respectively"); 
-  parser.add_argument('--season-episode', type=int, nargs=2, help='Season and episode number for tv show')
-  parser.add_argument('-v', '--verbose',  nargs='?', default='info', help='Increase verbosity. Levels are info (default) and debug.')
-  parser.add_argument("--rename", type=str, help="Top-level path for rename; note that 'Movies' or 'TV Shows' will be placed below this directory, with files below that.")
-  parser.add_argument("--dvdOrder",     action = 'store_true', help='Set if the season/episode number corresponds to dvd ordering on TVDb. Default is to use aired ordering')
-  parser.add_argument("--gui",            action = 'store_true', help="Start GUI"); 
-  parser.add_argument('--version',        action = 'version', version = '%(prog)s '+video_utils.__version__ )
-  
-  args = parser.parse_args();                                                   # Parse the arguments
-  if args.verbose == 'debug':
-    video_utils.log.setLevel( logging.DEBUG );
-  else:
-    video_utils.log.setLevel( logging.INFO );
-    
-  screen_fmt = '%(levelname)-5.5s - %(funcName)-10.10s - %(message)s';          # Set format for printing log messages to file
-  screen_fmt = logging.Formatter(screen_fmt);                                   # Get logger formatter based on screen format
-  screen_lvl = logging.DEBUG;                                                   # Set default screen log level
-  screen_log = logging.StreamHandler();                                         # Get a stream handler for screen logs
-  screen_log.setFormatter( screen_fmt );                                        # Set the format tot the screen format
-  screen_log.setLevel( screen_lvl );                                            # Set the screen logger level
-  video_utils.log.addHandler(screen_log);                                                # Add the stream handler to the logger
+    parser = argparse.ArgumentParser(
+        description="Write metadata to MP4 and MKV files",
+    )
+    parser.add_argument(
+        "path",
+        type  = str,
+        nargs = '?',
+        help  = "Path to file to write tags to.",
+    )
+    parser.add_argument(
+        "--dbID",
+        type = str,
+        help = "TVDb or TMDb ID, should start with 'tvdb' or 'tmdb', respectively",
+    )
+    parser.add_argument(
+        '--season-episode',
+        type  = int,
+        nargs = 2,
+        help  = 'Season and episode number for tv show',
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        nargs   = '?',
+        default = 'info',
+        help    = 'Increase verbosity. Levels are info (default) and debug.',
+    )
+    parser.add_argument(
+        "--rename",
+        type = str,
+        help = (
+            "Top-level path for rename; note that 'Movies' or 'TV Shows' "
+            "will be placed below this directory, with files below that."
+        ),
+    )
+    parser.add_argument(
+        "--dvdOrder",
+        action = 'store_true',
+        help   = (
+            'Set if the season/episode number corresponds to dvd ordering '
+            'on TVDb. Default is to use aired ordering'
+        ),
+    )
+    parser.add_argument(
+        "--gui",
+        action = 'store_true',
+        help   = "Start GUI",
+    )
+    parser.add_argument(
+        '--version',
+        action  = 'version',
+        version = '%(prog)s '+video_utils.__version__,
+    )
 
-  if args.gui:
-    if QApplication is None:
-      raise Exception('PyQt5 NOT installed. Must install before running GUI!')
-    app = QApplication( sys.argv )
-    w   = gui.VideoTaggerGUI()
-    w.show()
-    app.exec_()
-  else:
+    args = parser.parse_args()
+    video_utils.log.setLevel(
+        logging.DEBUG if args.verbose == 'debug' else logging.INFO
+    )
+
+    SCREEN_FMT = '%(levelname)-5.5s - %(funcName)-10.10s - %(message)s'
+    SCREEN_FMT = logging.Formatter(SCREEN_FMT)
+    SCREEN_LVL = logging.DEBUG
+    screen_log = logging.StreamHandler()
+    screen_log.setFormatter( SCREEN_FMT )
+    screen_log.setLevel( SCREEN_LVL )
+    video_utils.log.addHandler(screen_log)
+
+    if args.gui:
+        if QApplication is None:
+            raise Exception('PyQt5 NOT installed. Must install before running GUI!')
+        app = QApplication( sys.argv )
+        w   = gui.VideoTaggerGUI()
+        w.show()
+        sys.exit( app.exec_() )
+
     if os.path.isdir( args.path ):
-      files = []
-      for file in os.listdir( args.path ):
-        path = os.path.join( args.path, file )
-        if os.path.isfile( path ):
-          files.append( path )
+        files = []
+        for item in os.listdir( args.path ):
+            path = os.path.join( args.path, item )
+            if os.path.isfile( path ):
+                files.append( path )
     elif os.path.isfile( args.path ):
-      files = [ args.path ]
+        files = [ args.path ]
     else:
-      print("'path' argument must be a file or directory")
-      exit(1)
-    for file in files:
-      args.path = file
-      tagFile( args )
-  exit( 0 );
+        video_utils.log.critical("'path' argument must be a file or directory")
+        sys.exit(1)
+
+    for fpath in files:
+        args.path = fpath
+        tag_file( args )
+
+    sys.exit( 0 )
