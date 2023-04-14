@@ -96,7 +96,7 @@ class ComRemove( ):
         # Try to get comskip_log file path from kwargs
         comskip_log = kwargs.get('comskip_log', None)
         if comskip_log is None:
-            comskip_log = config.getComskipLog( self.__class__.__name__ )
+            comskip_log = config.get_comskip_log( self.__class__.__name__ )
 
         self.ini_dir     = ini_dir
         self.threads     = threads

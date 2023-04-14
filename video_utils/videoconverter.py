@@ -30,7 +30,7 @@ from .subtitles import sub_to_srt
 
 from .videotagger import getMetaData
 
-from .config import getComskipLog, getTranscodeLog, fileFMT
+from .config import get_comskip_log, get_transcode_log, fileFMT
 
 # Matching pattern for season/episode files; lower/upper case 's' followed by
 # 2 or more digits followed by upper/lower 'e' followed by 2 or more digits
@@ -137,7 +137,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         self._prog_file   = None
 
         if transcode_log is None:
-            self.transcode_log = getTranscodeLog(
+            self.transcode_log = get_transcode_log(
                 self.__class__.__name__,
                 logdir=self.logdir,
             )
@@ -145,7 +145,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             self.transcode_log = transcode_log
 
         if comskip_log is None:
-            self.comskip_log = getComskipLog(
+            self.comskip_log = get_comskip_log(
                 self.__class__.__name__,
                 logdir=self.logdir,
             )
