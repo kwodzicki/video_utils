@@ -3,6 +3,7 @@ To update file naming convention
 
 """
 
+import sys
 import os
 import re
 import shutil
@@ -20,8 +21,8 @@ from ..videotagger import TVDb
 from ..videotagger.episode import TVDbEpisode
 from ..plex.plex_media_scanner import plex_media_scanner as PMS
 
-IMDBID   = re.compile( '\.(tt\d+)\.' )
-SEASONEP = re.compile( '[sS](\d{2,})[eE](\d{2,})' )
+IMDBID   = re.compile( r'\.(tt\d+)\.' )
+SEASONEP = re.compile( r'[sS](\d{2,})[eE](\d{2,})' )
 tmdb     = TMDb()
 tvdb     = TVDb()
 
@@ -37,7 +38,7 @@ def tv_rename( topdir, path, imdbID, seriesID, rootdir = None, **kwargs ):
         season, episode = map(int, seasonEp[0])# Parse into integers
     else:
         print(f'Failed to find season/ep: {path}')
-        exit()
+        sys.exit()
     if 'tvdb' in seriesID:
         ep = TVDbEpisode( seriesID, season, episode, **kwargs)
     else:
@@ -260,7 +261,7 @@ def update_file_names(*args, rootdir = None, dbID = None, **kwargs):
 
             res = input('Want to run Plex Media Scanner (YES/n/exit): ')
             if res == 'exit':
-                exit()
+                sys.exit()
 
             if res != 'YES':
                 continue
@@ -269,7 +270,7 @@ def update_file_names(*args, rootdir = None, dbID = None, **kwargs):
 
             res  = input('Want to delete old files (YES/n/exit): ')
             if res == 'exit':
-                exit()
+                sys.exit()
             if res != 'YES':
                 continue
 
@@ -282,10 +283,10 @@ def update_file_names(*args, rootdir = None, dbID = None, **kwargs):
                     print(f'Removed file : {path}')
 
             for root, dirs, _ in os.walk(indir, topdown=False):
-                for dir in dirs:
-                    if dir[0] == '.':
+                for dir_name in dirs:
+                    if dir_name[0] == '.':
                         continue
-                    path = os.path.join( root, dir )
+                    path = os.path.join( root, dir_name )
                     try:
                         os.rmdir( path )
                     except:

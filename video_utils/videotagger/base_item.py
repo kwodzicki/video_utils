@@ -203,7 +203,7 @@ class BaseItem( BaseAPI ):
 
         # If external keyword set
         if external:
-            fmt = '{}{{}}'.format( external )
+            fmt = f'{external}{{}}'
             idx = self._findExternalID( external )
         # Else, no external tag requested
         else:

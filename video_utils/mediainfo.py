@@ -6,20 +6,15 @@ Wrapper class for mediainfo CLI
 import logging
 import re
 import json
-import subprocess as subproc
+from subprocess import check_output
 
 try:
-    proc = subproc.Popen( 
-        ['mediainfo', '--version'],
-        stdout = subproc.PIPE,
-        stderr = subproc.PIPE,
-    )
+    output = check_output( ['mediainfo', '--version'] )
 except:
     MediaInfoLib = None
 else:
-    stdout, stderr = proc.communicate()
     MediaInfoLib = (
-        re.findall( b'v(\d+(?:.\d+)+)', stdout )[0]
+        re.findall( rb'v(\d+(?:.\d+)+)', output )[0]
         .decode()
         .split('.')
     )
@@ -41,6 +36,33 @@ def num_convert( val ):
     except:
         return val
 
+def set_resolution(video_height):
+    """
+    Determine video resolution
+
+    Given the height (in pixels) of the video,
+    determine the resolution and the constant
+    rate factor for transcoding.
+
+    Arguments:
+        video_height (int) : The height (in pixles) of
+            the source video.
+
+    Returns:
+        tuple : Resolution of the video (int) and the 
+            constant rate factor options (list) for ffmpeg
+
+    """
+
+    if video_height <= 480:
+        return 480, ['-crf', '22']
+    if video_height <= 720:
+        return 720, ['-crf', '23']
+    if video_height <= 1080:
+        return 1080, ['-crf', '24']
+
+    return 2160, ['-x265-params', 'crf=24:pools=none']
+
 def mediainfo( fname ):
     """
     Parse mediainfo JSON output
@@ -52,7 +74,7 @@ def mediainfo( fname ):
     """
 
     cmd  = ['mediainfo', '--Full', '--Output=JSON', fname]
-    res  = subproc.check_output( cmd )
+    res  = check_output( cmd )
     data = json.loads(res)
 
     out = {}
@@ -97,9 +119,11 @@ class MediaInfo( ):
 
     @property
     def infile(self):
+        """Return the input file path"""
         return self.__infile
     @infile.setter
     def infile(self, value):
+        """Set the input file path"""
         self.__infile = value
         if self.__infile is None:
             self.__mediainfo = None
@@ -169,57 +193,6 @@ class MediaInfo( ):
             return file_size > stream_size
         return None
 
-    ##############################################################################
-    def __parse_output(self):
-        """Method that will run when the file attribute is changed"""
-
-        self.__log.info('Running mediainfo command...')
-        xmlstr = subproc.check_output( self.cmd  + [self.infile] )
-        root   = ET.fromstring( xmlstr )
-        data   = {}
-
-        # Iterate over all tracks in the XML tree
-        for track in root[0].findall('track'):
-            tag = track.attrib['type']
-            if 'typeorder' in track.attrib or 'streamid' in track.attrib:
-                if tag not in data:
-                    data[ tag ] = [ ]
-                data[ tag ].append( {} )
-            else:
-                data[ tag ] = [ {} ]
-
-        # Iterate over all tracks in the XML tree
-        for track in root[0].findall('track'):
-            tag, order = track.attrib['type'], 0
-            old_tag, tag_cnt = '', 0
-            if 'typeorder' in track.attrib:
-                order = int( track.attrib['typeorder'] ) - 1
-            elif 'streamid' in track.attrib:
-                order = int( track.attrib['streamid'] ) - 1
-
-            # Iterate over all elements in the track
-            for elem in track.iter():
-                cur_tag = elem.tag
-                if cur_tag == old_tag:
-                    cur_tag += '/String'
-                    if tag_cnt > 1:
-                        cur_tag += str(tag_cnt)
-                    tag_cnt += 1
-                else:
-                    tag_cnt = 0
-                old_tag = elem.tag
-                if '.' in elem.text:
-                    try:
-                        data[tag][order][cur_tag] = float(elem.text)
-                    except:
-                        data[tag][order][cur_tag] = elem.text
-                else:
-                    try:
-                        data[tag][order][cur_tag] = int(elem.text)
-                    except:
-                        data[tag][order][cur_tag] = elem.text
-        self.__mediainfo = None if len(data) == 0 else data
-
     def __eq__(self, other):
 
         return self.__mediainfo == other
@@ -231,9 +204,7 @@ class MediaInfo( ):
         """
 
         if languages:
-            for lang in languages:
-                if lang != track_lang and track_lang != '':
-                    return False
+            return track_lang in languages
         return True
 
     ################################################################################
@@ -285,14 +256,14 @@ class MediaInfo( ):
 
             fmt    = track.get( 'Format',           '' )
             n_chan = track.get( 'Channels',         '' )
-            lang1  = track.get( 'Language_String',  '' )
+            #lang1  = track.get( 'Language_String',  '' )
             lang2  = track.get( 'Language_String2', '' )
             title  = track.get( 'Title',            f"Source Track: {track_id}" )
 
             # If n_chan is of type string, split number of channels for the
             # audio stream on forward slash, convert all to integer type,
             # take maximum; some DTS streams have 6 or 7 channel layouts
-            if type(n_chan) is str:
+            if isinstance(n_chan, str):
                 n_chan = max( map( int, n_chan.split('/') ) )
 
             # Set default language to English
@@ -379,7 +350,6 @@ class MediaInfo( ):
             return None
 
         encoder    = ''
-        resolution = None
         video_data = self.__mediainfo['Video'][0]
         video_tags = video_data.keys()
 
@@ -421,21 +391,8 @@ class MediaInfo( ):
             )
 
         # Set resolution and rate factor based on video height
-        if video_data['Height'] <= 480:
-            resolution = 480
-            info['-opts'].extend( ['-crf', '22'] )
-        elif video_data['Height'] <= 720:
-            resolution =  720
-            info['-opts'].extend( ['-crf', '23'] )
-        elif video_data['Height'] <= 1080:
-            resolution = 1080
-            info['-opts'].extend( ['-crf', '24'] )
-        else:#if video_data['Height'] <= 2160:
-            resolution = 2160
-            #info['-opts'].extend( ['-crf', '26'] )
-            info['-opts'].extend( ['-x265-params', 'crf=24:pools=none'] )
-        if resolution is None:
-            return None
+        resolution, crf_opts = set_resolution( video_data['Height'] )
+        info['-opts'].extend( crf_opts )
 
         # I cannot remember why there is the extra check for 'Frame_rate_mode'
         # Removing for now, but will test with some MakeMKV files
@@ -517,54 +474,45 @@ class MediaInfo( ):
         # a list to store the number of elements in each text stream,
         # and a dictionary
         j, n_elems, info = 0, [], []
-        for language in languages:
-            for track in self.__mediainfo['Text']:
-                lang3  = track.get( 'Language_String3', '' )
-                if (not mpegts) and (language != lang3):
-                    continue
-                idx    = track.get( 'StreamOrder',       '' )
-                lang1  = track.get( 'Language_String',   '' )
-                lang2  = track.get( 'Language_String2',  '' )
-                elems  = track.get( 'count_of_elements', '' )
-                frames = track.get( 'Frame_count',       '' )
-                if 'Forced' in track:
-                    forced = track['Forced'].lower() == 'yes'
-                else:
-                    forced = False
+        for track in self.__mediainfo['Text']:
+            lang3  = track.get( 'Language_String3', '' )
+            if (not mpegts) and (lang3 not in languages):
+                continue
+            idx    = track.get( 'StreamOrder',       ''  )
+            lang1  = track.get( 'Language_String',   ''  )
+            lang2  = track.get( 'Language_String2',  ''  )
+            elems  = track.get( 'ElementCount',      '0' )
+            frames = track.get( 'FrameCount',        '0' )
 
-                lang = ''
-                if lang3 != '':
-                    lang = lang3# Append 2 character language code
-                elif lang2 != '':
-                    lang = lang2# Append 3 character language code
-                elif lang1 != '':
-                    lang = lang1# Append full language string
+            forced = track.get('Forced', '').upper() == 'YES'
 
-                # Append the number of VobSub images to the sub_elems list
-                # Or number of vobsub frames
-                if elems  != '':
-                    n_elems.append( int(elems) )
-                elif frames != '':
-                    n_elems.append( int(frames) )
-                else:
-                    n_elems.append( 0 )
+            # Iterate over the 3 language code formats and add to list
+            # ONLY if they are not an empty string. Then, we take the
+            # zeroth element if there are any elements, else we just use
+            # an empty string
+            lang = [_lang for _lang in (lang3, lang2, lang1) if _lang != '']
+            lang = lang[0] if len(lang) > 0 else ''
 
-                track_info = {
-                    'format' : track.get('Format', ''), 
-                    'lang1'  : lang1,
-                    'lang2'  : lang2,
-                    'lang3'  : lang3,
-                    'ext'    : f".{j}.{lang}",
-                    'forced' : forced,
-                    'track'  : j,
-                    'vobsub' : False,
-                    'srt'    : False,
-                }
-                if not mpegts:
-                    track_info.update( {'mkvID' : idx} )
+            # Append the number of VobSub images to the sub_elems list
+            # Or number of vobsub frames
+            n_elems.append( max(int(elems), int(frames), 0) )
 
-                info.append(track_info)
-                j+=1
+            track_info = {
+                'format' : track.get('Format', ''), 
+                'lang1'  : lang1,
+                'lang2'  : lang2,
+                'lang3'  : lang3,
+                'ext'    : f".{j}.{lang}",
+                'forced' : forced,
+                'track'  : j,
+                'vobsub' : False,
+                'srt'    : False,
+            }
+            if not mpegts:
+                track_info.update( {'mkvID' : idx} )
+
+            info.append(track_info)
+            j+=1
 
         if len(n_elems) == 0:
             self.__log.warning(  'NO text stream(s) in file...')
@@ -574,10 +522,9 @@ class MediaInfo( ):
         # Get maximum number of elements over all text streams
         max_elems = float( max(n_elems) )
         for i, elem in enumerate(n_elems):
-            if max_elems > 0:
-                if (elem / max_elems) < 0.1:
-                    info[i]['ext']    += '.forced'
-                    info[i]['forced']  = True
+            if max_elems > 0 and (elem / max_elems) < 0.1:
+                info[i]['ext']    += '.forced'
+                info[i]['forced']  = True
 
         if len(info) > 0:
             return info

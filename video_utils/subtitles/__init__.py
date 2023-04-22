@@ -52,4 +52,4 @@ def sub_to_srt( out_file, text_info, **kwargs ):
         if res <= 1:
             files.append( fname )
 
-    return files 
+    return files

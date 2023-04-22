@@ -39,6 +39,21 @@ def get_basename(seasonNum, episodeNum, title, ID = '', **kwargs):
     basename, ID = replace_chars( basename, ID, **kwargs )
     return f'{basename:.50}.{ID}'
 
+def to_list( arg ):
+    """
+    Convert variable to a list
+
+    Arguments:
+        arg (?) : convert argument to a list
+
+    """
+
+    if isinstance(arg, tuple):
+        return list(arg)
+    if not isinstance(arg, list):
+        return [arg]
+    return arg
+
 class BaseEpisode( BaseItem ):
     """
     Base object for episode information from TMDb or TVDb
@@ -196,10 +211,11 @@ class TVDbEpisode( BaseEpisode ):
         if len(args) < 3:
             raise Exception( "Must input series ID or object and season and episode number" )
 
-        if isinstance( args[0], TVDbSeries):
-            self.Series = args[0]
-        else:
-            self.Series = TVDbSeries( args[0] )
+        self.Series = (
+            args[0]
+            if isinstance( args[0], TVDbSeries) else
+            TVDbSeries( args[0] )
+        )
 
         dvdOrder = kwargs.get('dvdOrder', False)
         self.URL = self.TVDb_URLEpisode.format( self.Series.URL, 'query' )
@@ -223,22 +239,14 @@ class TVDbEpisode( BaseEpisode ):
         ref = json['data'][0]
         # If more than one result in data list
         if len(json['data']) > 1:
-            for key, val in ref.items():
-                if isinstance(val, tuple):
-                    ref[key] = list(val)
-                elif not isinstance(val, list):
-                    ref[key] = [val]
+            ref = {key : to_list(val) for key, val in ref.items()}
 
             for extra in json['data'][1:]:
                 for key in ref.keys():
                     extra_val = extra.get(key, None)
                     if extra_val is None:
                         continue
-                    if isinstance(extra_val, tuple):
-                        extra_val = list(extra_val)
-                    elif not isinstance(extra_val, list):
-                        extra_val = [extra_val]
-                    ref[key] += extra_val
+                    ref[key] += to_list( extra_val )
         json = ref
 
         actors = self._get_json( self.Series.URL + '/actors' )

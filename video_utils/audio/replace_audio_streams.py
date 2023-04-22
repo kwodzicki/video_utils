@@ -191,7 +191,7 @@ def replace_audio_streams( in1, in2, outdir = None, replace = False):
     test_time = None#str( timedelta( seconds = 300 ) )
 
     # Search for any two channel audio streams in second input
-    any2ch = any( [ i['Channel_s_'] <=2 for i in info2['Audio'] ] )
+    any2ch = any( i['Channel_s_'] <=2 for i in info2['Audio'] )
     audio_stream_id = 0
     # If there are no audio streams in the second file with 2 or fewer tracks
     if not any2ch:

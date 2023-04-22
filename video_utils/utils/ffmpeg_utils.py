@@ -130,7 +130,7 @@ class FFMetaData( ):
             raise Exception( "Incorrect number of arguments!" )
 
         # If chapter title matches generic title
-        if re.match('Chapter\s\d?', chapter.title):
+        if re.match(r'Chapter\s\d?', chapter.title):
             # Reset chapter number title
             chapter.title = f"Chapter {self._chapter:02d}"
 
@@ -153,7 +153,7 @@ class FFMetaData( ):
 
         """
 
-        with open(fpath, 'w') as fid:
+        with open(fpath, mode='w', encoding='utf8') as fid:
             # Write header to file
             fid.write( HEADERFMT.format( self._version ) )
 
@@ -509,7 +509,7 @@ def cropdetect( infile, seg_len = 20, threads = None):
     y_offset = (res[1] - y_width) // 2
 
     crop = map(int, ( x_width, y_width, x_offset, y_offset ) )
-    
+
     log.debug( 'Values for crop: %s', crop )
     return 'crop=' + ':'.join( map(str, crop) )
 
@@ -894,7 +894,7 @@ def split_on_chapter(in_file, n_chapters):
     while s_id < len(chapters):
         # Get number of chapters to process; i.e., width of video segment
         e_id = (
-            s_id + 
+            s_id +
             n_chapters[num] if isinstance(n_chapters, (tuple,list)) else n_chapters
         )
         # Set local preroll
@@ -975,7 +975,7 @@ def combine_mp4_files(out_file, *args):
 
     # List with options for combining TS files back into MP4
     cmd_concat = ['ffmpeg', '-nostdin',
-      '-i',     'concat:{}'.format( '|'.join(tmp_files) ),
+      '-i',     'concat:' + '|'.join(tmp_files),
       '-c',     'copy', 
       '-bsf:a', 'aac_adtstoasc',
       out_file

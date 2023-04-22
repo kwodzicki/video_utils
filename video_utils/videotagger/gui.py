@@ -15,7 +15,7 @@ from PyQt5.QtCore import Qt
 
 from ..config import CACHEDIR
 from . import movie as _movie, episode as _episode
-from .utils import download_cover
+from .utils import download
 from .writers import write_tags
 from .readers import mp4_reader, mkv_reader
 
@@ -207,15 +207,15 @@ class MetadataWidget( QWidget ):
         pix        = None
         self.cover = info.get('cover', '')
         if self.cover:
+            pix = QPixmap()
             if isinstance(self.cover, bytes):
-                pix = QPixmap()
                 pix.loadFromData( self.cover )
             elif os.path.isfile( self.cover ):
-                pix = QPixmap( self.cover )
+                pix.load( self.cover )
             else:
-                cover_file = download_cover( self.cover, saveDir = CACHEDIR )
-                if cover_file:
-                    pix = QPixmap(cover_file)
+                cover_data = download( self.cover )
+                if cover_data:
+                    pix.loadFromData(cover_data)
             if pix:
                 pix = pix.scaled(self.poster.width(), self.poster.height(), Qt.KeepAspectRatio)
                 self.poster.setPixmap( pix )
@@ -347,5 +347,7 @@ class VideoTaggerGUI( QMainWindow ):
             self.metadata_widget._update_data( info )
 
     def close_event(self, event):
+        """Method to run on close"""
+
         shutil.rmtree( CACHEDIR )
         event.accept()

@@ -13,7 +13,7 @@ import yaml
 from ..version import __version__
 from ..utils import HALFTHREADS
 
-PKGNAME   = __name__.split('.')[0]
+PKGNAME   = __name__.split('.', maxsplit=1)[0]
 HOME      = os.path.expanduser('~')
 DATADIR   = os.path.join( os.path.dirname(__file__) )
 APPDIR    = os.path.join( HOME,   'Library', 'Application Support', PKGNAME )
@@ -23,7 +23,7 @@ PLEXTOKEN = os.path.join( APPDIR, '.plextoken' )
 CONFIG    = os.path.join( HOME,   f'.{PKGNAME}.yml' )
 
 try:
-    with open(CONFIG, mode='r') as fid:
+    with open(CONFIG, mode='r', encoding='utf8') as fid:
         CONFIG = yaml.load( fid, Loader = yaml.SafeLoader )
 except:
     CONFIG = {}

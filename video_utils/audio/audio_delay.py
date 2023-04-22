@@ -164,36 +164,36 @@ def plot_signals(signal1, signal2, fs, delay_mean):
     left1,  left2  = signal1[:,0], signal2[:,0]
     right1, right2 = signal1[:,1], signal2[:,1]
     ax1 = plt.subplot(221)
-    plt.plot(time, left1[::skip], 'r')
-    plt.plot(time, left2[::skip], 'b')
-    plt.grid(True)
-    plt.ylabel('Left (amp.)')
-    plt.title('Before Adjustment')
+    ax1.plot(time, left1[::skip], 'r')
+    ax1.plot(time, left2[::skip], 'b')
+    ax1.grid(True)
+    ax1.ylabel('Left (amp.)')
+    ax1.title('Before Adjustment')
 
     ax2 = plt.subplot(223, sharex=ax1, sharey=ax1)
-    plt.plot(time, right1[::skip], 'r', label='file 1')
-    plt.plot(time, right2[::skip], 'b', label='file 2')
-    plt.grid(True)
-    plt.ylabel('right (amp.)')
-    plt.xlabel('Time (s)')
-    plt.legend()
+    ax2.plot(time, right1[::skip], 'r', label='file 1')
+    ax2.plot(time, right2[::skip], 'b', label='file 2')
+    ax2.grid(True)
+    ax2.ylabel('right (amp.)')
+    ax2.xlabel('Time (s)')
+    ax2.legend()
 
     # Plots for adjusted data
     left3  = np.roll(left2,  delay_mean)
     right3 = np.roll(right2, delay_mean)
     ax3 = plt.subplot(222, sharex=ax2, sharey=ax2)
-    plt.plot(time, left1[::skip], 'r')
-    plt.plot(time, left3[::skip], 'b')
-    plt.grid(True)
-    plt.title('After Adjustment')
+    ax3.plot(time, left1[::skip], 'r')
+    ax3.plot(time, left3[::skip], 'b')
+    ax3.grid(True)
+    ax3.title('After Adjustment')
 
     # Start a subplot
     ax4 = plt.subplot(224, sharex=ax3, sharey=ax3)
-    plt.plot(time, right1[::skip], 'r', label='file 1')
-    plt.plot(time, right3[::skip], 'b', label='file 2')
-    plt.grid(True)
-    plt.xlabel('Time (s)')
-    plt.legend()
+    ax4.plot(time, right1[::skip], 'r', label='file 1')
+    ax4.plot(time, right3[::skip], 'b', label='file 2')
+    ax4.grid(True)
+    ax4.xlabel('Time (s)')
+    ax4.legend()
 
     plt.subplots_adjust(
         left   = 0.1,

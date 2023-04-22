@@ -25,8 +25,6 @@ except:
     COMSKIP = None
 
 
-#from .utils.subproc_manager import SubprocManager
-
 # Following code may be useful for fixing issues with audio in
 # video files that cut out
 # ffmpeg -copyts -i "concat:in1.ts|in2.ts" -muxpreload 0 -muxdelay 0 -c copy joint.ts
@@ -261,8 +259,8 @@ class ComRemove( ):
 
         self.__log.info('Generating metadata file')
 
-        show_seg    = 'Show Segment \#{}'
-        com_seg     = 'Commercial Break \#{}'
+        show_seg    = r'Show Segment \#{}'
+        com_seg     = r'Commercial Break \#{}'
         segment     = 1
         commercial  = 1
         # Initial start time of the show segment; i.e., the beginning of the recording
@@ -276,7 +274,7 @@ class ComRemove( ):
         file_length  = get_video_length(in_file)
 
         ffmeta      = FFMetaData()
-        with open(edl_file, 'r') as fid:
+        with open(edl_file, mode='r') as fid:
             info = fid.readline()
             while info:
                 # Get the start and ending times of the commercial as float

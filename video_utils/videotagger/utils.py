@@ -22,7 +22,7 @@ SPACE    = ' '
 
 # Characters that are not allowed in file paths
 #BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )
-BADCHARS = re.compile( '[#%\\\<\>\*\?/\$\!\:\@]' )
+BADCHARS = re.compile( r'[#%\\\<\>\*\?/\$\!\:\@]' )
 
 def _replace( string, repl, **kwargs ):
     """

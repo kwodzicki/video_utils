@@ -115,7 +115,7 @@ def _mkv_extract_cover( file_path ):
         return ''
 
     # Try to get file type from stdout/stderr
-    mime_type = re.findall( b'MIME type image/(\w+),', std)
+    mime_type = re.findall( rb'MIME type image/(\w+),', std)
 
     # If found
     if len(mime_type) == 1:

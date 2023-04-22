@@ -18,9 +18,8 @@ from . import movie as _movie
 from . import series as _series
 from . import episode as _episode
 
-SEASONEP = re.compile('[sS](\d{2,})[eE](\d{2,})')
+SEASONEP = re.compile(r'[sS](\d{2,})[eE](\d{2,})')
 
-###################################################################
 class TMDb( BaseAPI ):
     """Class for high-level interaction with TMDb API"""
 
@@ -95,7 +94,6 @@ class TMDb( BaseAPI ):
                   #print(key)
         return json
 
-###################################################################
 class TVDb( BaseAPI ):
     """Class for high-level interaction with TMDb API"""
 
@@ -137,7 +135,6 @@ class TVDb( BaseAPI ):
                 items.append( item )
         return items
 
-    #################################
     def byIMDb( self, IMDbID, season=None, episode=None, **kwargs ):
         """
         Search TVDb for a given Movie or TV episode using IMDb series ID 
@@ -160,7 +157,6 @@ class TVDb( BaseAPI ):
                 data.append( tmp  )
         return data
 
-###################################################################
 def getMetaData( fpath=None, dbID=None, seasonEp=None, version='', **kwargs ):
     """
     Get Movie or Episode object based on information from file name or dbID

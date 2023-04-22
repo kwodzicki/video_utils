@@ -7,15 +7,15 @@ import logging
 
 import os
 import time
-from threading import Thread, Timer
+from threading import Thread
 from queue import Queue
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from .plex.plex_media_scanner import plex_media_scanner
+#from .plex.plex_media_scanner import plex_media_scanner
 from .utils import isRunning
-from .utils.handlers import send_email
+#from .utils.handlers import send_email
 
 TIMEOUT = 1.0
 SLEEP   = 5.0

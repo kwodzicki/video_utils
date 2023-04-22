@@ -17,7 +17,7 @@ from getpass import getpass
 from plexapi.myplex import MyPlexAccount
 
 from ..config import PLEXTOKEN
-from ..videotagger import TMDb, TVDb, movie, episode
+from ..videotagger import TMDb, TVDb, movie as _movie, episode as _episode
 
 _tmdb = TMDb()
 _tvdb = TVDb()
@@ -135,15 +135,18 @@ def plex_dvr_rename( in_file, hardlink = True ):
 
     # If NOT one (1) result from search
     if len(metadata) != 1:
-        if len(metadata) > 1:
-            log.error('More than one movie/Tv show found, skipping')
-        elif len(metadata) == 0:
-            log.error('No ID found!')
+        log.error(
+            'More than one movie/Tv show found, skipping'
+            if len(metadata) > 1 else
+            'No ID found!'
+        )
         metadata = None
-        if season_ep:
-            new = episode.get_basename( *season_ep, episode )
-        else:
-            new = movie.get_basename( title, year )
+        new = (
+            _episode.get_basename( *season_ep, episode )
+            if season_ep else
+            _movie.get_basename( title, year )
+        )
+
     else:
         metadata = metadata[0]
         new = metadata.get_basename()
@@ -165,6 +168,7 @@ def plex_dvr_rename( in_file, hardlink = True ):
     else:
         log.debug( 'Renaming input file' )
         os.replace( in_file, new )
+
     return new, metadata
 
 class DVRqueue( list ):

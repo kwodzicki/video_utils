@@ -422,7 +422,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         self.outfile = '.'.join( [outfile] + extra_info )
         return True
 
-    def get_subtitles( self ):
+    def get_subtitles( self, *args, **kwargs ):
         """
         Try to get subtitles through various means
 

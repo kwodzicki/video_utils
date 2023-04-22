@@ -98,28 +98,25 @@ def tvdb2tmdb( info ):
     job     = 'Director'
     key     = 'director'
     if key in info:
-        name = info.pop(key)
-        crew.append( {'name' : name, 'job' : job } )
+        crew.append( {'name' : info.pop(key), 'job' : job } )
 
     key = 'directors'
-    if key in info:
-        for name in info.pop(key):
-            crew.append( {'name' : name, 'job' : job } )
+    for name in info.pop(key, []):
+        crew.append( {'name' : name, 'job' : job } )
 
     job = 'Writer'
     key = 'writers'
-    if key in info:
-        for name in info.pop(key):
-            crew.append( {'name' : name, 'job' : job } )
+    for name in info.pop(key, []):
+        crew.append( {'name' : name, 'job' : job } )
 
     if crew:
         credits_info['crew'] = crew
 
     guests = info.pop('guestStars', None)
     if guests:
-        for i, guest in enumerate( guests ):
-            guests[i] = {'name' : guest}
-        credits_info['guest_stars'] = guests
+        credits_info['guest_stars'] = [
+            {'name' : guest} for guest in guests
+        ]
 
     if credits_info:
         info['credits'] = credits_info

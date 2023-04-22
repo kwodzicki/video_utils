@@ -181,22 +181,26 @@ class PopenThread( Thread ):
         kwargs = self._kwargs.copy()
         stdout = kwargs.get('stdout', DEVNULL)
         stderr = kwargs.get('stderr', STDOUT)
+        encode = kwargs.get('encoding', 'utf8')
+        if isinstance(stdout, str) and make_dirs( stdout ):
+            stdout = open(stdout, mode='w', encoding=encode)
+        if isinstance(stderr, str) and make_dirs( stderr ):
+            stderr = open(stderr, mode='w', encoding=encode)
 
-        if isinstance(stdout, str):
-            if make_dirs( stdout ):
-                stdout = open(stdout, 'w')
-        if isinstance(stderr, str):
-            if make_dirs( stderr ):
-                stderr = open(stderr, 'w')
-
-        kwargs.update( {'stdout' : stdout, 'stderr' : stderr} )
+        kwargs.update(
+            {
+                'stdout'   : stdout,
+                'stderr'   : stderr,
+                'encoding' : encode,
+            }
+        )
         try:
             self._proc = Popen( *self._args, **kwargs )
-        except FileNotFoundError as err:
-            self.__log.error('Setting returncode to 127 (command not found): %s', err)
+        except FileNotFoundError as error:
+            self.__log.error('Setting returncode to 127 (command not found): %s', error)
             self._returncode = 127
-        except Exception as err:
-            self.__log.error('Failed to start process: %s', err)
+        except Exception as error:
+            self.__log.error('Failed to start process: %s', error)
             self._returncode = 256
         else:
             self.__log.debug('Process started')

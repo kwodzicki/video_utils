@@ -28,8 +28,15 @@ def _handle_sigterm(*args, **kwargs):
     _sigtermEvent.set()
     log.error('Caught terminate...')
 
-def isRunning():
+def isRunning(**kwargs):
     """Check for SIGINT or SIGTERM encountered"""
+
+    key = 'timeout'
+    if key in kwargs:
+        return not (
+            _sigintEvent.wait( timeout=kwargs[key]) or
+            _sigtermEvent.wait(timeout=kwargs[key])
+        )
 
     return (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set())
 
