@@ -266,7 +266,7 @@ def update_file_names(*args, rootdir = None, dbID = None, **kwargs):
             if res != 'YES':
                 continue
             # Run plex media scanner
-            PMS('scan', 'refresh', section=section)
+            PMS(section)
 
             res  = input('Want to delete old files (YES/n/exit): ')
             if res == 'exit':
@@ -293,4 +293,4 @@ def update_file_names(*args, rootdir = None, dbID = None, **kwargs):
                         print(f'Failed to remove directory, is full? {path}' )
                     else:
                         print(f'Removed directory : {path}' )
-        PMS('scan', 'refresh', section=section)
+        PMS(section)

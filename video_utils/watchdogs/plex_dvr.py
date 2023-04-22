@@ -20,8 +20,8 @@ from watchdog.events import FileSystemEventHandler
 from ..config import plex_dvr
 from ..utils import isRunning#_sigintEvent, _sigtermEvent
 from ..utils.handlers import send_email
-from .dvr_converter import DVRconverter
-from .utils import DVRqueue
+from ..plex.dvr_converter import DVRconverter
+from ..plex.utils import DVRqueue
 
 RECORDTIMEOUT = 86400.0
 TIMEOUT       =     1.0

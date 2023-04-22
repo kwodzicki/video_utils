@@ -8,68 +8,56 @@ to Plex.
 """
 
 import logging
-
 import os
 import time
-
-from threading import Thread
 from queue import Queue
 
-from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
-from .videoconverter import VideoConverter
-from .plex.plex_media_scanner import plex_media_scanner
-from .utils import isRunning
-from .utils.handlers import send_email
+from ..utils import isRunning
 
 TIMEOUT =  1.0
 SLEEP   = 30.0
 
-class MakeMKV_Watchdog( FileSystemEventHandler ):
+class BaseWatchdog( FileSystemEventHandler ):
     """
-    Watchdog for conversion of MakeMKV output
+    Base watchdog class for package
 
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self.log         = logging.getLogger(__name__)
-        self.log.info('Starting up...')
+        self.log      = logging.getLogger(__name__)
+        # Initialize queue for sending files to converting thread
+        self.queue    = Queue()
+        # Initialize a watchdog Observer
+        self.observer = Observer()
 
-        # Try to get file_ext keyword from keyword dictionary
-        file_ext   = kwargs.pop('fileExt', None)
-        # Sets watchdog to recursive
-        recursive = kwargs.pop('recursive', False)
+        self.file_ext = None
+
+    def set_file_exts( self, file_ext, default_ext ):
+        """
+        Get file extension(s) to use
+    
+        Arguments:
+            file_ext (str) : File extenion to defined by user
+            default_ext (tuple) : Default file extensions defined
+                in code
+    
+        Returns:
+            tuple : File extensions for valid files
+    
+        """
 
         if file_ext is None:
-            self.file_ext = ('.mkv',)
+            self.file_ext = default_ext
         elif isinstance(file_ext, str):
             self.file_ext = (file_ext,)
         elif isinstance(file_ext, list):
             self.file_ext = tuple(file_ext)
         else:
             self.file_ext = file_ext
-
-        self.converter = VideoConverter( **kwargs )
-
-        # Initialize queue for sending files to converting thread
-        self.queue    = Queue()
-        # Initialize a watchdog Observer
-        self.observer = Observer()
-
-        # Iterate over input arguments
-        for arg in args:
-            self.observer.schedule( self, arg, recursive=recursive )
-            # Iterate over all files (if any) in the input directory
-            # Enque to the list
-            for fpath in self._get_dir_listing( arg ):
-                self.queue.put( fpath )
-
-        self.observer.start()
-
-        self.__run_thread = Thread( target = self._run )
-        self.__run_thread.start()
 
     def on_created(self, event):
         """
@@ -112,31 +100,6 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
         self.observer.join()
 
-    def _get_dir_listing(self, root):
-        """
-        Get list of files in a directory (non-recursive), that ends with given extension
-
-        Arguments:
-            root (str): Path of directory to search
-
-        Keyword arguments:
-            None 
-
-        Returns:
-            list: Files
-
-        """
-
-        fpaths = []
-        for item in os.listdir(root):
-            if not item.endswith( self.file_ext ):
-                continue
-            fpath = os.path.join( root, item )
-            if os.path.isfile( fpath ):
-                fpaths.append( fpath )
-
-        return fpaths
-
     def _check_size(self, fpath):
         """
         Method to check that file size has stopped changing
@@ -176,34 +139,6 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
         return prev == curr
 
-    @send_email
-    def _process(self, fname):
-        """
-        Actual process a file
-
-        Arguments:
-            fname (str) : Full path of file to transcode
-
-        Returns:
-            None.
-
-        """
-
-        if not self._check_size( fname ):
-            return
-
-        try:
-            out_file = self.converter.transcode( fname )
-        except:
-            self.log.exception('Failed to convert file')
-            return
-
-        if isinstance(out_file, str) and isRunning():
-            plex_media_scanner(
-                'TV Shows' if self.converter.metadata.isEpisode else 'Movies',
-                path = os.path.dirname( out_file )
-            )
-
     def _run(self):
         """
         A thread to dequeue video file paths and convert them
@@ -230,3 +165,18 @@ class MakeMKV_Watchdog( FileSystemEventHandler ):
 
         self.log.info('MakeMKV watchdog stopped!')
         self.observer.stop()
+
+    def _process(self, fpath):
+        """
+        Process a file
+
+        This method should be overridden in subclasses to
+        process a file.
+
+        Arguments:
+            fpath (str) : File to process
+
+        Returns:
+            None.
+
+        """
