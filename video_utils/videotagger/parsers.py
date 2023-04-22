@@ -1,191 +1,220 @@
+"""
+Parsers for metadata from TVDb and TMDb
+
+"""
+
 import logging
-import os, re
-from .Person import Person
+import re
+from .person import Person
 
 # Dictionary for converting episode ordering (aired or DVD) to standard format
-TVDbOrder = {'airedOrder' : {
-                     'airedSeason'        : 'season_number',
-                     'airedEpisodeNumber' : 'episode_number'},
-             'dvdOrder'   : {
-                     'dvdSeason'          : 'season_number',
-                     'dvdEpisodeNumber'   : 'episode_number'}}
+TVDbOrder = {
+    'airedOrder' : {
+        'airedSeason'        : 'season_number',
+        'airedEpisodeNumber' : 'episode_number',
+    },
+    'dvdOrder'   : {
+        'dvdSeason'          : 'season_number',
+        'dvdEpisodeNumber'   : 'episode_number',
+    },
+}
 
-TVDb2Stnd = {'episodeName'        : 'name',
-             'firstAired'         : 'air_date',
-             'seriesName'         : 'name'}
+TVDb2Stnd = {
+    'episodeName' : 'name',
+    'firstAired'  : 'air_date',
+    'seriesName'  : 'name',
+}
 
-TMDb2Stnd = {'first_air_date'     : 'air_date'}
+TMDb2Stnd = {'first_air_date' : 'air_date'}
 
-PARENTH   = re.compile( r'(\s+\([^\)]+\))$' )                                           # Pattern to find any (xxx) data at and of string
+# Pattern to find any (xxx) data at and of string
+PARENTH   = re.compile( r'(\s+\([^\)]+\))$' )
 
 def standardize( info, **kwargs ):
-  """
-  Standardize TVDb and TMDb to internal tag convention; similar to TMDb
+    """
+    Standardize TVDb and TMDb to internal tag convention; similar to TMDb
 
-  Arguments:
-    info (dict): Data from API request
+    Arguments:
+      info (dict): Data from API request
 
-  Keyword Arguments:
-    **kwargs
+    Keyword Arguments:
+      **kwargs
 
-  Returns:
-    dict: Data from input, but converted to standardized tags
+    Returns:
+      dict: Data from input, but converted to standardized tags
 
-  """
-  tvdb     = kwargs.get('TVDb', False)                                                  # IF the TVDb keyword is set
-  keys     = TVDb2Stnd if tvdb else TMDb2Stnd                                           # Set the keys dictionary based on tvdb
-  infoKeys = list( info.keys() ) 
-  for key in infoKeys:                                                                  # Iterate over all keys in info
-    if (key in keys):                                                                   # If key is in keys
-      info[ keys[key] ] = info.pop(key)                                                 # Pop key from dict and re-add as new standard key
-  if tvdb:                                                                              # If tvdb then 
-    key  = 'dvdOrder' if kwargs.get('dvdOrder', False) else 'airedOrder'                # Set key to 'airedOrder' or 'dvdOrder' based on dvdOrder keyword; 'airedOrder' by default
-    keys = TVDbOrder[key]                                                               # Get keys for converting ordering to internal format
-    for key in infoKeys:                                                                # Iterate over keys in infoKeys
-      if key in keys:                                                                   # If the key is in the keys dictionary
-        info[ keys[key] ] = info.pop(key)                                               # Convert the key 
-    return tvdb2tmdb( info )                                                            # Convert TVDb info to match TMDb 
-  return info                                                                           # Return info; if got here then tvdb was False
+    """
+
+    tvdb     = kwargs.get('TVDb', False)
+
+    # Set the keys dictionary based on tvdb
+    keys      = TVDb2Stnd if tvdb else TMDb2Stnd
+    info_keys = list( info.keys() )
+    for key in info_keys:
+        if key in keys:
+            info[ keys[key] ] = info.pop(key)
+
+    if tvdb:
+        key  = 'dvdOrder' if kwargs.get('dvdOrder', False) else 'airedOrder'
+        keys = TVDbOrder[key]
+        for key in info_keys:
+            if key in keys:
+                info[ keys[key] ] = info.pop(key)
+        return tvdb2tmdb( info )
+
+    return info
 
 def tvdb2tmdb( info ):
-  """
-  Convert TVDb data to TMDb for consistent parsing
+    """
+    Convert TVDb data to TMDb for consistent parsing
 
-  Arguments:
-    info (dict): Data from API request
+    Arguments:
+        info (dict): Data from API request
 
-  Keyword arguments:
-    None.
+    Keyword arguments:
+        None.
 
-  Returns:
-    dict: Keys modified from TVDb to TMDb
+    Returns:
+        dict: Keys modified from TVDb to TMDb
 
-  """
-  # Work on name key
-  key = 'name'                                                                          # Set key for next section; makes updating key easier as used a lot in next few lines
-  if info.get(key, None) is None:                                                       # Try to get key from dictionary; check if None
-    return None                                                                         # If None, return None
-  if isinstance(info[key], (tuple,list)):                                               # If the value is iterable
-    info[key] = ' - '.join(info[key])                                                   # Join value
-  info[key] = PARENTH.sub('', info[key])
+    """
 
-  if ('imdbId' in info):                                                                # If imdbId in info
-    info[ 'external_ids' ] = {'imdb_id' : info.pop('imdbId') }                          # Create external_ids
+    # Work on name key
+    key = 'name'
+    if info.get(key, None) is None:
+        return None
 
-  credits = info.pop( 'credits', {} )                                                   # Get credits
-  crew    = []                                                                          # Initialize list for crew
-  job     = 'Director'                                                                  # Define job
-  key     = 'director'
-  if (key in info):                                                                     # If key in info
-    name = info.pop(key)                                                                # Pop off data
-    crew.append( {'name' : name, 'job' : job } )                                        # Append person to crew
-  key     = 'directors'
-  if (key in info):                                                                     # If key in info
-    for name in info.pop(key):                                                          # Pop off data
-      crew.append( {'name' : name, 'job' : job } )                                      # Append person to crew
+    info['title'] = info[key]
 
-  job = 'Writer'                                                                        # Set job name
-  key = 'writers'                                                                       # Set key
-  if (key in info):
-    for name in info.pop(key):
-      crew.append( {'name' : name, 'job' : job } )
+    if isinstance(info[key], (tuple,list)):
+        info[key] = ' - '.join(info[key])
+    info[key] = PARENTH.sub('', info[key])
 
-  if crew:
-    credits['crew'] = crew
-    
-  guests = info.pop('guestStars', None)
-  if guests:
-    for i in range( len(guests) ):
-      guests[i] = {'name' : guests[i]}
-    credits['guest_stars'] = guests 
+    if 'imdbId' in info:
+        info[ 'external_ids' ] = {'imdb_id' : info.pop('imdbId') }
 
-  if credits:
-    info['credits'] = credits
+    credits_info = info.pop( 'credits', {} )
+    crew    = []
+    job     = 'Director'
+    key     = 'director'
+    if key in info:
+        name = info.pop(key)
+        crew.append( {'name' : name, 'job' : job } )
 
-  keys = ['seriesId', 'season_number', 'episode_number']                                # List of keys that need to be checked for matching
-  for key in keys:                                                                      # Iterate over all keys
-    if key in info and isinstance(info[key], (tuple, list)):                            # If the key is in info dictionary, and the value of the key is an iterable
-      if not all( [i == info[key][0] for i in info[key]] ):                             # If not all the values match
-        raise Exception('Not all values in {} match!'.format(key))                      # Raise exception
-      info[key] = info[key][0]                                                          # Set info[key] value to the first element of the iterable
+    key = 'directors'
+    if key in info:
+        for name in info.pop(key):
+            crew.append( {'name' : name, 'job' : job } )
 
-  return info
+    job = 'Writer'
+    key = 'writers'
+    if key in info:
+        for name in info.pop(key):
+            crew.append( {'name' : name, 'job' : job } )
 
-def parseCredits( info, **kwargs ):
-  """
-  Function to parse credits into Person objects
+    if crew:
+        credits_info['crew'] = crew
 
-  Arguments:
-    info (dict): Data from an API call
+    guests = info.pop('guestStars', None)
+    if guests:
+        for i, guest in enumerate( guests ):
+            guests[i] = {'name' : guest}
+        credits_info['guest_stars'] = guests
 
-  Keyword argumetns:
-    None.
+    if credits_info:
+        info['credits'] = credits_info
 
-  Returns:
-    dict: Updated dictionary
+    keys = ['seriesId', 'season_number', 'episode_number']
+    for key in keys:
+        if key in info and isinstance(info[key], (tuple, list)):
+            if not all( i == info[key][0] for i in info[key] ):
+                raise Exception(f'Not all values in {key} match!')
+            info[key] = info[key][0]
 
-  """
+    return info
 
-  log     = logging.getLogger(__name__)
-  credits = info.pop('credits', None)
-  if credits:
+def parse_credits( info, **kwargs ):
+    """
+    Function to parse credits into Person objects
+
+    Arguments:
+        info (dict): Data from an API call
+
+    Keyword argumetns:
+        None.
+
+    Returns:
+        dict: Updated dictionary
+
+    """
+
+    log     = logging.getLogger(__name__)
+    credits_info = info.pop('credits', None)
+    if credits_info is None:
+        return info
+
     log.debug('Found credits to parse')
-    for key, val in credits.items():
-      if isinstance(val, list):
-        if len(val)== 0:
-          log.debug( 'Empty  : {}'.format(key) )
+    for key, values in credits_info.items():
+        if not isinstance(values, list):
+            continue
+
+        if len(values) == 0:
+            log.debug( 'Empty  : %s', key )
+            continue
+
+        log.debug( 'Parsing: %s', key )
+        for i, val in enumerate(values):
+            values[i] = Person( data = val )
+        if (key != 'crew') and ('order' in values[0]):
+            info[key] = sorted(values, key=lambda x: x.order)
         else:
-          log.debug( 'Parsing: {}'.format(key) )
-          for i in range( len(val) ):
-            val[i] = Person( data = val[i] )
-          if (key != 'crew') and ('order' in val[0]):
-            info[key] = sorted(val, key=lambda x: x.order)
-          else:
-            info[key] = val
-  return info
+            info[key] = values
 
-def parseReleases( info, **kwargs ):
-  """Parse release information from TMDb"""
+    return info
 
-  releases = info.pop( 'release_dates', None )
-  if releases:
-    results = releases.pop('results', None )
-    if results:
-      for result in results:
-        releases[result['iso_3166_1']] = result['release_dates']
-      info['release_dates'] = releases
-  return info
+def parse_releases( info, **kwargs ):
+    """Parse release information from TMDb"""
 
-def imagePaths( info, **kwargs ):
-  """Build paths to poster/cover/banner/fanart images"""
+    releases = info.pop( 'release_dates', None )
+    if releases:
+        results = releases.pop('results', None )
+        if results:
+            for result in results:
+                releases[result['iso_3166_1']] = result['release_dates']
+            info['release_dates'] = releases
+    return info
 
-  imageURL = kwargs.get('imageURL', None)
-  if imageURL:
-    imageKeys = ['_path', 'poster', 'banner', 'fanart', 'filename']
-    for key, val in info.items():
-      if any( [image in key for image in imageKeys] ):
-        if isinstance(val, (list,tuple)): val = val[0]                                  # If is an iterable, take first value
-        info[key] = imageURL.format( val )
-  return info
+def image_paths( info, **kwargs ):
+    """Build paths to poster/cover/banner/fanart images"""
 
-def parseInfo( info, **kwargs ):
-  """
-  Wrapper function for parsing/standardizing data
+    image_url = kwargs.get('imageURL', None)
+    if image_url:
+        image_keys = ['_path', 'poster', 'banner', 'fanart', 'filename']
+        for key, val in info.items():
+            if any( image in key for image in image_keys ):
+                if isinstance(val, (list,tuple)):
+                    val = val[0]
+                info[key] = image_url.format( val )
+    return info
 
-  Arguments:
-    info (dict): Data from API request
+def parse_info( info, **kwargs ):
+    """
+    Wrapper function for parsing/standardizing data
 
-  Keyword arguments:
-    **kwargs
+    Arguments:
+        info (dict): Data from API request
 
-  Returns:
-    dict: Data from input, but parsed to standardized format
+    Keyword arguments:
+        **kwargs
 
-  """
+    Returns:
+        dict: Data from input, but parsed to standardized format
 
-  info = standardize(   info, **kwargs )
-  if info is not None:
-    info = parseCredits(  info, **kwargs )
-    info = parseReleases( info, **kwargs ) 
-    info = imagePaths(    info, **kwargs )
-  return info
+    """
+
+    info = standardize(   info, **kwargs )
+    if info is not None:
+        info = parse_credits(  info, **kwargs )
+        info = parse_releases( info, **kwargs )
+        info = image_paths(    info, **kwargs )
+    return info

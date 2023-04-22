@@ -8,10 +8,12 @@ import re
 import json
 import subprocess as subproc
 
-
-cmd  = ['mediainfo', '--version']
 try:
-    proc = subproc.Popen( cmd, stdout = subproc.PIPE, stderr = subproc.PIPE )
+    proc = subproc.Popen( 
+        ['mediainfo', '--version'],
+        stdout = subproc.PIPE,
+        stderr = subproc.PIPE,
+    )
 except:
     MediaInfoLib = None
 else:
@@ -21,9 +23,6 @@ else:
         .decode()
         .split('.')
     )
-    del proc, stdout, stderr
-
-del cmd
 
 def num_convert( val ):
     """

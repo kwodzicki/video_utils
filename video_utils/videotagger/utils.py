@@ -1,5 +1,11 @@
+"""
+Utilities for video tagging
+
+"""
+
 import logging
-import os, re
+import os
+import re
 from urllib.request import urlopen
 from io import BytesIO
 
@@ -13,202 +19,232 @@ WHITE    = (240, 240, 240)
 BSCALE   = 0.05
 TSCALE   = 0.85
 SPACE    = ' '
-#BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
-BADCHARS = re.compile( '[#%\\\<\>\*\?/\$\!\:\@]' )                                   # Characters that are not allowed in file paths
+
+# Characters that are not allowed in file paths
+#BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )
+BADCHARS = re.compile( '[#%\\\<\>\*\?/\$\!\:\@]' )
 
 def _replace( string, repl, **kwargs ):
-  """
-  'Private' function for replace characters in string
+    """
+    'Private' function for replace characters in string
 
-  Arguments:
-    string (str): String to have characters replaced
-    repl (str): String to replace bad characters with
+    Arguments:
+        string (str): String to have characters replaced
+        repl (str): String to replace bad characters with
 
-  Keyword arguments:
-    **kwargs: Any, none used currently
+    Keyword arguments:
+        **kwargs: Any, none used currently
 
-  Returns:
-    str: String with bad values repaced by repl value
+    Returns:
+        str: String with bad values repaced by repl value
 
-  """
+    """
 
-  return BADCHARS.sub( repl, string ).replace('&', 'and').strip()
+    return BADCHARS.sub( repl, string ).replace('&', 'and').strip()
 
-def replaceChars( *args, repl = ' ', **kwargs ):
-  """
-  Replace invalid path characters; '&' replaced with 'and'
+def replace_chars( *args, repl = ' ', **kwargs ):
+    """
+    Replace invalid path characters; '&' replaced with 'and'
 
-  Arguments:
-    *args (str): String(s) to replace characters in
+    Arguments:
+        *args (str): String(s) to replace characters in
 
-  Keyword arguments:
-    repl (str): String to replace bad characters with; default is space (' ')
-    **kwargs
+    Keyword arguments:
+        repl (str): String to replace bad characters with; default is space (' ')
+        **kwargs
 
-  Returns:
-    String, or list, with bad values replaced by repl value
+    Returns:
+        String, or list, with bad values replaced by repl value
 
-  """
+    """
 
-  if len(args) == 1:                                                                    # If one input argument
-    return _replace( args[0], repl, **kwargs )                                          # Return single value
-  return [ _replace( arg, repl, **kwargs ) for arg in args ]                            # Iterate over all input arguments, returning list
- 
-def download(URL):
-  """
-  Download data from URL
+    if len(args) == 1:
+        return _replace( args[0], repl, **kwargs )
+    return [ _replace( arg, repl, **kwargs ) for arg in args ]
 
-  Arguments:
-    URL (str): Full URL of data to download
+def is_id(db_id):
+    """Check to ensure the db_id is valid db_id"""
 
-  Keyword arguments:
-    None.
+    # If tvdb or tmdb in the first
+    return db_id[:4] == 'tvdb' or db_id[:4] == 'tmdb'
 
-  Returns:
-    bytes: Data downloaded from file; None if failed
+def download(url):
+    """
+    Download data from URL
 
-  """
+    Arguments:
+      url (str): Full URL of data to download
 
-  log  = logging.getLogger(__name__)
-  data = None
-  log.debug('Attempting to open URL: {}'.format(URL))
-  try:
-    resp = urlopen( URL )
-  except Exception as err:
-    log.warning( 'Failed to open URL: {}'.format(err) )
+    Keyword arguments:
+      None.
+
+    Returns:
+      bytes: Data downloaded from file; None if failed
+
+    """
+
+    log  = logging.getLogger(__name__)
+    data = None
+    log.debug('Attempting to open URL: %s', url)
+    try:
+        resp = urlopen( url )
+    except Exception as error:
+        log.warning( 'Failed to open URL: %s', error )
+        return data
+
+    log.debug('Attempting to download data')
+    try:
+        data = resp.read()
+    except Exception as error:
+        log.warning( 'Failed to download data: %s', error )
+
+    try:
+        resp.close()
+    except Exception as error:
+        log.debug('Failed to close URL: %s', error )
+
     return data
 
-  log.debug('Attempting to download data')
-  try:
-    data = resp.read()
-  except Exception as err:
-    log.warning( 'Failed to download data' )
+def get_font( text, bbox ):
+    """
+    Determine font size for movie version
 
-  try:
-    resp.close()
-  except Exception as err:
-    log.debug('Failed to close URL: {}'.format( err ) )
+    This function determines the font size to use when adding movie version
+    information to a poster. The font size is determined by iteratively 
+    increasing the font size until the text will no longer fit inside the
+    specified box. The font size is the decremented slightly to ensure it
+    fits. Space is also added between letters to ensure that the text
+    spans most of the box horizontally.
 
-  return data
+    Arguments:
+        text (str): Text to add to the movie poster
+        bbox (iterable): Dimensions of the box (width,height) to write text in
 
-def getFont( text, bbox ):
-  """
-  Determine font size for movie version
+    Keyword arguments:
+        None
 
-  This function determines the font size to use when adding movie version
-  information to a poster. The font size is determined by iteratively 
-  increasing the font size until the text will no longer fit inside the
-  specified box. The font size is the decremented slightly to ensure it
-  fits. Space is also added between letters to ensure that the text
-  spans most of the box horizontally.
+    Returns:
+        tuple: Input text (may be updated with extra space between characters)
+            and a pillow ImageFont font object.
 
-  Arguments:
-    text (str): Text to add to the movie poster
-    bbox (iterable): Dimensions of the box (width,height) to write text in
+    """
 
-  Keyword arguments:
-    None
+    bbox      = list(bbox)
+    bbox[0]  *= TSCALE
+    bbox[1]  *= TSCALE
+    fontsize  = 1
+    font      = ImageFont.truetype(TTF, size = fontsize)
+    text_size = font.getsize( text )
 
-  Returns:
-    tuple: Input text (may be updated with extra space between characters) and a
-      pillow ImageFont font object.
+    # While the text fits within the box
+    while text_size[0] < bbox[0] and text_size[1] < bbox[1]:
+        fontsize += 1
+        font      = ImageFont.truetype(TTF, size = fontsize)
+        text_size = font.getsize( text )
 
-  """
+    # Decrement font size by 2 to ensure will fit
+    fontsize -= 2
+    font      = ImageFont.truetype(TTF, size = fontsize)
 
-  bbox      = list(bbox)                                                        # Convert bbox to list
-  bbox[0]  *= TSCALE                                                            # Scale the box height by TSCALE
-  bbox[1]  *= TSCALE                                                            # Scale the box height by TSCALE
-  fontsize  = 1                                                                 # Set font to 1
-  font      = ImageFont.truetype(TTF, size = fontsize)                          # Load font
-  textSize  = font.getsize( text )                                              # Get size of text
-  while textSize[0] < bbox[0] and textSize[1] < bbox[1]:                        # While the text fits within the box
-    fontsize += 1                                                               # Increment fontsize by one
-    font      = ImageFont.truetype(TTF, size = fontsize)                        # Load font with new fontsize
-    textSize  = font.getsize( text )                                            # Get size of text
-  fontsize -= 2                                                                 # Decrement font size by 2 to ensure will fit
-  font      = ImageFont.truetype(TTF, size = fontsize)                          # Load font with fontsize
+    text_size = font.getsize( text )
+    text_list = list(text)
 
-  textSize  = font.getsize( text )                                              # Get size of text
-  textList  = list(text)                                                        # Convert text to  list
-  nspace    = 0                                                                 # Set number of added spaces to zero
-  while textSize[0] < bbox[0]:                                                  # While width of text fits within bbox
-    nspace += 1                                                                 # Increment number of spaces
-    text    = (SPACE * nspace).join( textList )                                 # Join text list using nspaces
-    textSize  = font.getsize( text )                                            # Get new text size
-  nspace -= 1                                                                   # Decement number of spaces as too wide at first
-  text    = (SPACE * nspace).join( textList )                                   # Set text
+    # Set number of added spaces to zero
+    nspace    = 0
 
-  return text, font                                                             # Return text and font
+    # While width of text fits within bbox
+    while text_size[0] < bbox[0]:
+        nspace += 1
+        # Join text list using nspaces
+        text      = (SPACE * nspace).join( text_list )
+        # Get new text size
+        text_size = font.getsize( text )
 
-def addText( fp, text ):
-  """
-  Add text to image object
+    # Decement number of spaces as too wide at first
+    nspace -= 1
+    text    = (SPACE * nspace).join( text_list )
 
-  This function adds a text string to a pillow Image object
+    return text, font
 
-  Arguments:
-    fp (file, bytes): Path to a file to read in or bytes of file
-    text (str): String to add to image
+def add_text( fpath_data, text ):
+    """
+    Add text to image object
 
-  Keyword arguments:
-    None
+    This function adds a text string to a pillow Image object
 
-  Returns:
-    bytes: Image data
+    Arguments:
+        fpath_data (file, bytes): Path to a file to read in or bytes of file
+        text (str): String to add to image
 
-  """
+    Keyword arguments:
+        None
 
-  if isinstance(fp, bytes):                                                     # If input is a bytes instance
-    fileObj = BytesIO()                                                         # Create bytes IO object
-    fileObj.write( fp )                                                         # Write bytes
-    fileObj.seek(0)                                                             # Seek back to beginning
-  else:                                                                         # Else
-    fileObj = fp                                                                # Set fileObj to input
+    Returns:
+        bytes: Image data
 
-  image = Image.open( fileObj )                                                 # Open the image
-  draw  = ImageDraw.Draw( image )                                               # Initialize a drawer
-  bbox  = (image.width, image.height * BSCALE)                                  # Width and height of box to draw text in
+    """
 
-  text, font = getFont( text, bbox )                                            # Get text (may add spaces) and font to use
+    # If input is a bytes instance
+    if isinstance(fpath_data, bytes):
+        file_obj = BytesIO()
+        file_obj.write( fpath_data )
+        file_obj.seek(0)
+    else:
+        file_obj = fpath_data
 
-  textSize = font.getsize( text )                                               # Get text size
-  xoffset  = int( bbox[0] - textSize[0] ) // 2                                  # Compute x offset to center text
-  yoffset  = 0                                                                  # Set yoffset to zero
+    # Open the image
+    image = Image.open( file_obj )
+    # Initialize a drawer
+    draw  = ImageDraw.Draw( image )
+    # Width and height of box to draw text in
+    bbox  = (image.width, image.height * BSCALE)
 
-  draw.rectangle( (0, bbox[1], bbox[0], 0), fill = RED )                        # Draw red box at top of cover
-  draw.text( (xoffset, yoffset), text, font = font, fill = WHITE )              # Write text in box
+    # Get text (may add spaces) and font to use
+    text, font = get_font( text, bbox )
 
-  data  = BytesIO()                                                             # Initialize BytesIO
-  image.save( data, format = image.format )                                     # Save data to BytesIO object
-  data.seek(0)                                                                  # Seek to beginning of data
-  return data.read()                                                            # Return bytes
+    text_size = font.getsize( text )
+    # Compute x offset to center text
+    xoffset  = int( bbox[0] - text_size[0] ) // 2
+    yoffset  = 0
 
-def downloadCover( videoPath, URL, text = None ):
-  """
-  Wrapper function to download artwork and add version text
+    # Draw red box at top of cover
+    draw.rectangle( (0, bbox[1], bbox[0], 0), fill = RED )
+    # Write text in box
+    draw.text( (xoffset, yoffset), text, font = font, fill = WHITE )
 
-  Arguments:
-    videoPath (str): Path to video file artwork is for
-    URL (str): URL of artwork to download
+    data  = BytesIO()# Initialize BytesIO
+    image.save( data, format = image.format )# Save data to BytesIO object
+    data.seek(0)# Seek to beginning of data
+    return data.read()# Return bytes
 
-  Keyword arguments:
-    text (str): Text to add to artwork; typically is movie version
+def download_cover( video_path, url, text = None ):
+    """
+    Wrapper function to download artwork and add version text
 
-  Returns:
-    tuple: Path to downloaded image on local disc, and bytes for image data
+    Arguments:
+        video_path (str): Path to video file artwork is for
+        url (str): URL of artwork to download
 
-  """
+    Keyword arguments:
+        text (str): Text to add to artwork; typically is movie version
 
-  imagePath = None                                                                      # Initialize imagePath to None
-  data      = download( URL )                                                           # Download data from URL
-  if data is not None:                                                                  # If data is NOT None
-    if isinstance(text, str) and text != '':                                            # If text is string instance and NOT empty
-      data = addText( data, text )                                                      # Add text to image data
+    Returns:
+        tuple: Path to downloaded image on local disc, and bytes for image data
 
-    imageExt  = os.path.splitext( URL       )[1]                                        # Get image extension
-    imagePath = os.path.splitext( videoPath )[0] + imageExt                             # Set image path
-    
-    with open( imagePath, 'wb' ) as fid:                                                # Open imagePath in binary write mode
-      fid.write( data )                                                                 # Write data to file
+    """
 
-  return imagePath, data                                                                # Return path to file and image bytes
+    data = download( url )
+    if data is None:
+        return None, None
+
+    # If text is string instance and NOT empty, add text to the image
+    if isinstance(text, str) and text != '':
+        data = add_text( data, text )
+
+    image_ext  = os.path.splitext( url        )[1]
+    image_path = os.path.splitext( video_path )[0] + image_ext
+
+    with open( image_path, 'wb' ) as fid:
+        fid.write( data )
+
+    return image_path, data

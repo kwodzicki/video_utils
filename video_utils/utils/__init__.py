@@ -5,14 +5,33 @@ Tons of different utilities to aid in the conversion/manipulation of video
 files.
 
 """
+import logging
 
-from threading import Lock
+from threading import Lock, Event
 from multiprocessing import cpu_count
 
 MAXTHREADS  = cpu_count()
 MINTHREADS  = 1
 
 HALFTHREADS = max(MAXTHREADS // 2, 1)
+
+_sigintEvent  = Event()
+_sigtermEvent = Event()
+
+def _handle_sigint(*args, **kwargs):
+    log = logging.getLogger(__name__)
+    _sigintEvent.set()
+    log.error('Caught interrupt...')
+
+def _handle_sigterm(*args, **kwargs):
+    log = logging.getLogger(__name__)
+    _sigtermEvent.set()
+    log.error('Caught terminate...')
+
+def isRunning():
+    """Check for SIGINT or SIGTERM encountered"""
+
+    return (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set())
 
 def thread_check(val):
     """Check that requested number of threads is integer type and is with in allowable range"""

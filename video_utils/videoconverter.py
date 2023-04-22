@@ -14,14 +14,13 @@ from datetime import datetime
 
 from . import __name__ as __pkg_name__
 from . import __version__ as __pkg_version__
-from . import _sigintEvent, _sigtermEvent, isRunning
 from . import POPENPOOL
 
 from .mediainfo import MediaInfo
 from .comremove import ComRemove
+from .utils import _sigintEvent, _sigtermEvent, isRunning, thread_check
 from .utils.handlers import RotatingFile
 from .utils.ffmpeg_utils   import cropdetect, FFmpegProgress
-from .utils import thread_check
 
 from .subtitles import opensubtitles
 from .subtitles import ccextract
@@ -329,7 +328,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         if self.transcode_status == 0:
             self.__log.info( "Transcode SUCCESSFUL!" )
             if self.metadata:
-                self.metadata.writeTags( outfile )
+                self.metadata.write_tags( outfile )
 
             self.get_subtitles( )
             self._compression_ratio( outfile )
@@ -407,10 +406,10 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             self.metadata.addComment(
                 f"File converted and tagged using {__pkg_name__} version {__pkg_version__}"
             )
-            outfile = self.metadata.getBasename()
+            outfile = self.metadata.get_basename()
             if not self.in_place:
-                # Set outdir based on self.outdir and getDirname() method
-                outdir = self.metadata.getDirname( root = self.outdir )
+                # Set outdir based on self.outdir and get_dirname() method
+                outdir = self.metadata.get_dirname( root = self.outdir )
         else:
             # Set outfile to infile basename without extension
             outfile = os.path.splitext( os.path.basename( self.infile ) )[0]

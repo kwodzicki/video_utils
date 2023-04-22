@@ -16,7 +16,7 @@ from threading import Thread, Event
 
 from .check_cli import check_cli
 from .import NLock, thread_check
-from .. import isRunning, _sigtermEvent
+from . import isRunning, _sigtermEvent
 
 TIMEOUT  = 1.0
 PROCLOCK = NLock()

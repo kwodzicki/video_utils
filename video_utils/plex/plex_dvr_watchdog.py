@@ -17,8 +17,8 @@ from threading import Thread, Timer, Event, Lock
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from .. import isRunning#_sigintEvent, _sigtermEvent
 from ..config import plex_dvr
+from ..utils import isRunning#_sigintEvent, _sigtermEvent
 from ..utils.handlers import send_email
 from .dvr_converter import DVRconverter
 from .utils import DVRqueue

@@ -40,7 +40,7 @@ def tag_file( args ):
         f'Metadata written with {video_utils.__name__} version {video_utils.__version__}.'
     )
     try:
-        metadata.writeTags( args.path )
+        metadata.write_tags( args.path )
     except:
         video_utils.log.critical('Failed to write tags')
         return False
@@ -49,9 +49,9 @@ def tag_file( args ):
         video     = mediainfo.get_video_info()
         audio     = mediainfo.get_audio_info()
         _, ext    = os.path.splitext( args.path )
-        new_dir   = metadata.getDirname(root = args.rename)
+        new_dir   = metadata.get_dirname(root = args.rename)
         os.makedirs( new_dir, exist_ok = True )
-        new_file = [metadata.getBasename()] + video['file_info'] + audio['file_info']
+        new_file = [metadata.get_basename()] + video['file_info'] + audio['file_info']
         new_path = os.path.join( new_dir, '.'.join(new_file) + ext )
         video_utils.log.info('Renaming file: %s ---> %s', args.path, new_path)
         os.rename( args.path, new_path )

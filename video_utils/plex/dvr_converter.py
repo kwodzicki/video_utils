@@ -9,7 +9,7 @@ they are not as large as MPEG-TS files are not very efficient.
 import logging
 import os
 
-from .. import isRunning#_sigintEvent, _sigtermEvent
+from ..utils import isRunning#_sigintEvent, _sigtermEvent
 from ..videoconverter import VideoConverter
 
 from .plex_media_scanner import plex_media_scanner

@@ -13,8 +13,8 @@ from subprocess import Popen, run, check_output, PIPE, STDOUT, DEVNULL
 
 import numpy as np
 
-from .. import _sigintEvent, _sigtermEvent
 from .. import POPENPOOL
+from . import isRunning
 
 # Regex pattern for locating file duration in ffmpeg ouput
 PROGPAT = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' )
@@ -425,12 +425,12 @@ def cropdetect( infile, seg_len = 20, threads = None):
     start_time   = timedelta(seconds = 0)
     crop = CHUNK.copy()
 
-    log.debug( 'Detecting crop using chunks of length %f', seg_len )
+    log.debug( 'Detecting crop using chunks of length %s', seg_len )
 
     detect = True
-    while detect and (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set()):
+    while detect and isRunning():
         detect = False
-        log.debug( 'Checking crop starting at %f', start_time )
+        log.debug( 'Checking crop starting at %s', start_time )
         # Generate command for crop detection
         cmd  = cropdetect_cmd( infile, start_time, seg_len, threads )
         # Start the command, piping stdout and stderr to a pipe
@@ -508,10 +508,10 @@ def cropdetect( infile, seg_len = 20, threads = None):
     # crop height because applies to both top and bottom of video
     y_offset = (res[1] - y_width) // 2
 
-    crop = np.asarray( (x_width, y_width, x_offset, y_offset), dtype = np.uint16 )
-
+    crop = map(int, ( x_width, y_width, x_offset, y_offset ) )
+    
     log.debug( 'Values for crop: %s', crop )
-    return 'crop={}:{}:{}:{}'.format( *crop )
+    return 'crop=' + ':'.join( map(str, crop) )
 
 def total_seconds( *args ):
     """

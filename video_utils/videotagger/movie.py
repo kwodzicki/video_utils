@@ -1,9 +1,14 @@
+"""
+Classes for movie information
+
+"""
+
 import logging
 import os
 
-from .BaseItem import BaseItem
-from .parsers import parseInfo
-from .utils import replaceChars
+from .base_item import BaseItem
+from .parsers import parse_info
+from .utils import replace_chars
 
 EXTRA_LOOKUP = {
     'behindthescenes' : 'Behind The Scenes',
@@ -16,7 +21,7 @@ EXTRA_LOOKUP = {
     'other'           : 'Other',
 }
 
-def getBasename(title, year=None, version='', ID='', isExtra=False, **kwargs):
+def get_basename(title, year=None, version='', ID='', isExtra=False, **kwargs):
     """
     Helper function for getting basename
 
@@ -32,25 +37,27 @@ def getBasename(title, year=None, version='', ID='', isExtra=False, **kwargs):
         version (str): Movie version; e.g., Extended Edition, Unrated
         ID (str): Movie ID
         isExtra (bool) If set, then the title is an extra feature
-        **kwargs: Passed to the :meth:`video_utils.videotagger.utils.replaceChars` function
+        **kwargs: Passed to the :meth:`video_utils.videotagger.utils.replace_chars` function
 
     Returns:
         str: Movie base name
 
     """
 
-    print('getting basename')
+
+    log = logging.getLogger(__name__)
+    log.info( 'Getting basename' )
 
     if isExtra:
         return '-'.join( version.split('-')[:-1] )
 
-    title, version, ID = replaceChars( title, version, ID, **kwargs )
-    if version != '': 
+    title, version, ID = replace_chars( title, version, ID, **kwargs )
+    if version != '':
         version = f"{{{version}}}"
 
-    if year:                                                                              # If year is valid
-        return '{:.50} ({}).{}.{}'.format( title, year, version, ID )               # Generate base name
-    return '{:.50}.{}.{}'.format( title, version, ID )                          # Generate base name without year
+    if year:
+        return f'{title:.50} ({year}).{version}.{ID}'
+    return f'{title:.50}.{version}.{ID}'
 
 class BaseMovie( BaseItem ):
     """
@@ -73,19 +80,19 @@ class BaseMovie( BaseItem ):
 
         """
 
-        super().__init__(*args, **kwargs)                                                   # Initialize parent class(es)
-        self._isMovie = True                                                                # Set _isMovie flag to True
+        super().__init__(*args, **kwargs)
+        self._isMovie = True
 
     def __str__(self):
         try:
-            return '{} ({})'.format(self.title, self.release_date.year)
+            return f'{self.title} ({self.release_date.year})'
         except:
-            return '{}'.format(self.title)
+            return self.title
 
     def __repr__(self):
-        return '<{} ID: {}; Title: {}>'.format( self.__class__.__name__, self.id, self )
+        return f'<{self.__class__.__name__} ID: {self.id}; Title: {self}>'
 
-    def getBasename(self, **kwargs):
+    def get_basename(self, **kwargs):
         """
         Get file name in Plex convention
 
@@ -96,19 +103,19 @@ class BaseMovie( BaseItem ):
         Example:
 
             >>> movie = Movie.TMDbMovie(435)
-            >>> print( movie.getBasename() )
+            >>> print( movie.get_basename() )
             'The Day After Tomorrow (2004)..tmdb435'
 
             >>> movie = Movie.TMDbMovie(435)
             >>> movie.setVersion( 'Extended Edition' )
-            >>> print( movie.getBasename() )
+            >>> print( movie.get_basename() )
             'The Day After Tomorrow (2004).Extended Edition.tmdb435'
 
         Arguments:
             None
 
         Keyword arguments:
-            **kwargs: Passed to replaceChars() function
+            **kwargs: Passed to replace_chars() function
 
         Returns:
             str: File nam in Plex convention
@@ -120,16 +127,16 @@ class BaseMovie( BaseItem ):
             year = self.release_date.year
         except:
             year = None
-        return getBasename( 
-            title, 
-            year, 
-            version = self._version, 
-            ID      = self.getIDPlex(), 
-            isExtra = self.isExtra, 
+        return get_basename(
+            title,
+            year,
+            version = self._version,
+            ID      = self.getIDPlex(),
+            isExtra = self.isExtra,
             **kwargs,
         )
 
-    def getDirname(self, root = ''):
+    def get_dirname(self, root = ''):
         """
         Get directory structure in Plex convention
 
@@ -139,7 +146,7 @@ class BaseMovie( BaseItem ):
         Example:
 
             >>> movie = Movie.TMDbMovie(435)
-            >>> print( movie.getDirname() )
+            >>> print( movie.get_dirname() )
             'Movies/The Day After Tomorrow (2004)' 
 
         Arguments:
@@ -153,7 +160,7 @@ class BaseMovie( BaseItem ):
 
         """
 
-        mdir = replaceChars( str(self) )
+        mdir = replace_chars( str(self) )
         mid  = self.getIDPlex()
         if mid is not None:
             mdir = f"{mdir} {mid}"
@@ -170,26 +177,26 @@ class TMDbMovie( BaseMovie ):
         super().__init__(*args, **kwargs)
         self._tmdb = True
 
-        if not self._data:                                                                  # If data is empty
-            if (len(args) == 0):
+        if not self._data:
+            if len(args) == 0:
                 raise Exception( "Must input movie ID or used 'data' keyword" )
-            movieID = args[0]
-            if isinstance(movieID, str):
-                if 'tmdb' in movieID:
-                    movieID = movieID.replace('tmdb', '')
-            self.URL = self.TMDb_URLMovie.format( movieID )
-            json     = self._getJSON( self.URL, append_to_response = self.EXTRA )
+            movie_id = args[0]
+            if isinstance(movie_id, str):
+                if 'tmdb' in movie_id:
+                    movie_id = movie_id.replace('tmdb', '')
+            self.URL = self.TMDb_URLMovie.format( movie_id )
+            json     = self._get_json( self.URL, append_to_response = self.EXTRA )
             if json:
-                info = parseInfo( json, imageURL = self.TMDb_URLImage )
-                if info is not None: 
-                    self._data.update( info )      
+                info = parse_info( json, imageURL = self.TMDb_URLImage )
+                if info is not None:
+                    self._data.update( info )
         else:
             self.URL = self.TMDb_URLMovie.format( self.id )
             json = self.getExtra( *self.EXTRA )
             if json:
-                info = parseInfo( json, imageURL = self.TMDb_URLImage )
-                if info is not None: 
-                    self._data.update( info )      
+                info = parse_info( json, imageURL = self.TMDb_URLImage )
+                if info is not None:
+                    self._data.update( info )
 
 class TVDbMovie( BaseMovie ):
     """Object for movie information from TVDb"""
@@ -200,7 +207,7 @@ class TVDbMovie( BaseMovie ):
         Initialize the class
 
         Arguments:
-            movieID (str,int): TVDb movie ID. Can include 'tvdb' or just integer
+            movie_id (str,int): TVDb movie ID. Can include 'tvdb' or just integer
             *args: Arbitrary arguments
 
         Keyword arguments:
@@ -209,26 +216,26 @@ class TVDbMovie( BaseMovie ):
 
         """
 
-        super().__init__(*args, **kwargs)                                                   # Initialize parent class(es)
-        self._tmdb = False                                                                  # Set _tmdb flag to False as this is TVDb
+        super().__init__(*args, **kwargs)
+        self._tmdb = False
 
-        if not self._data:                                                                  # If no _data
-            if (len(args) == 0):
+        if not self._data:
+            if len(args) == 0:
                 raise Exception( "Must input movie ID or used 'data' keyword" )
-            movieID = args[0]
-            if isinstance(movieID, str):
-                if 'tvdb' in movieID:
-                    movieID = movieID.replace('tvdb', '')
-            self.URL = self.TVDb_URLMovie.format( movieID )
-            json     = self._getJSON( self.URL )
+            movie_id = args[0]
+            if isinstance(movie_id, str):
+                if 'tvdb' in movie_id:
+                    movie_id = movie_id.replace('tvdb', '')
+            self.URL = self.TVDb_URLMovie.format( movie_id )
+            json     = self._get_json( self.URL )
             if json:
-                info = parseInfo( json )
-                if info is not None: 
-                    self._data.update( info )      
+                info = parse_info( json )
+                if info is not None:
+                    self._data.update( info )
         else:
             self.URL = self.TVDb_URLMovie.format( self.id )
             json = self.getExtra( *self.EXTRA )
             if json:
-                info = parseInfo( json )
-                if info is not None: 
-                    self._data.update( info )      
+                info = parse_info( json )
+                if info is not None:
+                    self._data.update( info )

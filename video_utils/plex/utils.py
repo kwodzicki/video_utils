@@ -17,7 +17,7 @@ from getpass import getpass
 from plexapi.myplex import MyPlexAccount
 
 from ..config import PLEXTOKEN
-from ..videotagger import TMDb, TVDb, Movie, Episode
+from ..videotagger import TMDb, TVDb, movie, episode
 
 _tmdb = TMDb()
 _tvdb = TVDb()
@@ -141,12 +141,12 @@ def plex_dvr_rename( in_file, hardlink = True ):
             log.error('No ID found!')
         metadata = None
         if season_ep:
-            new = Episode.getBasename( *season_ep, episode )
+            new = episode.get_basename( *season_ep, episode )
         else:
-            new = Movie.getBasename( title, year )
+            new = movie.get_basename( title, year )
     else:
         metadata = metadata[0]
-        new = metadata.getBasename()
+        new = metadata.get_basename()
 
     # Build new file path
     new = os.path.join( file_dir, new+ext )

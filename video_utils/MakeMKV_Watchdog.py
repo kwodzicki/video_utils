@@ -18,9 +18,9 @@ from queue import Queue
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from . import isRunning
 from .videoconverter import VideoConverter
 from .plex.plex_media_scanner import plex_media_scanner
+from .utils import isRunning
 from .utils.handlers import send_email
 
 TIMEOUT =  1.0

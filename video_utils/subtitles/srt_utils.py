@@ -59,7 +59,7 @@ class SRTsubs():
 
         """
 
-        with open(self.fpath, 'r') as fid:
+        with open(self.fpath, mode='r', encoding='utf8') as fid:
             lines = fid.readlines()
 
         self.raw = ''.join(lines)
@@ -153,7 +153,7 @@ class SRTsubs():
             self.log.warning( 'Now subtitles read in!' )
             return
 
-        with open(self.fpath, 'w') as fid:
+        with open(self.fpath, mode='w', encoding='utf8') as fid:
             if raw:
                 fid.write( self.raw )
             else:
@@ -184,7 +184,9 @@ def srt_cleanup( fname, **kwargs ):
 
     log = logging.getLogger(__name__)
     out_file = fname + '.tmp'
-    iid, oid, music = open(fname, 'r'), open(out_file, 'w'), False
+    iid   = open(fname,    mode='r', encoding='utf8')
+    oid   = open(out_file, mode='w', encoding='utf8')
+    music = False
     for i, in_line in enumerate(iid):
         line = in_line.rstrip()
         if len(line) == 0:

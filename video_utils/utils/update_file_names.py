@@ -17,7 +17,7 @@ else:
 
 from ..videotagger import TMDb
 from ..videotagger import TVDb
-from ..videotagger.Episode import TVDbEpisode
+from ..videotagger.episode import TVDbEpisode
 from ..plex.plex_media_scanner import plex_media_scanner as PMS
 
 IMDBID   = re.compile( '\.(tt\d+)\.' )
@@ -56,9 +56,9 @@ def tv_rename( topdir, path, imdbID, seriesID, rootdir = None, **kwargs ):
     # Split base name on period and lose first element (episode name)
     info = fbase.split('.')[1:]
     info.remove( imdbID )# Remove IMDb id from list
-    info.insert( 0, ep.getBasename() )
+    info.insert( 0, ep.get_basename() )
     newdir = rootdir if rootdir is not None else os.path.dirname( topdir )
-    newdir = ep.getDirname(newdir)
+    newdir = ep.get_dirname(newdir)
     os.makedirs( newdir, exist_ok=True)
 
     newname = '.'.join(info)
@@ -73,7 +73,7 @@ def tv_rename( topdir, path, imdbID, seriesID, rootdir = None, **kwargs ):
     except:
         return False
 
-    ep.writeTags( newpath )
+    ep.write_tags( newpath )
     shutil.copystat( path, newpath )
     print( f'Source         : {path}' )
     print( f'Copy created   : {newpath}' )
@@ -94,9 +94,9 @@ def movie_rename( topdir, path, metadata, imdbID, rootdir = None):
     info.pop(0)
     info.remove( imdbID )
     metadata.setVersion( mod )
-    info.insert( 0, metadata.getBasename() )
+    info.insert( 0, metadata.get_basename() )
     newdir = rootdir if rootdir is not None else os.path.dirname( topdir )
-    newdir = metadata.getDirname(newdir)
+    newdir = metadata.get_dirname(newdir)
     os.makedirs( newdir, exist_ok=True )
     newname = '.'.join(info)
     newpath = os.path.join( newdir, newname )
@@ -110,7 +110,7 @@ def movie_rename( topdir, path, metadata, imdbID, rootdir = None):
     except:
         return False
 
-    metadata.writeTags( newpath )
+    metadata.write_tags( newpath )
     shutil.copystat( path, newpath )
     print( f'Source         : {path}' )
     print( f'Copy created   : {newpath}' )
@@ -163,7 +163,7 @@ def gen_hard_links( topdir, rootdir = None, **kwargs ):
                     to_remove.append( path )
         else:
             # Get TMDbMovie object using IMDb id
-            # Use that information to create new file path using getDirname and getBasename
+            # Use that information to create new file path using get_dirname and get_basename
             # Create hard link to old file using new path
             res = tmdb.byIMDb( imdbID, **kwargs )
             if res is None:
