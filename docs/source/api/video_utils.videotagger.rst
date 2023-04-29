@@ -7,47 +7,23 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   video_utils.videotagger.API
+   video_utils.videotagger.api
 
 Submodules
 ----------
 
-video\_utils.videotagger.BaseItem module
-----------------------------------------
+video\_utils.videotagger.base\_item module
+------------------------------------------
 
-.. automodule:: video_utils.videotagger.BaseItem
+.. automodule:: video_utils.videotagger.base_item
    :members:
    :undoc-members:
    :show-inheritance:
 
-video\_utils.videotagger.Episode module
+video\_utils.videotagger.episode module
 ---------------------------------------
 
-.. automodule:: video_utils.videotagger.Episode
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-video\_utils.videotagger.Movie module
--------------------------------------
-
-.. automodule:: video_utils.videotagger.Movie
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-video\_utils.videotagger.Person module
---------------------------------------
-
-.. automodule:: video_utils.videotagger.Person
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-video\_utils.videotagger.Series module
---------------------------------------
-
-.. automodule:: video_utils.videotagger.Series
+.. automodule:: video_utils.videotagger.episode
    :members:
    :undoc-members:
    :show-inheritance:
@@ -60,6 +36,14 @@ video\_utils.videotagger.gui module
    :undoc-members:
    :show-inheritance:
 
+video\_utils.videotagger.movie module
+-------------------------------------
+
+.. automodule:: video_utils.videotagger.movie
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 video\_utils.videotagger.parsers module
 ---------------------------------------
 
@@ -68,10 +52,34 @@ video\_utils.videotagger.parsers module
    :undoc-members:
    :show-inheritance:
 
+video\_utils.videotagger.person module
+--------------------------------------
+
+.. automodule:: video_utils.videotagger.person
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 video\_utils.videotagger.readers module
 ---------------------------------------
 
 .. automodule:: video_utils.videotagger.readers
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+video\_utils.videotagger.series module
+--------------------------------------
+
+.. automodule:: video_utils.videotagger.series
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+video\_utils.videotagger.tags module
+------------------------------------
+
+.. automodule:: video_utils.videotagger.tags
    :members:
    :undoc-members:
    :show-inheritance:

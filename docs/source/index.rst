@@ -37,7 +37,7 @@ To install it using pip::
    email
    clis
    examples
-   api/index
+   api/modules
 
 
 Indices and tables

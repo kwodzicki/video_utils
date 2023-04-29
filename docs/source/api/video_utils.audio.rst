@@ -4,26 +4,26 @@ video\_utils.audio package
 Submodules
 ----------
 
-video\_utils.audio.DolbyDownmix module
+video\_utils.audio.audio\_delay module
 --------------------------------------
 
-.. automodule:: video_utils.audio.DolbyDownmix
+.. automodule:: video_utils.audio.audio_delay
    :members:
    :undoc-members:
    :show-inheritance:
 
-video\_utils.audio.audioDelay module
-------------------------------------
+video\_utils.audio.dolby\_downmix module
+----------------------------------------
 
-.. automodule:: video_utils.audio.audioDelay
+.. automodule:: video_utils.audio.dolby_downmix
    :members:
    :undoc-members:
    :show-inheritance:
 
-video\_utils.audio.replaceAudioStreams module
----------------------------------------------
+video\_utils.audio.replace\_audio\_streams module
+-------------------------------------------------
 
-.. automodule:: video_utils.audio.replaceAudioStreams
+.. automodule:: video_utils.audio.replace_audio_streams
    :members:
    :undoc-members:
    :show-inheritance:

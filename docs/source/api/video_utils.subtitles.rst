@@ -20,10 +20,18 @@ video\_utils.subtitles.opensubtitles module
    :undoc-members:
    :show-inheritance:
 
-video\_utils.subtitles.srtUtils module
---------------------------------------
+video\_utils.subtitles.pgs\_to\_srt module
+------------------------------------------
 
-.. automodule:: video_utils.subtitles.srtUtils
+.. automodule:: video_utils.subtitles.pgs_to_srt
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+video\_utils.subtitles.srt\_utils module
+----------------------------------------
+
+.. automodule:: video_utils.subtitles.srt_utils
    :members:
    :undoc-members:
    :show-inheritance:

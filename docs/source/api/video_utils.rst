@@ -13,25 +13,10 @@ Subpackages
    video_utils.subtitles
    video_utils.utils
    video_utils.videotagger
+   video_utils.watchdogs
 
 Submodules
 ----------
-
-video\_utils.MakeMKV\_Watchdog module
--------------------------------------
-
-.. automodule:: video_utils.MakeMKV_Watchdog
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-video\_utils.Music\_Watchdog module
------------------------------------
-
-.. automodule:: video_utils.Music_Watchdog
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 video\_utils.comremove module
 -----------------------------

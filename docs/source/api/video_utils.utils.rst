@@ -4,10 +4,10 @@ video\_utils.utils package
 Submodules
 ----------
 
-video\_utils.utils.checkCLI module
-----------------------------------
+video\_utils.utils.check\_cli module
+------------------------------------
 
-.. automodule:: video_utils.utils.checkCLI
+.. automodule:: video_utils.utils.check_cli
    :members:
    :undoc-members:
    :show-inheritance:
@@ -28,42 +28,26 @@ video\_utils.utils.handlers module
    :undoc-members:
    :show-inheritance:
 
-video\_utils.utils.pidCheck module
-----------------------------------
+video\_utils.utils.pid\_check module
+------------------------------------
 
-.. automodule:: video_utils.utils.pidCheck
+.. automodule:: video_utils.utils.pid_check
    :members:
    :undoc-members:
    :show-inheritance:
 
-video\_utils.utils.subprocManager module
-----------------------------------------
+video\_utils.utils.subproc\_pool module
+---------------------------------------
 
-.. automodule:: video_utils.utils.subprocManager
+.. automodule:: video_utils.utils.subproc_pool
    :members:
    :undoc-members:
    :show-inheritance:
 
-video\_utils.utils.subprocPool module
--------------------------------------
+video\_utils.utils.update\_file\_names module
+---------------------------------------------
 
-.. automodule:: video_utils.utils.subprocPool
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-video\_utils.utils.threadCheck module
--------------------------------------
-
-.. automodule:: video_utils.utils.threadCheck
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-video\_utils.utils.updateFileNames module
------------------------------------------
-
-.. automodule:: video_utils.utils.updateFileNames
+.. automodule:: video_utils.utils.update_file_names
    :members:
    :undoc-members:
    :show-inheritance:

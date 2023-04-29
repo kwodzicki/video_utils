@@ -4,26 +4,18 @@ video\_utils.plex package
 Submodules
 ----------
 
-video\_utils.plex.DVRconverter module
--------------------------------------
+video\_utils.plex.dvr\_converter module
+---------------------------------------
 
-.. automodule:: video_utils.plex.DVRconverter
+.. automodule:: video_utils.plex.dvr_converter
    :members:
    :undoc-members:
    :show-inheritance:
 
-video\_utils.plex.Plex\_DVR\_Watchdog module
---------------------------------------------
+video\_utils.plex.plex\_media\_scanner module
+---------------------------------------------
 
-.. automodule:: video_utils.plex.Plex_DVR_Watchdog
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-video\_utils.plex.plexMediaScanner module
------------------------------------------
-
-.. automodule:: video_utils.plex.plexMediaScanner
+.. automodule:: video_utils.plex.plex_media_scanner
    :members:
    :undoc-members:
    :show-inheritance:

@@ -2,7 +2,7 @@ User settings
 =============
 The user settings file is a YAML formatted file that allows the user to easily set:
 
-  - API keys (see :doc:`Automated Tagging <./api/index>`)
+  - API keys (see :doc:`Automated Tagging <./api/modules>`)
   - The comskip INI directory (see :doc:`Commerical Skipping <./comskip>`)
   - Email alerts (see :doc:`Email Alerts <./email>`)
 
