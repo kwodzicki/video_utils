@@ -464,29 +464,35 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         if self.text_info is None:
             return
 
-        srt_files = []
         # If the input file format is MPEG-TS, then must use CCExtractor
         if self.format == "MPEG-TS":
-            if ccextract.CLI:
-                srt_files = ccextract.ccextract(
-                    self.infile, self.outfile, self.text_info
-                )
-            else:
+            if not ccextract.CLI:
                 self.__log.warning("ccextractor failed to import, nothing to do")
-        elif not subtitle_extract.CLI:
-            self.__log.warning("subtitle extraction not possible")
-        else:
-            self.sub_status, sub_files = subtitle_extract.subtitle_extract(
-                self.infile,
-                self.outfile,
-                self.text_info,
-                srt = self.srt,
-            )
-            # Add list of files created by subtitles_extract to list of created files
-            self._created_files.extend( sub_files )
-            # If there were major errors in the subtitles extraction
-            if self.sub_status > 1:
                 return
+
+            srt_files = ccextract.ccextract(
+                self.infile, self.outfile, self.text_info
+            )
+
+            self._created_files.extend( srt_files )
+
+            return
+
+        if not subtitle_extract.CLI:
+            self.__log.warning("subtitle extraction not possible")
+            return
+
+        self.sub_status, sub_files = subtitle_extract.subtitle_extract(
+            self.infile,
+            self.outfile,
+            self.text_info,
+            srt = self.srt,
+        )
+        # Add list of files created by subtitles_extract to list of created files
+        self._created_files.extend( sub_files )
+        # If there were major errors in the subtitles extraction
+        if self.sub_status > 1:
+            return
 
         if self.srt:
             srt_files = sub_to_srt(
@@ -496,7 +502,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
                 threads      = self.threads,
             )
 
-        self._created_files.extend( srt_files )
+            self._created_files.extend( srt_files )
 
     def _clean_up(self, *args):
         """Method to delete arbitrary number of files, catching exceptions"""

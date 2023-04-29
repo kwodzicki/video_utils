@@ -191,7 +191,7 @@ def srt_cleanup( fname, **kwargs ):
         line = in_line.rstrip()
         if len(line) == 0:
             music = False
-            os.write(line + os.linesep)
+            oid.write(line + os.linesep)
             continue
 
         # Checking for J' at beginning or end of line, likely music note
