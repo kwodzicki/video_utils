@@ -43,7 +43,7 @@ def sub_to_srt( out_file, text_info, **kwargs ):
         fmt = info.get('format', '')
         if fmt == 'PGS':
             res, fname = pgs_to_srt( out_file, info, **kwargs )
-        elif fmt == 'VOBSUB':
+        elif fmt == 'VobSub':
             res, fname = vobsub_to_srt( out_file, info, **kwargs )
         else:
             log.info( "Format not supported : %s", fmt )
