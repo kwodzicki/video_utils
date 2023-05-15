@@ -54,6 +54,11 @@ def plex_media_scanner( section_name, path=None ):
             )
             path = None
 
+    log.info(
+        'Running Plex Media Scanner on section "%s", path "%s"',
+        section_name,
+        path,
+    ) 
     section.update( path )
 
     return True
