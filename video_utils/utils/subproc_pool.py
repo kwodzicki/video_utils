@@ -194,6 +194,7 @@ class PopenThread( Thread ):
                 'encoding' : encode,
             }
         )
+        self.__log.debug('Running command : %s', self._args)
         try:
             self._proc = Popen( *self._args, **kwargs )
         except FileNotFoundError as error:
