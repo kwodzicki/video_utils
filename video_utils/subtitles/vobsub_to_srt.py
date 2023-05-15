@@ -51,11 +51,12 @@ def vobsub_to_srt( out_file, text_info, delete_source=False, cpulimit=None, **kw
     log.info('Converting VobSub(s) to SRT(s)...')
 
     # Generate file name for subtitle file
-    fname = f"{out_file}{text_info['ext']}.srt"
-    if os.path.exists( fname ):
-        log.info( "%s Exists...Skipping", fname )
+    basename = f"{out_file}{text_info['ext']}"
+    srtname  = f"{basename}.srt" 
+    if os.path.exists( srtname ):
+        log.info( "%s Exists...Skipping", srtname )
         text_info['srt'] = True
-        return 1, fname
+        return 1, srtname
 
     # Initialize cmd as list containing 'vobsub2srt'
     cmd = [ CLI ]
@@ -63,7 +64,7 @@ def vobsub_to_srt( out_file, text_info, delete_source=False, cpulimit=None, **kw
     if text_info['lang2'] != '' and text_info['lang3'] != '':
         cmd.extend( ['--tesseract-lang', text_info['lang3']] )
         cmd.extend( ['--lang', text_info['lang2']] )
-    cmd.append( fname )
+    cmd.append( basename )
 
     proc = PopenThread( cmd, cpulimit=cpulimit )
     proc.start()
@@ -72,7 +73,7 @@ def vobsub_to_srt( out_file, text_info, delete_source=False, cpulimit=None, **kw
         return 2, ''
 
     try:
-        _ = srt_cleanup( fname )
+        _ = srt_cleanup( srtname )
     except Exception as err:
         log.error( 'Failed to convert VobSub to SRT : %s', err )
         return 3, ''
@@ -83,11 +84,11 @@ def vobsub_to_srt( out_file, text_info, delete_source=False, cpulimit=None, **kw
     if delete_source:
         log.info('Deleting VobSub')
         # Generate file names for sub and idx files
-        sub_file = f"{out_file}{text_info['ext']}.sub"
-        idx_file = f"{out_file}{text_info['ext']}.idx"
+        sub_file = f"{basename}.sub"
+        idx_file = f"{basename}.idx"
         if os.path.isfile(sub_file):
             os.remove(sub_file)
         if os.path.isfile(idx_file):
             os.remove(idx_file)
 
-    return 0, fname
+    return 0, srtname
