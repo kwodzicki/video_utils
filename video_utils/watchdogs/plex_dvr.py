@@ -280,11 +280,12 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
 
         if self.script:
             self._run_script( fpath )
-        else:
-            try:
-                _ = self.converter.convert( fpath )
-            except:
-                self.log.exception('Failed to convert file')
+            return
+
+        try:
+            _ = self.converter.convert( fpath )
+        except:
+            self.log.exception('Failed to convert file')
 
     def __run(self):
         """

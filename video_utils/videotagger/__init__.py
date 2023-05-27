@@ -27,7 +27,7 @@ class TMDb( BaseAPI ):
         super().__init__(*args, **kwargs)
         self.__log = logging.getLogger(__name__)
 
-    def search( self, title = None, episode = None, seasonEp = None, year = None, page = None ):
+    def search( self, title = None, episode = None, seasonEp = None, year = None, page = None, **kwargs ):
         """
         Search TMDb for a given Movie or TV episode
 
@@ -50,13 +50,13 @@ class TMDb( BaseAPI ):
         for _ in range( len(items) ):
             item = items.pop(0)
             if item['media_type'] == 'movie':
-                item = _movie.TMDbMovie( data = item )
+                item = _movie.TMDbMovie( data = item, **kwargs )
                 self.__log.info( 'Found movie: %s', item )
             elif item['media_type'] == 'tv':
-                item = _series.TMDbSeries( data = item )
+                item = _series.TMDbSeries( data = item, **kwargs )
                 self.__log.info( 'Found series: %s', item )
             elif item['media_type'] == 'person':
-                item = Person( data = item )
+                item = Person( data = item, **kwargs )
                 self.__log.info( 'Found person: %s', item )
             else:
                 continue
@@ -101,7 +101,7 @@ class TVDb( BaseAPI ):
         super().__init__(*args, **kwargs)
         self.__log = logging.getLogger(__name__)
 
-    def search( self, title=None, episode=None, seasonEp=None, year=None, page=None, nresults=10 ):
+    def search( self, title=None, episode=None, seasonEp=None, year=None, page=None, nresults=10, **kwargs ):
         """
         Search TVDb for a given Movie or TV episode
 
@@ -120,7 +120,7 @@ class TVDb( BaseAPI ):
         for _ in range( len(items) ):
             item = items.pop(0)
             if 'seriesName' in item:
-                item = _series.TVDbSeries( item['id'] )
+                item = _series.TVDbSeries( item['id'], **kwargs )
                 # Not sure what this is supposed to do
                 #if year is not None and item.air_date is not None:
                 #    try:
@@ -129,7 +129,7 @@ class TVDb( BaseAPI ):
                 #        test = False
                 #        continue
                 if seasonEp:
-                    item = _episode.TVDbEpisode( item, *seasonEp )
+                    item = _episode.TVDbEpisode( item, *seasonEp, **kwargs )
                 time.sleep(0.5)# Sleep for request limit
             if item.title is not None:
                 items.append( item )

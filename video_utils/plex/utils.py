@@ -11,13 +11,19 @@ import logging
 import os
 import re
 import pickle
+from difflib import SequenceMatcher
 from threading import Lock
 from getpass import getpass
 
 from plexapi.myplex import MyPlexAccount
 
 from ..config import PLEXTOKEN
-from ..videotagger import TMDb, TVDb, movie as _movie, episode as _episode
+from ..videotagger import (
+    TMDb,
+    TVDb,
+    movie as _movie,
+    episode as _episode,
+)
 
 _tmdb = TMDb()
 _tvdb = TVDb()
@@ -118,38 +124,36 @@ def plex_dvr_rename( in_file, hardlink = True ):
     if not season_ep:
         log.warning( 'Season/episode info NOT found; assuming movie...things may break' )
         # Search the movie database
-        metadata = _tmdb.search(
-            title    = title,
-            year     = year,
-            episode  = episode,
-            seasonEp = season_ep
-        )
+        searcher = _tmdb.search
     else:
-        # Search the tv database
-        metadata = _tvdb.search(
-            title    = title,
-            year     = year,
-            episode  = episode,
-            seasonEp = season_ep
-        )
+        # Will search the TVDb
+        searcher = _tvdb.search
 
-    # If NOT one (1) result from search
-    if len(metadata) != 1:
-        log.error(
-            'More than one movie/Tv show found, skipping'
-            if len(metadata) > 1 else
-            'No ID found!'
-        )
-        metadata = None
-        new = (
-            _episode.get_basename( *season_ep, episode )
-            if season_ep else
-            _movie.get_basename( title, year )
-        )
+    # Search for aired order
+    metadata_aired = searcher(
+        title    = title,
+        year     = year,
+        episode  = episode,
+        seasonEp = season_ep,
+        dvdOrder = False,
+    )
+    # Search for DVD order
+    metadata_dvd = searcher(
+        title    = title,
+        year     = year,
+        episode  = episode,
+        seasonEp = season_ep,
+        dvdOrder = True,
+    )
 
-    else:
-        metadata = metadata[0]
-        new = metadata.get_basename()
+    new, metadata = compare_aired_dvd(
+        title,
+        year,
+        season_ep,
+        episode,
+        metadata_aired,
+        metadata_dvd,
+    )
 
     # Build new file path
     new = os.path.join( file_dir, new+ext )
@@ -226,6 +230,72 @@ class DVRqueue( list ):
             except:
                 self.__log.error('Failed to load old queue. File corrupt?')
                 os.remove( self.__file )
+
+def compare_aired_dvd(title, year, season_ep, episode, aired, dvd):
+    """
+    Compare aired and dvd order
+
+    Arguments:
+        title (str) : Title of the series/movie
+        year (int) : Release year of the series/movie
+        season_ep (list) : The [season #, episode #] for the series/movie.
+            Will be None is determined to be movie.
+        episode (str) : Name of the episode of the series.
+            Will be None is determined to be movie.
+        aired (list) : List of aired-order results returned from search
+        dvd (list) : List of dvd-order results fretruend from search
+
+    """
+
+    log = logging.getLogger(__name__)
+    # If zero (0) or >1 result for both search, have a problem
+    if len(aired) != 1 and len(dvd) != 1:
+        log.error(
+            'Zero OR >1 movie/TV show found for aired & DVD order, skipping'
+        )
+        new = (
+            _episode.get_basename( *season_ep, episode )
+            if season_ep else
+            _movie.get_basename( title, year )
+        )
+        return new, None
+
+    # If zero (0) or >1 for aired, we assume DVD
+    if len(aired) != 1:
+        log.info(
+            'More than one movie/TV show found for aired order, assuming DVD'
+        )
+        metadata = dvd[0]
+        return metadata.get_basename(), metadata
+
+    # If zero (0) or >1 for dvd, we assume aired
+    if len(dvd) != 1:
+        log.info(
+            'More than one movie/TV show found for DVD order, assuming aired'
+        )
+        metadata = aired[0]
+        return metadata.get_basename(), metadata
+
+    # If made here, we have one (1) result for both aired and dvd, so
+    # check if season_ep si defined. If not, then assume movie and return
+    if season_ep is None or episode is None: 
+        return _movie.get_basename( title, year ), None
+
+    # If made here, the matches for both aired and dvd order of episode
+    # so we get episode title match for aired order title dvd order tile
+    # versus the file name episode tiltle
+    aired_ratio = SequenceMatcher(None, episode, aired[0].title).ratio()
+    dvd_ratio   = SequenceMatcher(None, episode,   dvd[0].title).ratio()
+
+    # If the similarity ratio for aired is >= DVD, assume aired order, else dvd
+    if aired_ratio >= dvd_ratio:
+        log.info('Assuming aired order based on episode file name')
+        metadata = aired[0]
+    else:    
+        log.info('Assuming dvd order based on episode file name')
+        metadata = dvd[0]
+
+    return metadata.get_basename(), metadata
 
 def get_token( login=False ):
     """
