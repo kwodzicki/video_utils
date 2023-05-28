@@ -118,21 +118,32 @@ class TVDb( BaseAPI ):
         # Take first nresults
         items = json['data'][:nresults]
         for _ in range( len(items) ):
+            time.sleep(0.5)# Sleep for request limit
             item = items.pop(0)
             if 'seriesName' in item:
                 item = _series.TVDbSeries( item['id'], **kwargs )
-                # Not sure what this is supposed to do
+                # Was to check start year of series, but with some shows going by date, may have
+                # Caused issues. Did not really test, so not really sure.
                 #if year is not None and item.air_date is not None:
                 #    try:
                 #        test = item.air_date.year != year
                 #    except:
                 #        test = False
                 #        continue
-                if seasonEp:
-                    item = _episode.TVDbEpisode( item, *seasonEp, **kwargs )
-                time.sleep(0.5)# Sleep for request limit
+            if isinstance(item, _series.TVDbSeries) and seasonEp is not None:
+                if seasonEp[0] > int( item.season ):
+                    self.__log.debug(
+                        'Series "%s" has too few seasons: %s vs. %d requested',
+                        item,
+                        item.season,
+                        seasonEp[0],
+                    )
+                    continue
+                item = _episode.TVDbEpisode( item, *seasonEp, **kwargs )
+
             if item.title is not None:
                 items.append( item )
+
         return items
 
     def byIMDb( self, IMDbID, season=None, episode=None, **kwargs ):
