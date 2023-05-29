@@ -87,7 +87,11 @@ def tvdb2tmdb( info ):
     info['title'] = info[key]
 
     if isinstance(info[key], (tuple,list)):
-        info[key] = ' - '.join(info[key])
+        # Found case where list had None(s), so use try statement
+        try:
+            info[key] = ' - '.join(info[key])
+        except:
+            return None
     info[key] = PARENTH.sub('', info[key])
 
     if 'imdbId' in info:
