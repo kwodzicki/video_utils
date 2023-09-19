@@ -5,6 +5,7 @@ Configuration settings for package
 
 import logging
 import os
+import shutil
 import stat
 import argparse
 
@@ -21,6 +22,20 @@ CACHEDIR  = os.path.join( APPDIR, 'cache')
 LOGDIR    = os.path.join( APPDIR, 'Logs' )
 PLEXTOKEN = os.path.join( APPDIR, '.plextoken' )
 CONFIG    = os.path.join( HOME,   f'.{PKGNAME}.yml' )
+
+
+def install_config():
+
+    if os.path.isfile(CONFIG):
+        if os.stat(CONFIG).st_size > 0:
+            return
+
+    shutil.copy(
+        os.path.join(DATADIR, 'settings.yml'),
+        CONFIG,
+    )
+
+_ = install_config()
 
 try:
     with open(CONFIG, mode='r', encoding='utf8') as fid:
