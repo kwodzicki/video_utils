@@ -13,6 +13,9 @@ build:
                 # nodejs: "20"
                 # rust: "1.70"
                 # golang: "1.20"
+        jobs:
+          post_install:
+            - pip install "sphinx>7"
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
