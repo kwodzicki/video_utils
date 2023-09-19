@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import time
+from difflib import SequenceMatcher
 
 from .utils import is_id
 from .api import BaseAPI
@@ -107,6 +108,9 @@ class TVDb( BaseAPI ):
 
         """
 
+        if title is None:
+            return [] 
+
         params = {'name' : title}
         if page:
             params['page'] = page
@@ -116,21 +120,23 @@ class TVDb( BaseAPI ):
             return []
 
         # Take first nresults
-        items = json['data'][:nresults]
-        for _ in range( len(items) ):
+        best_ratio = 0.0
+        series     = None
+        for item in json['data'][:nresults]:
             time.sleep(0.5)# Sleep for request limit
-            item = items.pop(0)
-            if 'seriesName' in item:
-                item = _series.TVDbSeries( item['id'], **kwargs )
-                # Was to check start year of series, but with some shows going by date, may have
-                # Caused issues. Did not really test, so not really sure.
-                #if year is not None and item.air_date is not None:
-                #    try:
-                #        test = item.air_date.year != year
-                #    except:
-                #        test = False
-                #        continue
+            if 'seriesName' not in item:
+                continue
+
+            item = _series.TVDbSeries( item['id'], **kwargs )
+            # Check item season info against user requested season number
             if isinstance(item, _series.TVDbSeries) and seasonEp is not None:
+                if not item.season:
+                    self.__log.debug(
+                        'No season info in series %s, but requested season %d',
+                        item,
+                        seasonEp[0],
+                    )
+                    continue
                 if seasonEp[0] > int( item.season ):
                     self.__log.debug(
                         'Series "%s" has too few seasons: %s vs. %d requested',
@@ -139,12 +145,37 @@ class TVDb( BaseAPI ):
                         seasonEp[0],
                     )
                     continue
-                item = _episode.TVDbEpisode( item, *seasonEp, **kwargs )
 
-            if item.title is not None:
-                items.append( item )
+            # If years are valid and NOT match, skip
+            if year is not None and item.air_date is not None:
+                if item.air_date.year != year:
+                    self.__log.debug(
+                        'Aired year mismatch : %d vs. %d requested',
+                        item.air_date.year,
+                        year,
+                    )
+                    continue
 
-        return items
+            # Get ratio of match between user input title and that of series.
+            # We use the 'name' attribute as it does NOT have (year) in it.
+            title_match = SequenceMatcher(
+                None,
+                item.get('name', ''),
+                title,
+            ).ratio()
+
+            # If match is better than best match, then update best_ratio and
+            # the series object
+            if title_match > best_ratio:
+                best_ratio = title_match
+                series     = item
+
+        if isinstance(series, _series.TVDbSeries):
+           return [
+                _episode.TVDbEpisode( series, *seasonEp, **kwargs )
+            ]
+
+        return [] 
 
     def byIMDb( self, IMDbID, season=None, episode=None, **kwargs ):
         """
