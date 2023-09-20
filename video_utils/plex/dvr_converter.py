@@ -100,7 +100,7 @@ class DVRconverter(VideoConverter):
         self.log.debug('Checking file integrity')
         # If is NOT a valid file; i.e., video stream size is larger than
         # file size OR found 'overread' errors in file
-        if not self.isValidFile():
+        if not self.is_valid_file():
             self.log.warning('File determined to be invalid, deleting: %s', infile )
             # Set local no_remove variable to True; done so that directory is not
             # scanned twice when the Plex Media Scanner command is run

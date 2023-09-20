@@ -4,92 +4,8 @@ Wrapper class for mediainfo CLI
 """
 
 import logging
-import re
 import json
 from subprocess import check_output
-
-try:
-    output = check_output( ['mediainfo', '--version'] )
-except:
-    MediaInfoLib = None
-else:
-    MediaInfoLib = (
-        re.findall( rb'v(\d+(?:.\d+)+)', output )[0]
-        .decode()
-        .split('.')
-    )
-
-def num_convert( val ):
-    """
-    Convert string to int/float
-
-    """
-
-    if not isinstance(val, str):
-        return val
-
-    if val.isdigit():
-        return int(val)
-
-    try:
-        return float( val )
-    except:
-        return val
-
-def set_resolution(video_height):
-    """
-    Determine video resolution
-
-    Given the height (in pixels) of the video,
-    determine the resolution and the constant
-    rate factor for transcoding.
-
-    Arguments:
-        video_height (int) : The height (in pixles) of
-            the source video.
-
-    Returns:
-        tuple : Resolution of the video (int) and the 
-            constant rate factor options (list) for ffmpeg
-
-    """
-
-    if video_height <= 480:
-        return 480, ['-crf', '22']
-    if video_height <= 720:
-        return 720, ['-crf', '23']
-    if video_height <= 1080:
-        return 1080, ['-crf', '24']
-
-    return 2160, ['-x265-params', 'crf=24:pools=none']
-
-def mediainfo( fname ):
-    """
-    Parse mediainfo JSON output
-
-    Parse the JSON formatted output of the mediainfo
-    command into a format that is similar to that 
-    parsed from the OLDXML style
-
-    """
-
-    cmd  = ['mediainfo', '--Full', '--Output=JSON', fname]
-    res  = check_output( cmd )
-    data = json.loads(res)
-
-    out = {}
-    for track in data['media']['track']:
-        track_type = track['@type']
-        if track_type not in out:
-            out[ track_type ] = []
-        out[ track_type ].append(
-            {key : num_convert(val) for key, val in track.items()}
-        )
-
-    for val in out.values():
-        val.sort( key=lambda x: x.get('@typeorder', 0) )
-
-    return out
 
 class MediaInfo( ):
     """Class that acts as wrapper for mediainfo CLI"""
@@ -158,7 +74,7 @@ class MediaInfo( ):
 
         return self.__mediainfo.keys()
 
-    def videoSize(self):
+    def video_size(self):
         """ 
         Method to get dimensions of video
 
@@ -174,7 +90,7 @@ class MediaInfo( ):
             return None
 
     ##############################################################################
-    def isValidFile(self):
+    def is_valid_file(self):
         """ 
         Check if file is valid.
 
@@ -351,7 +267,6 @@ class MediaInfo( ):
 
         encoder    = ''
         video_data = self.__mediainfo['Video'][0]
-        video_tags = video_data.keys()
 
         # Get stream order; check for integer
         try:
@@ -394,28 +309,15 @@ class MediaInfo( ):
         resolution, crf_opts = set_resolution( video_data['Height'] )
         info['-opts'].extend( crf_opts )
 
-        # I cannot remember why there is the extra check for 'Frame_rate_mode'
-        # Removing for now, but will test with some MakeMKV files
-        if 'Scan_type' in video_tags:
-            if video_data['Scan_type'].upper() != 'PROGRESSIVE':
-                info['-filter'].append( 'yadif' )
-#        if 'Scan_type' in video_tags and 'Frame_rate_mode' in video_tags:
-#          if video_data['Scan_type'].upper() != 'PROGRESSIVE':
-#            if video_data['Frame_rate_mode']  == 'CFR':
-#              info['-filter'].append( 'yadif' )
+        # Deinterlace video; send_frame is one frame for each frame
+        if video_data.get('ScanType', '').upper() == 'INTERLACED':
+            info['-filter'].append( 'bwdif=send_frame:auto:all' )
 
         info['file_info'] = [f'{resolution}p', encoder]
 
-        if 'Display_aspect_ratio' in video_tags and \
-           'Original_display_aspect_ratio' in video_tags:
-            if video_data['Display_aspect_ratio'] != \
-               video_data['Original_display_aspect_ratio']:
-                xpix, ypix = video_data['Display_aspect_ratio/String'].split(':')
-                width      = video_data['Height'] * float(xpix)/float(ypix)
-                width     -= (width % 16)
-                info['-filter'].append(
-                    f"setsar={width:.0f}:{video_data['Width']:.0f}" 
-                )
+        aspect_filter = aspect_adjust(video_data)
+        if aspect_filter:
+            info['-filter'].append(aspect_filter)
 
         if len(info['-filter']) > 0:
             info['-filter'] = ['-vf', ','.join(info['-filter'])]
@@ -530,3 +432,105 @@ class MediaInfo( ):
             return info
 
         return None
+
+def aspect_adjust(video_data):
+    """
+    Check video aspect ratio
+
+    Have run into movies that are 'widescreen', but the
+    aspect ratio gets goofy and is displayed as full screen.
+    This function acts to fix that by checking the Display and
+    Original aspect ratios and adjust the aspect ratio accordingly.
+
+    Arguments:
+        video_data (dict) : Information about video stream from mediainfo.
+
+    Returns:
+        str : Empty string if no adjustment needed, otherwise is a video filter.
+
+    """
+
+    if 'DisplayAspectRatio' not in video_data:
+        return ''
+    if 'OriginalDisplayAspectRatio' not in video_data:
+        return ''
+    if video_data['DisplayAspectRatio'] == video_data['OriginalDisplayAspectRatio']:
+        return ''
+
+    xpix, ypix = video_data['DisplayAspectRatio_String'].split(':')
+    width      = video_data['Height'] * float(xpix)/float(ypix)
+    width     -= (width % 16)
+
+    return f"setsar={width:.0f}:{video_data['Width']:.0f}"
+
+def num_convert( val ):
+    """
+    Convert string to int/float
+
+    """
+
+    if not isinstance(val, str):
+        return val
+
+    if val.isdigit():
+        return int(val)
+
+    try:
+        return float( val )
+    except:
+        return val
+
+def set_resolution(video_height):
+    """
+    Determine video resolution
+
+    Given the height (in pixels) of the video,
+    determine the resolution and the constant
+    rate factor for transcoding.
+
+    Arguments:
+        video_height (int) : The height (in pixles) of
+            the source video.
+
+    Returns:
+        tuple : Resolution of the video (int) and the 
+            constant rate factor options (list) for ffmpeg
+
+    """
+
+    if video_height <= 480:
+        return 480, ['-crf', '22']
+    if video_height <= 720:
+        return 720, ['-crf', '23']
+    if video_height <= 1080:
+        return 1080, ['-crf', '24']
+
+    return 2160, ['-x265-params', 'crf=24:pools=none']
+
+def mediainfo( fname ):
+    """
+    Parse mediainfo JSON output
+
+    Parse the JSON formatted output of the mediainfo
+    command into a format that is similar to that 
+    parsed from the OLDXML style
+
+    """
+
+    cmd  = ['mediainfo', '--Full', '--Output=JSON', fname]
+    res  = check_output( cmd )
+    data = json.loads(res)
+
+    out = {}
+    for track in data['media']['track']:
+        track_type = track['@type']
+        if track_type not in out:
+            out[ track_type ] = []
+        out[ track_type ].append(
+            {key : num_convert(val) for key, val in track.items()}
+        )
+
+    for val in out.values():
+        val.sort( key=lambda x: x.get('@typeorder', 0) )
+
+    return out
