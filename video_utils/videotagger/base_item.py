@@ -82,6 +82,15 @@ class BaseItem( BaseAPI ):
     def __getattr__(self, key):
         return self._data.get(key, None)
 
+    def __eq__(self, other):
+
+        for key in self.keys():
+            if key not in other:
+                return False
+            if self[key] != other[key]:
+                return False
+        return True
+
     def pop(self, key, *args):
         """Pop off a key from the data dict"""
 

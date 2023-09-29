@@ -129,31 +129,26 @@ def plex_dvr_rename( in_file, hardlink = True ):
         # Will search the TVDb
         searcher = _tvdb.search
 
-    # Search for aired order
-    metadata_aired = searcher(
+    metadata = searcher(
         title    = title,
         year     = year,
         episode  = episode,
         seasonEp = season_ep,
-        dvdOrder = False,
-    )
-    # Search for DVD order
-    metadata_dvd = searcher(
-        title    = title,
-        year     = year,
-        episode  = episode,
-        seasonEp = season_ep,
-        dvdOrder = True,
     )
 
-    new, metadata = compare_aired_dvd(
-        title,
-        year,
-        season_ep,
-        episode,
-        metadata_aired,
-        metadata_dvd,
-    )
+    if len(metadata) != 1:
+        log.error(
+            'Zero OR >1 movie/TV show found for aired & DVD order, skipping'
+        )
+        metadata = None
+        new = (
+            _episode.get_basename( *season_ep, episode )
+            if season_ep else
+            _movie.get_basename( title, year )
+        )
+    else:
+        metadata = metadata[0]
+        new = metadata.get_basename()
 
     # Build new file path
     new = os.path.join( file_dir, new+ext )
@@ -231,72 +226,32 @@ class DVRqueue( list ):
                 self.__log.error('Failed to load old queue. File corrupt?')
                 os.remove( self.__file )
 
-def compare_aired_dvd(title, year, season_ep, episode, aired, dvd):
+def get_dvr_section_dir( path ):
     """
-    Compare aired and dvd order
+    Extract the section directory from DVR grab path
+
+    Given path to a DVR recorinding source file (i.e., the file
+    created in the .grab directory), determine the name of the
+    directory for the directory one level up from .grab. The name
+    of this directory is assumed to match the name of the library
+    section in plex.
 
     Arguments:
-        title (str) : Title of the series/movie
-        year (int) : Release year of the series/movie
-        season_ep (list) : The [season #, episode #] for the series/movie.
-            Will be None is determined to be movie.
-        episode (str) : Name of the episode of the series.
-            Will be None is determined to be movie.
-        aired (list) : List of aired-order results returned from search
-        dvd (list) : List of dvd-order results fretruend from search
+        path (str) : Path to DVR file in .grab directory
+
+    Returns:
+        str : Name directory one level above .grab in the DVR path.
 
     """
 
-    log = logging.getLogger(__name__)
-    # If zero (0) or >1 result for both search, have a problem
-    if len(aired) != 1 and len(dvd) != 1:
-        log.error(
-            'Zero OR >1 movie/TV show found for aired & DVD order, skipping'
-        )
-        new = (
-            _episode.get_basename( *season_ep, episode )
-            if season_ep else
-            _movie.get_basename( title, year )
-        )
-        return new, None
+    root, _     = path.split('.grab', maxsplit=1)
+    section_dir = os.path.basename(root)
+    while section_dir == '':
+        root        = os.path.dirname(root)
+        section_dir = os.path.basename(root)
 
-    # If zero (0) or >1 for aired, we assume DVD
-    if len(aired) != 1:
-        log.info(
-            'More than one movie/TV show found for aired order, assuming DVD'
-        )
-        metadata = dvd[0]
-        return metadata.get_basename(), metadata
-
-    # If zero (0) or >1 for dvd, we assume aired
-    if len(dvd) != 1:
-        log.info(
-            'More than one movie/TV show found for DVD order, assuming aired'
-        )
-        metadata = aired[0]
-        return metadata.get_basename(), metadata
-
-    # If made here, we have one (1) result for both aired and dvd, so
-    # check if season_ep si defined. If not, then assume movie and return
-    if season_ep is None or episode is None: 
-        return _movie.get_basename( title, year ), None
-
-    # If made here, the matches for both aired and dvd order of episode
-    # so we get episode title match for aired order title dvd order tile
-    # versus the file name episode tiltle
-    aired_ratio = SequenceMatcher(None, episode, aired[0].title).ratio()
-    dvd_ratio   = SequenceMatcher(None, episode,   dvd[0].title).ratio()
-
-    # If the similarity ratio for aired is >= DVD, assume aired order, else dvd
-    if aired_ratio >= dvd_ratio:
-        log.info('Assuming aired order based on episode file name')
-        metadata = aired[0]
-    else:    
-        log.info('Assuming dvd order based on episode file name')
-        metadata = dvd[0]
-
-    return metadata.get_basename(), metadata
-
+    return section_dir
+  
 def get_token( login=False ):
     """
     Use plexapi to get token for server

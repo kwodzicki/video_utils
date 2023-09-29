@@ -40,6 +40,7 @@ class TMDb( BaseAPI ):
 
         """
 
+        self.__log.debug("Searching TMDb")
         params = {'query' : title}
         if page:
             params['page'] = page
@@ -102,7 +103,7 @@ class TVDb( BaseAPI ):
         super().__init__(*args, **kwargs)
         self.__log = logging.getLogger(__name__)
 
-    def search( self, title=None, episode=None, seasonEp=None, year=None, page=None, nresults=10, **kwargs ):
+    def search( self, title=None, episode=None, seasonEp=None, year=None, dvdOrder=None, page=None, nresults=10, **kwargs ):
         """
         Search TVDb for a given Movie or TV episode
 
@@ -110,7 +111,8 @@ class TVDb( BaseAPI ):
 
         if title is None:
             return [] 
-
+        
+        self.__log.debug("Searching TVDb")
         params = {'name' : title}
         if page:
             params['page'] = page
@@ -170,12 +172,25 @@ class TVDb( BaseAPI ):
                 best_ratio = title_match
                 series     = item
 
-        if isinstance(series, _series.TVDbSeries):
-           return [
-                _episode.TVDbEpisode( series, *seasonEp, **kwargs )
+        if not isinstance(series, _series.TVDbSeries):
+            return [] 
+
+        if isinstance(dvdOrder, bool):
+            # If bool type, then user set, so use their option
+            return [
+                 _episode.TVDbEpisode(series, *seasonEp, dvdOrder=dvdOrder, **kwargs)
             ]
 
-        return [] 
+        # We want to get DVD and Aired order and compare episode names
+
+        aired = _episode.TVDbEpisode(series, *seasonEp, dvdOrder=False, **kwargs)
+        dvd   = _episode.TVDbEpisode(series, *seasonEp, dvdOrder=True,  **kwargs)
+        if aired == dvd:
+            return [aired]
+
+        return [
+            compare_aired_dvd(title, year, seasonEp, episode, aired, dvd)
+        ]
 
     def byIMDb( self, IMDbID, season=None, episode=None, **kwargs ):
         """
@@ -278,3 +293,42 @@ def getMetaData( fpath=None, dbID=None, seasonEp=None, version='', **kwargs ):
     log.debug( 'Found metadata: %s', out )
 
     return out
+
+def compare_aired_dvd(title, year, season_ep, episode, aired, dvd):
+    """
+    Compare aired and dvd order
+
+    Arguments:
+        title (str) : Title of the series/movie
+        year (int) : Release year of the series/movie
+        season_ep (list) : The [season #, episode #] for the series/movie.
+            Will be None is determined to be movie.
+        episode (str) : Name of the episode of the series.
+            Will be None is determined to be movie.
+        aired (list) : List of aired-order results returned from search
+        dvd (list) : List of dvd-order results fretruend from search
+
+    """
+
+    log = logging.getLogger(__name__)
+
+    # If made here, we have one (1) result for both aired and dvd, so
+    # check if season_ep si defined. If not, then assume movie and return
+    if season_ep is None or episode is None:
+        return _movie.get_basename( title, year ), None
+
+    # If made here, the matches for both aired and dvd order of episode
+    # so we get episode title match for aired order title dvd order tile
+    # versus the file name episode tiltle
+    aired_ratio = SequenceMatcher(None, episode, aired.title).ratio()
+    dvd_ratio   = SequenceMatcher(None, episode,   dvd.title).ratio()
+
+    # If the similarity ratio for aired is >= DVD, assume aired order, else dvd
+    if aired_ratio >= dvd_ratio:
+        log.info('Assuming aired order based on episode file name')
+        return aired
+
+    log.info('Assuming dvd order based on episode file name')
+    return dvd
+
+#    return metadata.get_basename(), metadata

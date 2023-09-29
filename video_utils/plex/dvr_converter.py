@@ -66,7 +66,7 @@ class DVRconverter(VideoConverter):
         self.destructive = destructive
         self.log         = logging.getLogger(__name__)
 
-    def convert(self, infile):
+    def convert(self, infile, section='TV Shows'):
         """
         Method to actually post process Plex DVR files.
 
@@ -145,7 +145,7 @@ class DVRconverter(VideoConverter):
 
         if isRunning():
             # Set arguments for PlexMediaScanner
-            args   = ('TV Shows',)
+            args   = (section,)
             kwargs = {'path' : os.path.dirname( infile )}
             plex_media_scanner( *args, **kwargs )
             # If no_remove is NOT set, then we want to delete infile and rescan

@@ -13,6 +13,7 @@ from PIL import Image, ImageFont, ImageDraw
 
 from .. import DATADIR
 
+
 TTF      = os.path.join(DATADIR, 'Anton-Regular.ttf')
 RED      = (255,   0,   0)
 WHITE    = (240, 240, 240)

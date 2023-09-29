@@ -85,18 +85,19 @@ def tvdb2tmdb( info ):
         return None
 
     info['title'] = info[key]
-
+    key = 'title'
     if isinstance(info[key], (tuple,list)):
         # Found case where list had None(s), so use try statement
         try:
             info[key] = ' - '.join(info[key])
         except:
             return None
-    info[key] = PARENTH.sub('', info[key])
+    #info[key] = PARENTH.sub('', info[key])
 
     if 'imdbId' in info:
         info[ 'external_ids' ] = {'imdb_id' : info.pop('imdbId') }
 
+    # work on credits
     credits_info = info.pop( 'credits', {} )
     crew    = []
     job     = 'Director'

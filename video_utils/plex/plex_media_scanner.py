@@ -10,7 +10,6 @@ from plexapi.server import PlexServer
 
 from .utils import get_token
 
-################################################################################
 def plex_media_scanner( section_name, path=None ):
     """
     A python function that scans library through API call

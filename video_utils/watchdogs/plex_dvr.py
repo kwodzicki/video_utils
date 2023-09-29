@@ -11,6 +11,7 @@ import logging
 
 import os
 import time
+from datetime import timedelta
 from subprocess import run, STDOUT, DEVNULL
 from threading import Thread, Timer, Event, Lock
 
@@ -21,23 +22,26 @@ from ..config import plex_dvr
 from ..utils import isRunning#_sigintEvent, _sigtermEvent
 from ..utils.handlers import send_email
 from ..plex.dvr_converter import DVRconverter
-from ..plex.utils import DVRqueue
+from ..plex.utils import DVRqueue, get_dvr_section_dir
 
-RECORDTIMEOUT = 86400.0
+RECORDTIMEOUT = timedelta(days=1)
 TIMEOUT       =     1.0
 SLEEP         =     1.0
 
 class PlexDVRWatchdog( FileSystemEventHandler ):
     """Class to watch for, and convert, new DVR recordings"""
 
-    PURGE_INTERVAL = 10800.0
+    PURGE_INTERVAL = timedelta(hours=3)
 
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.log         = logging.getLogger(__name__)
         self.log.info('Starting up...')
 
-        self.record_timeout = kwargs.get('recordTimeout', RECORDTIMEOUT)
+        self.record_timeout = kwargs.get(
+            'recordTimeout',
+            RECORDTIMEOUT.total_seconds(),
+        )
         # Initialize list to store paths of newly started DVR recordings
         self.recordings    = []
         # Initialize DVRqueue, this is a subclass of list that, when items
@@ -66,7 +70,7 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
         # Initialize thread to clean up self.recordings list; thread sleeps
         # for 3 hours inbetween runs
         self.__purge_timer = Timer(
-            self.PURGE_INTERVAL,
+            self.PURGE_INTERVAL.total_seconds(),
             self.__purge_recordings,
         )
         self.__purge_timer.start()
@@ -78,19 +82,21 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
         if event.is_directory:
             return
 
-        # If '.grab' is in the file path, then it is a new recording!
-        if '.grab' in event.src_path:
-            # Acquire Lock so other events cannot change to_convert list at same time
-            with self.__lock:
-                # Add split file path (dirname, basename,) AND time
-                # (secondsSinceEpoch,) tuples as one tuple to recordings list
-                self.recordings.append(
-                    os.path.split(event.src_path) + (time.time(),),
-                )
-            self.log.debug( 'A recording started : %s', event.src_path )
-        else:
+        # If '.grab' is NOT in the file path, then it is NOT  new recording!
+        if '.grab' not in event.src_path:
             # Check if new file is a DVR file (i.e., file has been moved)
             self.check_recording( event.src_path )
+            return
+
+        # Assume is new recording as '.grab' IS in path if made to here
+        # Acquire Lock so other events cannot change to_convert list at same time
+        with self.__lock:
+            # Add split file path (dirname, basename,) AND time
+            # (secondsSinceEpoch,) tuples as one tuple to recordings list
+            self.recordings.append(
+                os.path.split(event.src_path) + (time.time(),),
+            )
+        self.log.debug( 'A recording started : %s', event.src_path )
 
     def on_moved(self, event):
         """Method to handle events when file is moved."""
@@ -126,13 +132,16 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
                 # If the name of the input file matches the name of the
                 # recording file
                 if self.recordings[i][1] == fname:
+                    src = os.path.join( *self.recordings[i][:2] )
                     self.log.debug(
                         'Recording moved from %s --> %s',
-                        os.path.join( *self.recordings[i][:2] ),
+                        src,
                         fpath,
                     )
                     # Append to converting list; this will trigger update of queue file
-                    self.converting.append( fpath )
+                    self.converting.append(
+                        (fpath, get_dvr_section_dir(src),)
+                    )
                     self.recordings.pop( i )
                     return True
                 time_delta = t_start - self.recordings[i][2]
@@ -246,7 +255,7 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
                 i += 1
 
         self.__purge_timer = Timer(
-            self.PURGE_INTERVAL,
+            self.PURGE_INTERVAL.total_seconds(),
             self.__purge_recordings,
         )
         self.__purge_timer.start()
@@ -266,7 +275,7 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
             self.log.error( 'Script failed with exit code : %s', status )
 
     @send_email
-    def _process(self, fpath):
+    def _process(self, fpath, section):
         """Actually process a file"""
 
         try:
@@ -283,7 +292,7 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
             return
 
         try:
-            _ = self.converter.convert( fpath )
+            _ = self.converter.convert( fpath, section=section )
         except:
             self.log.exception('Failed to convert file')
 
@@ -304,13 +313,15 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
 
         while isRunning():
             try:
-                fpath = self.converting[0]
+                fpath, section = self.converting[0]
             except:
                 time.sleep(TIMEOUT)
             else:
-                self._process(fpath)
+                self._process(fpath, section)
                 if isRunning():
-                    self.converting.remove( fpath )
+                    self.converting.remove(
+                        (fpath, section,)
+                    )
 
         with self.__lock:
             self.__stop.set()
