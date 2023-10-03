@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import time
+from datetime import datetime
 from difflib import SequenceMatcher
 
 from .utils import is_id
@@ -50,18 +51,31 @@ class TMDb( BaseAPI ):
             return []
         items = json['results']
         for _ in range( len(items) ):
-            item = items.pop(0)
-            if item['media_type'] == 'movie':
-                item = _movie.TMDbMovie( data = item, **kwargs )
-                self.__log.info( 'Found movie: %s', item )
-            elif item['media_type'] == 'tv':
-                item = _series.TMDbSeries( data = item, **kwargs )
-                self.__log.info( 'Found series: %s', item )
-            elif item['media_type'] == 'person':
-                item = Person( data = item, **kwargs )
-                self.__log.info( 'Found person: %s', item )
-            else:
+            item  = items.pop(0)
+            mtype = item.get('media_type', '')
+            if mtype not in ('person', 'movie', 'tv'):
                 continue
+
+            if mtype == 'person':
+                items.append(
+                    Person( data = item, **kwargs )
+                )
+                self.__log.info( 'Found %s: %s', mtype, items[-1])
+                continue
+
+            rel_date = item.get('release_date', None)
+            if year:
+                if not isinstance(rel_date, datetime):
+                    continue
+                if year != rel_date.year:
+                    continue
+
+            if mtype == 'movie':
+                item = _movie.TMDbMovie( data = item, **kwargs )
+            else:
+                item = _series.TMDbSeries( data = item, **kwargs )
+            self.__log.info( 'Found %s: %s', mtype, items[-1])
+
             items.append( item )
         return items
 
