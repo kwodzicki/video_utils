@@ -53,6 +53,30 @@ CHAPTERFMT  = ['[CHAPTER]', 'TIMEBASE={}', 'START={}', 'END={}', 'title={}', '']
 # Join CHAPTER block format list on operating system line separator
 CHAPTERFMT  = os.linesep.join( CHAPTERFMT )
 
+# Mapping for scaling/formatting HDR data
+MASTERING_MAP = {
+    "G": {
+        "factor": 50000,
+        "tags": ("green_x", "green_y"),
+    },
+    "B": {
+        "factor": 50000,
+        "tags": ("blue_x", "blue_y"),
+    },
+    "R": {
+        "factor": 50000,
+        "tags": ("red_x", "red_y"),
+    },
+    "WP": {
+        "factor" : 50000,
+        "tags": ("white_point_x", "white_point_y"),
+    },
+    "L": {
+        "factor": 10000,
+        "tags": ("max_luminance", "min_luminance"),
+    },
+}
+
 class FFMetaData( ):
     """For creating a FFMetaData file for input into ffmpeg CLI"""
 
@@ -508,10 +532,12 @@ def cropdetect( infile, seg_len = 20, threads = None):
     # crop height because applies to both top and bottom of video
     y_offset = (res[1] - y_width) // 2
 
-    crop = map(int, ( x_width, y_width, x_offset, y_offset ) )
+    crop = (x_width, y_width, x_offset, y_offset)
+    crop = map(int, crop )
+    crop = list(map(str, crop))
 
     log.debug( 'Values for crop: %s', crop )
-    return 'crop=' + ':'.join( map(str, crop) )
+    return 'crop=' + ':'.join(crop)
 
 def total_seconds( *args ):
     """
@@ -802,6 +828,140 @@ def get_chapters(fpath):
         log.error('Failed to get chapter information')
         return None
     return [ Chapter(chap) for chap in json.loads( chaps )['chapters'] ]
+
+def get_hdr_opts(fpath):
+    """
+    Function to get HDR x265 options
+
+    Arguments:
+        fpath (str) : Path of file to get HDR options for
+
+    Returns:
+        None, tuple
+
+    """
+
+    log = logging.getLogger(__name__)
+    cmd = [
+        "ffprobe",
+        "-hide_banner",
+        "-loglevel", "quiet",
+        "-select_streams", "v",
+        "-print_format", "json",
+        "-show_frames",
+        "-read_intervals", "%+#1",
+        "-i", fpath,
+    ]
+
+    try:
+        info = json.loads(
+            check_output(cmd)
+        )
+    except Exception as err:
+        log.error("Failed to get HDR information: %s", err)
+        return None
+
+    info = info.get('frames', [])
+    if len(info) < 1:
+        log.warning("No frame information found")
+        return None
+
+    info = info[0]
+
+    opts = [
+        "hdr-opt=1",
+        "repeat-headers=1",
+        "colorprim=" + info.get("color_primaries", "bt2020"),
+        "transfer=" + info.get("color_transfer", "smpte2084"),
+        "colormatrix=" + info.get("color_space", "bt2020nc"),
+    ]
+
+    side_data = info.get("side_data_list", [])
+    if len(info) < 1:
+        log.info("No side_data_list found!")
+        return opts
+
+    master_display = get_mastering_display_metadata(side_data)
+    if master_display:
+        opts.append(master_display)
+
+    max_cll = get_content_light_level_metadata(side_data)
+    if max_cll:
+        opts.append(max_cll)
+
+    return info.get("pix_fmt", None), opts
+
+
+def get_mastering_display_metadata(side_data):
+    """
+    Extract mastering display metadata
+
+    Arguments:
+        side_data (list) : Dicts containing HDR metadata
+
+    Returns:
+        dict
+
+    """
+
+    log = logging.getLogger(__name__)
+    out = {}
+    for data in side_data:
+        if data.get("side_data_type", "") != "Mastering display metadata":
+            continue
+
+        for label, channel_data in MASTERING_MAP.items():
+            vals = []
+            for i, tag in enumerate(channel_data["tags"]):
+                if tag not in data:
+                    continue
+                try:
+                    tmp = tuple(map(int, data[tag].split("/")))
+                except Exception as err:
+                    log.debug("Failed to split channel data : %s", err)
+                    return None
+                if len(tmp) != 2:
+                    log.debug("Did not get 2-elements from split!")
+                    return None
+
+                vals.append(
+                    tmp[0]/(tmp[1]/channel_data["factor"])
+                )
+            if len(vals) != 2:
+                return None
+            out[label] = vals
+
+        out = [
+            f"{key}({val[0]:0.0f},{val[1]:0.0f})"
+            for key, val in out.items()
+        ]
+        return "master-display=" + "".join(out)
+
+    return None
+
+def get_content_light_level_metadata(side_data):
+    """
+    Extract content light level metadata
+
+    Arguments:
+        side_data (list) : Dicts containing HDR metadata
+
+    Returns:
+        dict
+
+    """
+
+    for data in side_data:
+        if data.get("side_data_type", "") != "Content light level metadata":
+            continue
+
+        max_content = data.get("max_content", 0)
+        max_average = data.get("max_average", 0)
+
+        return f"max-cll={max_content},{max_average}"
+
+    return None
+
 
 def partial_extract( in_file, out_file, start_offset, duration, chapter_file = None ):
     """
