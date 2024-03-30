@@ -963,6 +963,34 @@ def get_content_light_level_metadata(side_data):
     return None
 
 
+def extract_hevc(in_file, out_file):
+    """
+    Extract HEVC stream from file
+
+    """
+
+    out_file = f"{out_file}.hevc"
+    cmd = [
+        "ffmpeg",
+        "-i", in_file,
+        "-v", "error",
+        "-stats",
+        "-c:v", "copy",
+        "-an", "-sn", "-dn",
+        "-bsf:v", "hevc_mp4toannexb",
+        "-f", "hevc",
+        out_file,
+    ]
+
+    proc = run(cmd, stderr=DEVNULL, check=False)
+    if proc.returncode == 0:
+        return out_file
+
+    if os.path.isfile(out_file):
+        os.remove(out_file)
+    return None
+
+
 def partial_extract( in_file, out_file, start_offset, duration, chapter_file = None ):
     """
     Function for extracting video segement

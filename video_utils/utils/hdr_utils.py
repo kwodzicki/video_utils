@@ -7,7 +7,7 @@ Use the dovi_tool and/or hdr10plus_tool to extract HDR information.
 
 import logging
 import os
-from subprocess import Popen
+from subprocess import Popen, STDOUT, DEVNULL
 
 RUST_CARGO = os.path.join(
     os.path.expanduser('~'),
@@ -42,10 +42,10 @@ def ingect_hdr(hevc_file, dolby_vision_file, hdr10plus_file):
 
     """
 
-    out_file = dovi_inject(hevc_file, dolby_vision_file)
-    out_file = hdr10plus_inject(hevc_file, hdr10plus_file)
+    hevc_file = dovi_inject(hevc_file, dolby_vision_file)
+    hevc_file = hdr10plus_inject(hevc_file, hdr10plus_file)
 
-    return out_file
+    return hevc_file 
 
 
 def dovi_inject(hevc_file, dolby_vision_file):
@@ -81,14 +81,14 @@ def dovi_inject(hevc_file, dolby_vision_file):
         "-o", out_file,
     ]
 
-    proc = Popen(cmd)
+    proc = Popen(cmd, stdout=DEVNULL, stderr=STDOUT)
     if proc.wait() == 0:
         # command finished successfully!
         # Remove source file and update hevc_file to injected file
         os.remove(hevc_file)
         return out_file 
 
-    log.error("Failed to inject Dolby Vision data : %s", hevc_file)
+    log.warning("Failed to inject Dolby Vision data : %s", hevc_file)
     if os.path.isfile(out_file):
         os.remove(out_file)
     return hevc_file
@@ -114,6 +114,9 @@ def dovi_extract(hevc_file):
         log.error("dovi_tool NOT installed!")
         return None
 
+    if hevc_file is None:
+        return None
+
     fname, _ = os.path.splitext(hevc_file)
     out_file = fname + ".bin"
 
@@ -125,9 +128,9 @@ def dovi_extract(hevc_file):
         '-o', out_file,
         hevc_file,
     ]
-    proc = Popen(cmd)
+    proc = Popen(cmd, stdout=DEVNULL, stderr=STDOUT)
     if proc.wait() != 0:
-        log.error("Failed to extract Dolby Vision data : %s", hevc_file)
+        log.warning("Failed to extract Dolby Vision data : %s", hevc_file)
         return None
 
     return out_file
@@ -166,14 +169,14 @@ def hdr10plus_inject(hevc_file, hdr10plus_file):
         "-o", out_file,
     ]
 
-    proc = Popen(cmd)
+    proc = Popen(cmd, stdout=DEVNULL, stderr=STDOUT)
     if proc.wait() == 0:
         # command finished successfully!
         # Remove source file and update hevc_file to injected file
         os.remove(hevc_file)
         return out_file
 
-    log.error("Failed to inject HDR10+ data : %s", hevc_file)
+    log.warning("Failed to inject HDR10+ data : %s", hevc_file)
     if os.path.isfile(out_file):
         os.remove(out_file)
 
@@ -201,6 +204,9 @@ def hdr10plus_extract(hevc_file):
         log.error("hdr10plus_tool NOT installed!")
         return None
 
+    if hevc_file is None:
+        return None
+
     fname, _ = os.path.splitext(hevc_file)
     out_file = fname + ".json"
 
@@ -211,9 +217,9 @@ def hdr10plus_extract(hevc_file):
         hevc_file,
     ]
 
-    proc = Popen(cmd)
+    proc = Popen(cmd, stdout=DEVNULL, stderr=STDOUT)
     if proc.wait() != 0:
-        log.error("Failed to extract HDR10+ data : %s", hevc_file)
+        log.warning("Failed to extract HDR10+ data : %s", hevc_file)
         return None
 
     return out_file

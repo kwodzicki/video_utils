@@ -100,27 +100,34 @@ class MediaInfo( ):
             return None
 
     @property
-    def is_dolby_vision(self):
+    def hdr_format(self):
 
         video = self.__mediainfo.get('Video', [])
         if len(video) < 1:
-            return False
+            return ""
 
-        return "DOLBY VISION" in video[0].get("HDR_Format_String", "").upper()
+        return video[0].get("HDR_Format_String", "")
+
+
+    @property
+    def is_dolby_vision(self):
+
+        return "DOLBY VISION" in self.hdr_format.upper()
+
+    @property
+    def is_hdr10(self):
+
+        return "HDR10" in self.hdr_format.upper()
 
     @property
     def is_hdr10plus(self):
 
-        video = self.__mediainfo.get('Video', [])
-        if len(video) < 1:
-            return False
-
-        return "HDR10+" in video[0].get("HDR_Format_String", "").upper()
+        return "HDR10+" in self.hdr_format.upper()
 
     @property
     def is_hdr(self):
 
-        return self.is_dolby_vision or self.is_hdr10plus
+        return self.is_dolby_vision or self.is_hdr10 or self.is_hdr10plus
 
 
     def __getitem__(self, key):
@@ -409,7 +416,12 @@ class MediaInfo( ):
         opts = ["-pix_fmt", pix_fmt]
         x265_opts.extend(hdr_opts)
 
-        vbv_maxrate = video_data.get('BitRate', 20*10**6)//1000
+        # Define a maximum for vbv-maxrate at 20 Mbps
+        # Try to get max bit rate from video_data (using maxrate as default).
+        # Then take the smaller of the 2 values and convert to Kbps 
+        maxrate = 20 * 10**6
+        vbv_maxrate = video_data.get('BitRate', maxrate)
+        vbv_maxrate = min(vbv_maxrate, maxrate)//1000
         vbv_bufsize = 2*vbv_maxrate
 
         x265_opts.extend(

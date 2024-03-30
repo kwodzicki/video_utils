@@ -19,8 +19,9 @@ from . import POPENPOOL
 from .mediainfo import MediaInfo
 from .comremove import ComRemove
 from .utils import _sigintEvent, _sigtermEvent, isRunning, thread_check
+from .utils import hdr_utils
 from .utils.handlers import RotatingFile
-from .utils.ffmpeg_utils   import cropdetect, FFmpegProgress
+from .utils.ffmpeg_utils   import cropdetect, extract_hevc, FFmpegProgress
 
 from .subtitles import opensubtitles
 from .subtitles import ccextract
@@ -131,9 +132,13 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         self.x265          = x265
         self.remove        = remove
         self.sub_delete_source = sub_delete_source
-        self.infile       = None
-        self.outfile      = None
-        self._prog_file   = None
+        self.infile = None
+        self.outfile = None
+        self.hevc_file = None
+        self.others_file = None
+        self.dolby_vision_file = None
+        self.hdr10plus_file = None
+        self._prog_file = None
 
         if transcode_log is None:
             self.transcode_log = get_transcode_log(
@@ -276,7 +281,12 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         # Set the output file path and file name for inprogress conversion;
         # maybe a previous conversion was cancelled
-        outfile   = f"{self.outfile}.{self.container}"
+        if self.is_hdr:
+            self.__log.info("HDR content detected; forcing MKV file")
+            outfile = f"{self.outfile}.mkv"
+        else:
+            outfile = f"{self.outfile}.{self.container}"
+
         self.__log.info( "Output file: %s", outfile )
 
         self._prog_file = self._check_outfile_exists( outfile )
@@ -293,25 +303,16 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         self.__log.info( "Transcoding file..." )
 
-        # Add a new method for 4k/HDR hevc extraction
-        # Then, check here for self.is_hdr and, if so, run the 4k/hdr
-        # extractor method; which will give the dolby vision and/or hdr10
-        # metadata files. Note that intermediate outfile will be created with
-        # .hevc extension.
-        #
-        # We "should" be able to then run the ffmpeg command to convert the
-        # video stream. After which, will have to check self.is_hdr again
-        # so that can inject the dolby vision and/or hdr10 data into the stream
-        # and them use mkvmerge to push all non-video streams from source
-        # into new output file.
+        self.hdr_metadata()
+
+        # Append outfile to list of created files
+        self._created_files.append(outfile)
 
         # Generate ffmpeg command list
-        ffmpeg_cmd = self._ffmpeg_command( outfile )
-        # Append outfile to list of created files
-        self._created_files.append( outfile )
+        ffmpeg_cmd = self._ffmpeg_command(self.hevc_file or outfile)
 
         # Initialize ffmpeg progress class
-        prog   = FFmpegProgress( nintervals = 10 )
+        prog = FFmpegProgress(nintervals=10)
         stderr = RotatingFile(
             self.transcode_log,
             callback=prog.progress,
@@ -320,8 +321,8 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         try:
             proc = POPENPOOL.popen_async(
                 ffmpeg_cmd,
-                threads = self.threads,
-                stderr  = stderr,
+                threads=self.threads,
+                stderr=stderr,
                 universal_newlines=True,
             )
         except:
@@ -329,38 +330,137 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         else:
             proc.wait()
 
-        # Clean up chapter file
-        self.chapter_file = self._clean_up( self.chapter_file )
-
         try:
             self.transcode_status = proc.returncode
         except:
             self.transcode_status = -1
 
-        if self.transcode_status == 0:
-            self.__log.info( "Transcode SUCCESSFUL!" )
-            if self.metadata:
-                self.metadata.write_tags( outfile )
+        outfile = self.transcode_postprocess(outfile)
 
-            self.get_subtitles( )
-            self._compression_ratio( outfile )
-            self._remove_source()
+        # Clean up chapter file
+        self.chapter_file = self._clean_up(self.chapter_file)
 
-            self.__log.info(
-                "Duration: %s",
-                datetime.now()-start_time
-            )
-        elif isRunning():
+        if isRunning():
+            self._prog_file = self._clean_up(self._prog_file)
+
+        return outfile
+
+    def transcode_postprocess(self, outfile):
+        """
+        To handle result of transcoding
+
+        Based on the result of the FFmpeg subprocess, handle what happens
+        to output and intermediate files.
+
+        Note that HDR videos are a special case where the FFmpeg actually
+        outputs 2 files: one with just video and one with everything else.
+        These files are then joined together using mkvmerge to create final
+        output file.
+
+        Arguments:
+            outfile (str): Name of the output file created by FFmpeg
+
+        Returns:
+            str | None : If everything went as planned, then the path to
+                the output file is returned. On failure, None is returned.
+
+        """
+
+        # If the transcode failed
+        if self.transcode_status != 0:
+            # If the application is NOT running
+            if not self.isRunning():
+                return outfile
+
+            # If made here, then app is sitll running, so other issue
             self.__log.critical(
                 "All transcode attempts failed : %s. Removing all created files.",
                 self.infile,
             )
-            outfile = self._created_files = self._clean_up( *self._created_files )
+            self._created_files = self._clean_up(*self._created_files)
+            return None
 
-        if isRunning():
-            self._prog_file = self._clean_up( self._prog_file )
+        self.__log.info( "Transcode SUCCESSFUL!" )
+        
+        if self.hevc_file:
+            self.hevc_file = hdr_utils.ingect_hdr(
+                self.hevc_file,
+                self.dolby_vision_file,
+                self.hdr10plus_file,
+            )
+
+            cmd = ["mkvmerge", "-o", outfile, self.hevc_file, self.others_file]
+            proc = POPENPOOL.popen_async(cmd)
+            proc.wait()
+
+            if proc.returncode != 0:
+                self.__log.error('Issue running mkvmerge! Removing all created files')
+                self._created_files = self._clean_up(*self._created_files)
+                return None
+
+        if self.metadata:
+            self.metadata.write_tags(outfile)
+
+        self.get_subtitles()
+        self._compression_ratio(outfile)
+        self._remove_source()
+
+        self.__log.info(
+            "Duration: %s",
+            datetime.now()-start_time
+        )
 
         return outfile
+
+    def hdr_metadata(self):
+        """
+        To get HDR metdata from input file
+
+        We check to see if the file has any HDR information.
+        If it does, then we extract the HEVC video stream so that we can
+        try to get any Dolby Vision and/or HDR10+ metadata from the files.
+        We also have to re-evalute that video encoding settings based on
+        HDR color metadata for the video and (if any) DV/HDR10+ data.
+
+        In the case of HDR content, the FFmpeg transcode command that is run
+        actually creates two (2) files; one with the transcoded video stream
+        and another with audio, chapter, etc. information. This is done so
+        that any Dolby Vision/HDR10+ metadata can be injected back into the
+        re-encoded HEVC stream.
+
+        """
+
+        if not self.is_hdr:
+            # Possibly redudant, but ensure all are set to None
+            self.hevc_file = None
+            self.others_file = None
+            self.dolby_vision_file = None
+            self.hdr10plus_file = None
+            
+            return
+
+        # Use self.outfile as has not extension yet
+        self.__log.info("Attempting to get HDR metadata")
+        self.hevc_file = extract_hevc(self.infile, self.outfile)
+
+        if self.hevc_file is None:
+            return
+        
+        # Could check the is_dolby_vision and is_hdr10plus properties here...
+        self.dolby_vision_file = hdr_utils.dovi_extract(self.hevc_file)
+        self.hdr10plus_file = hdr_utils.hdr10plus_extract(self.hevc_file)
+
+        if self.dolby_vision_file is None and self.hdr10plus_file is None:
+            return
+
+        self.__log.info("Rebuilding video_info with HDR metadata")
+        self.video_info = self.get_video_info(
+            x265=self.x265,
+            dolby_vision_file=self.dolby_vision_file,
+            hdr10plus_file=self.hdr10plus_file,
+        )
+
+        self.others_file = f"{self.outfile}.mka"
 
     def file_info( self, infile, metadata = None):
         """
@@ -519,7 +619,14 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     def _clean_up(self, *args):
         """Method to delete arbitrary number of files, catching exceptions"""
 
-        for arg in args:
+        to_clean = [
+            *args,
+            self.hevc_file,
+            self.others_file,
+            self.dolby_vision_file,
+            self.hdr10plus_file,
+        ]
+        for arg in to_clean:
             if not isinstance(arg, str) or not os.path.isfile(arg):
                 continue
             try:
@@ -531,12 +638,12 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
                     err,
                 )
 
-    def _ffmpeg_command(self, video_stream, others_stream=None):
+    def _ffmpeg_command(self, video_file):
         """
         A method to generate full ffmpeg command list
 
         Arguments:
-            video_stream (str): Full output file path that ffmpeg will create
+            video_file (str): Full output file path that ffmpeg will create
 
         Keyword arguments:
             None
@@ -568,8 +675,8 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
                # Add next options to ffmpeg
                cmd.extend(self.video_info[next(video_keys)])
 
-        if others_stream is not None:
-            cmd.append(video_stream)
+        if self.others_file is not None:
+            cmd.append(video_file)
 
         for key in audio_keys:
             cmd.extend(self.audio_info[key])
@@ -581,47 +688,17 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         else:
             cmd.extend(["-map_chapters", "0"])
  
-        if others_stream is not None:
-            cmd.append(others_stream)
+        if self.others_file is not None:
+            cmd.append(self.others_file)
         else:
-            cmd.append(video_stream)
+            cmd.append(video_file)
 
-        #while any( av_opts ):
-        #   try:
-        #       key = next( video_keys )
-        #   except:
-        #       av_opts[0] = False
-        #   else:
-        #       # Add data to the ffmpeg command
-        #       cmd.extend( self.video_info[ key ] )
-        #       # If the key is '-filter', we also want the next tag, which is codec
-        #       if key == '-filter':
-        #           if crop_vals is not None:
-        #               if len(self.video_info[key]) != 0:
-        #                   # Add cropping to video filter
-        #                   cmd[-1] = f"{cmd[-1]},{crop_vals}"
-        #               else:
-        #                   # Add cropping values
-        #                   cmd.extend( ["-vf", crop_vals] )
-        #           # Add next options to ffmpeg
-        #           cmd.extend( self.video_info[ next(video_keys) ] )
-        #   try:
-        #       key = next( audio_keys )
-        #   except:
-        #       av_opts[1] = False
-        #   else:
-        #       cmd.extend( self.audio_info[ key ] )
-        #       if key == '-filter':
-        #           cmd.extend( self.audio_info[ next(audio_keys) ] )
-
-        #cmd.append( video_stream)
-        print(cmd)
-        self.__log.debug( "ffmpeg cmd: %s", ' '.join(cmd) )
         return cmd
 
-    def _ffmpeg_base(self,
-            strict = 'experimental',
-            max_muxing_queue_size = 4096,
+    def _ffmpeg_base(
+            self,
+            strict='experimental',
+            max_muxing_queue_size=4096,
         ):
         """
         A method to generate basic ffmpeg command
@@ -657,14 +734,15 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         else:
             chapters = []
 
-        if not self.is_uhd:
-            fmt = ["-f", self.container]
-        else:
+        if not self.is_hdr:
             fmt = ["-f", "hevc", "-bsf:v", "hevc_mp4toannexb"]
+        else:
+            fmt = ["-f", self.container]
 
         return [
             "ffmpeg",
             "-nostdin",
+            "-y",
             "-i", self.infile,
             *chapters,
             "-tune", "zerolatency",
