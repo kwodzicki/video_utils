@@ -293,6 +293,18 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         self.__log.info( "Transcoding file..." )
 
+        # Add a new method for 4k/HDR hevc extraction
+        # Then, check here for self.is_hdr and, if so, run the 4k/hdr
+        # extractor method; which will give the dolby vision and/or hdr10
+        # metadata files. Note that intermediate outfile will be created with
+        # .hevc extension.
+        #
+        # We "should" be able to then run the ffmpeg command to convert the
+        # video stream. After which, will have to check self.is_hdr again
+        # so that can inject the dolby vision and/or hdr10 data into the stream
+        # and them use mkvmerge to push all non-video streams from source
+        # into new output file.
+
         # Generate ffmpeg command list
         ffmpeg_cmd = self._ffmpeg_command( outfile )
         # Append outfile to list of created files
@@ -519,12 +531,12 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
                     err,
                 )
 
-    def _ffmpeg_command(self, outfile):
+    def _ffmpeg_command(self, video_stream, others_stream=None):
         """
         A method to generate full ffmpeg command list
 
         Arguments:
-            outfile (str): Full output file path that ffmpeg will create
+            video_stream (str): Full output file path that ffmpeg will create
 
         Keyword arguments:
             None
@@ -541,43 +553,75 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         video_keys = self._video_keys()
         audio_keys = self._audio_keys()
         # Booleans for if all av options have been parsed
-        av_opts    = [True, True]
+        #av_opts    = [True, True]
 
-        while any( av_opts ):
-            try:
-                key = next( video_keys )
-            except:
-                av_opts[0] = False
-            else:
-                # Add data to the ffmpeg command
-                cmd.extend( self.video_info[ key ] )
-                # If the key is '-filter', we also want the next tag, which is codec
-                if key == '-filter':
-                    if crop_vals is not None:
-                        if len(self.video_info[key]) != 0:
-                            # Add cropping to video filter
-                            cmd[-1] = f"{cmd[-1]},{crop_vals}"
-                        else:
-                            # Add cropping values
-                            cmd.extend( ["-vf", crop_vals] )
-                    # Add next options to ffmpeg
-                    cmd.extend( self.video_info[ next(video_keys) ] )
-            try:
-                key = next( audio_keys )
-            except:
-                av_opts[1] = False
-            else:
-                cmd.extend( self.audio_info[ key ] )
-                if key == '-filter':
-                    cmd.extend( self.audio_info[ next(audio_keys) ] )
+        for key in video_keys:
+            cmd.extend(self.video_info[key])
+            if key == '-filter':
+               if crop_vals is not None:
+                   if len(self.video_info[key]) != 0:
+                       # Add cropping to video filter
+                       cmd[-1] = f"{cmd[-1]},{crop_vals}"
+                   else:
+                       # Add cropping values
+                       cmd.extend( ["-vf", crop_vals] )
+               # Add next options to ffmpeg
+               cmd.extend(self.video_info[next(video_keys)])
 
-        cmd.append( outfile )
+        if others_stream is not None:
+            cmd.append(video_stream)
+
+        for key in audio_keys:
+            cmd.extend(self.audio_info[key])
+            if key == '-filter':
+                cmd.extend(self.audio_info[next(audio_keys)])
+
+        if isinstance(self.chapter_file, str) and os.path.isfile(self.chapter_file):
+            cmd.extend(["-map_metadata", "1"])
+        else:
+            cmd.extend(["-map_chapters", "0"])
+ 
+        if others_stream is not None:
+            cmd.append(others_stream)
+        else:
+            cmd.append(video_stream)
+
+        #while any( av_opts ):
+        #   try:
+        #       key = next( video_keys )
+        #   except:
+        #       av_opts[0] = False
+        #   else:
+        #       # Add data to the ffmpeg command
+        #       cmd.extend( self.video_info[ key ] )
+        #       # If the key is '-filter', we also want the next tag, which is codec
+        #       if key == '-filter':
+        #           if crop_vals is not None:
+        #               if len(self.video_info[key]) != 0:
+        #                   # Add cropping to video filter
+        #                   cmd[-1] = f"{cmd[-1]},{crop_vals}"
+        #               else:
+        #                   # Add cropping values
+        #                   cmd.extend( ["-vf", crop_vals] )
+        #           # Add next options to ffmpeg
+        #           cmd.extend( self.video_info[ next(video_keys) ] )
+        #   try:
+        #       key = next( audio_keys )
+        #   except:
+        #       av_opts[1] = False
+        #   else:
+        #       cmd.extend( self.audio_info[ key ] )
+        #       if key == '-filter':
+        #           cmd.extend( self.audio_info[ next(audio_keys) ] )
+
+        #cmd.append( video_stream)
+        print(cmd)
         self.__log.debug( "ffmpeg cmd: %s", ' '.join(cmd) )
         return cmd
 
     def _ffmpeg_base(self,
             strict = 'experimental',
-            max_muxing_queue_size = 2048,
+            max_muxing_queue_size = 4096,
         ):
         """
         A method to generate basic ffmpeg command
@@ -609,15 +653,23 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         if isinstance(self.chapter_file, str) and os.path.isfile(self.chapter_file):
             self.__log.info("Adding chapters from file : %s", self.chapter_file )
-            chapters = ["-i", self.chapter_file, "-map_metadata", "1"]
+            chapters = ["-i", self.chapter_file]
         else:
-            chapters = ["-map_chapters", "0"]
+            chapters = []
+
+        if not self.is_uhd:
+            fmt = ["-f", self.container]
+        else:
+            fmt = ["-f", "hevc", "-bsf:v", "hevc_mp4toannexb"]
 
         return [
-            "ffmpeg", "-nostdin", "-i", self.infile,
+            "ffmpeg",
+            "-nostdin",
+            "-i", self.infile,
             *chapters,
             "-tune", "zerolatency",
-            "-f", self.container, "-threads", str(self.threads),
+            *fmt,
+            "-threads", str(self.threads),
             "-strict", strict,
             "-max_muxing_queue_size", str(max_muxing_queue_size),
         ]

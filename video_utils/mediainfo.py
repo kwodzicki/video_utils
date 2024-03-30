@@ -7,6 +7,8 @@ import logging
 import json
 from subprocess import check_output
 
+from .utils.ffmpeg_utils import get_hdr_opts
+
 class MediaInfo( ):
     """Class that acts as wrapper for mediainfo CLI"""
 
@@ -54,6 +56,73 @@ class MediaInfo( ):
             return self.__mediainfo['General'][0]['Format']
         return None
 
+    @property
+    def video_size(self):
+        """
+        Method to get dimensions of video
+
+        Returns:
+          tuple: Video (width, height) if video stream exists. None otherwise.
+
+        """
+
+        tmp = self.get('Video', [])
+        try:
+            return (tmp[0]['Width'], tmp[0]['Height'],)
+        except:
+            return None
+
+    @property
+    def is_sd(self):
+        """Is file standard definition"""
+
+        try:
+            return self.video_size[1] <= 480
+        except:
+            return None
+
+    @property
+    def is_hd(self):
+        """Is file high definition"""
+
+        try:
+            return not self.is_sd and self.video_size[1] <= 1080
+        except:
+            return None
+
+    @property
+    def is_uhd(self):
+        """Is file high definition"""
+
+        try:
+            return self.video_size[1] > 1080
+        except:
+            return None
+
+    @property
+    def is_dolby_vision(self):
+
+        video = self.__mediainfo.get('Video', [])
+        if len(video) < 1:
+            return False
+
+        return "DOLBY VISION" in video[0].get("HDR_Format_String", "").upper()
+
+    @property
+    def is_hdr10plus(self):
+
+        video = self.__mediainfo.get('Video', [])
+        if len(video) < 1:
+            return False
+
+        return "HDR10+" in video[0].get("HDR_Format_String", "").upper()
+
+    @property
+    def is_hdr(self):
+
+        return self.is_dolby_vision or self.is_hdr10plus
+
+
     def __getitem__(self, key):
         """Method for easily getting key from mediainfo; similar to dict[key]"""
 
@@ -74,22 +143,6 @@ class MediaInfo( ):
 
         return self.__mediainfo.keys()
 
-    def video_size(self):
-        """ 
-        Method to get dimensions of video
-
-        Returns:
-          tuple: Video (width, height) if video stream exists. None otherwise.
-
-        """
-
-        tmp = self.get('Video', [])
-        try:
-            return (tmp[0]['Width'], tmp[0]['Height'],)
-        except:
-            return None
-
-    ##############################################################################
     def is_valid_file(self):
         """ 
         Check if file is valid.
@@ -222,7 +275,12 @@ class MediaInfo( ):
         return info
 
     ################################################################################
-    def get_video_info( self, x265 = False ):
+    def get_video_info(
+        self,
+        x265=False,
+        dolby_vision_file=None,
+        hdr10plus_file=None,
+    ):
         """
         Get video stream information from a video
 
@@ -241,13 +299,15 @@ class MediaInfo( ):
             - 22 :  480p/576p
             - 23 :  720p
             - 24 : 1080p
-            - 24 : 2060p
+            - 20 : 2160p
 
         Arguments:
             None
 
         Keyword arguments:
             x265 (bool): Set to force x265 encoding.
+            dolby_vision_file (str) : Path to Dolby Vision metadata file
+            hdr10plus_file (str) : Path to HDF10+ metadata file
 
         Returns:
             dict: Information in a format for input into the ffmpeg command.
@@ -283,7 +343,10 @@ class MediaInfo( ):
 
         info['-map'].extend( ['-map', mapping] )
 
-        if video_data['Height'] <= 1080 and not x265:
+        # Set resolution and rate factor based on video height
+        resolution, crf = set_resolution( video_data['Height'] )
+
+        if resolution <= 1080 and not x265:
             encoder = 'x264'
             info['-opts'].extend(
                 [
@@ -291,23 +354,28 @@ class MediaInfo( ):
                     '-preset',    'slow',
                     '-profile:v', 'high',
                     '-level',     '4.0',
+                    '-crf',       str(crf),
                 ]
             )
         else:
             encoder   = 'x265'
             bit_depth = video_data.get('BitDepth', '')
-            info['-opts'].extend(
-                [
-                    '-c:v',        'libx265',
-                    '-preset',     'slow',
-                    '-profile:v', f'main{bit_depth}',
-                    '-level',      '5.0',
-                ]
+            opts = self.get_x265_opts(
+                video_data,
+                crf,
+                dolby_vision_file,
+                hdr10plus_file,
             )
 
-        # Set resolution and rate factor based on video height
-        resolution, crf_opts = set_resolution( video_data['Height'] )
-        info['-opts'].extend( crf_opts )
+            info['-opts'].extend(
+                [
+                    '-c:v',         'libx265',
+                    '-preset',      'slow',
+                    '-profile:v',  f'main{bit_depth}',
+                    '-level',       '5.1',
+                    *opts,
+                ]
+            )
 
         # Deinterlace video; send_frame is one frame for each frame
         if video_data.get('ScanType', '').upper() == 'INTERLACED':
@@ -322,6 +390,45 @@ class MediaInfo( ):
         if len(info['-filter']) > 0:
             info['-filter'] = ['-vf', ','.join(info['-filter'])]
         return info
+
+    def get_x265_opts(self, video_data, crf, dolby_vision_file, hdr10plus_file):
+        """
+        Get options for x265 encoding
+
+        Build options for x265, namely HDR encoding flags
+
+        """
+
+        x265_opts = ["pools=none", f"crf={crf}"]
+        hdr_opts = get_hdr_opts(self.infile)
+        if hdr_opts is None:
+            return ["-x265-params", ":".join(x265_opts)]
+
+        pix_fmt, hdr_opts = hdr_opts
+
+        opts = ["-pix_fmt", pix_fmt]
+        x265_opts.extend(hdr_opts)
+
+        vbv_maxrate = video_data.get('BitRate', 20*10**6)//1000
+        vbv_bufsize = 2*vbv_maxrate
+
+        x265_opts.extend(
+            [f"vbv-maxrate={vbv_maxrate}", f"vbv-bufsize={vbv_bufsize}"]
+        )
+
+        if dolby_vision_file:
+            x265_opts.extend(
+                [
+                    "dolby-vision-profile=8.1",
+                    f"dolby-vision-rpu={dolby_vision_file}",
+                ]
+            )
+        if hdr10plus_file:
+            x265_opts.extend(
+                ["dhdr10-opt=1", f"dhdr10-info={hdr10plus_file}"]
+            )
+
+        return opts + ["-x265-params", ":".join(x265_opts)]
 
     ################################################################################
     def get_text_info( self, languages ):
@@ -499,13 +606,13 @@ def set_resolution(video_height):
     """
 
     if video_height <= 480:
-        return 480, ['-crf', '22']
+        return 480, 22
     if video_height <= 720:
-        return 720, ['-crf', '23']
+        return 720, 23
     if video_height <= 1080:
-        return 1080, ['-crf', '24']
+        return 1080, 24
 
-    return 2160, ['-x265-params', 'crf=24:pools=none']
+    return 2160, 20
 
 def mediainfo( fname ):
     """
@@ -534,3 +641,4 @@ def mediainfo( fname ):
         val.sort( key=lambda x: x.get('@typeorder', 0) )
 
     return out
+
