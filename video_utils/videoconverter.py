@@ -177,6 +177,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         self.v_preset         = 'slow'
 
+        self._start_time = None
         self._created_files   = None
         self.__file_handler   = None
 
@@ -274,10 +275,10 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             self.transcode_status = 10
             return False
 
-        start_time            = datetime.now()
-        self.chapter_file     = None
+        self._start_time = datetime.now()
+        self.chapter_file = None
         self.transcode_status = None
-        self._created_files   = []
+        self._created_files = []
 
         # Set the output file path and file name for inprogress conversion;
         # maybe a previous conversion was cancelled
@@ -407,7 +408,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         self.__log.info(
             "Duration: %s",
-            datetime.now()-start_time
+            datetime.now()-self._start_time
         )
 
         return outfile
@@ -734,7 +735,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         else:
             chapters = []
 
-        if not self.is_hdr:
+        if self.is_hdr:
             fmt = ["-f", "hevc", "-bsf:v", "hevc_mp4toannexb"]
         else:
             fmt = ["-f", self.container]

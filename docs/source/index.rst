@@ -33,6 +33,7 @@ To install it using pip::
    naming/index
    settings
    tagging
+   hdr
    comskip
    email
    clis

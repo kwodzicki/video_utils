@@ -85,12 +85,12 @@ def dovi_inject(hevc_file, dolby_vision_file):
     if proc.wait() == 0:
         # command finished successfully!
         # Remove source file and update hevc_file to injected file
-        os.remove(hevc_file)
-        return out_file 
+        os.rename(out_file, hevc_file)
+    else:
+        log.warning("Failed to inject Dolby Vision data : %s", hevc_file)
+        if os.path.isfile(out_file):
+            os.remove(out_file)
 
-    log.warning("Failed to inject Dolby Vision data : %s", hevc_file)
-    if os.path.isfile(out_file):
-        os.remove(out_file)
     return hevc_file
 
 
@@ -173,12 +173,11 @@ def hdr10plus_inject(hevc_file, hdr10plus_file):
     if proc.wait() == 0:
         # command finished successfully!
         # Remove source file and update hevc_file to injected file
-        os.remove(hevc_file)
-        return out_file
-
-    log.warning("Failed to inject HDR10+ data : %s", hevc_file)
-    if os.path.isfile(out_file):
-        os.remove(out_file)
+        os.rename(out_file, hevc_file)
+    else:
+        log.warning("Failed to inject HDR10+ data : %s", hevc_file)
+        if os.path.isfile(out_file):
+            os.remove(out_file)
 
     return hevc_file
 

@@ -22,6 +22,7 @@ Optional
 * `cpulimit`_       - Used to prevent processes from using 100% of CPU
 
 .. _ffmpeg: https://www.ffmpeg.org/
+.. _ffprobe: https://ffmpeg.org/ffprobe.html
 .. _MediaInfo: https://mediaarea.net/en/MediaInfo
 .. _MKVToolNix: https://mkvtoolnix.download 
 
