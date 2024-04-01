@@ -13,6 +13,7 @@ import os
 
 from threading import Thread
 
+from .. import __version__
 from ..videoconverter import VideoConverter
 from ..plex.plex_media_scanner import plex_media_scanner
 from ..utils import isRunning
@@ -28,7 +29,7 @@ class MakeMKV_Watchdog( BaseWatchdog ):
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.log         = logging.getLogger(__name__)
-        self.log.info('Starting up...')
+        self.log.info('Starting up (v%s)...', __version__)
 
         # Sets watchdog to recursive
         recursive = kwargs.pop('recursive', False)

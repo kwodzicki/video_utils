@@ -71,6 +71,7 @@ def dovi_inject(hevc_file, dolby_vision_file):
     if not check_file(dolby_vision_file):
         return hevc_file
 
+    log.info("Injecting Dolby Vision data : %s", hevc_file)
     fname, fext = os.path.splitext(hevc_file)
     out_file = f"{fname}-DV{fext}"
     cmd = [
@@ -117,6 +118,7 @@ def dovi_extract(hevc_file):
     if hevc_file is None:
         return None
 
+    log.info("Extracting Dolby Vision data from : %s", hevc_file)
     fname, _ = os.path.splitext(hevc_file)
     out_file = fname + ".bin"
 
@@ -159,6 +161,7 @@ def hdr10plus_inject(hevc_file, hdr10plus_file):
     if not check_file(hdr10plus_file):
         return hevc_file
 
+    log.info("Injecting HDR10+ data : %s", hevc_file)
     fname, fext = os.path.splitext(hevc_file)
     out_file = f"{fname}-HDR10Plus{fext}"
     cmd = [
@@ -206,6 +209,7 @@ def hdr10plus_extract(hevc_file):
     if hevc_file is None:
         return None
 
+    log.info("Extracting HDR10+ data from : %s", hevc_file)
     fname, _ = os.path.splitext(hevc_file)
     out_file = fname + ".json"
 

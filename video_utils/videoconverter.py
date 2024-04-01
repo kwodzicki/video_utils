@@ -441,7 +441,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             return
 
         # Use self.outfile as has not extension yet
-        self.__log.info("Attempting to get HDR metadata")
+        self.__log.info("Attempting to get HDR metadat; extracting HEVC stream")
         self.hevc_file = extract_hevc(self.infile, self.outfile)
 
         if self.hevc_file is None:
