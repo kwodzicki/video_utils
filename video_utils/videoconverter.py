@@ -441,7 +441,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             return
 
         # Use self.outfile as has not extension yet
-        self.__log.info("Attempting to get HDR metadat; extracting HEVC stream")
+        self.__log.info("Attempting to get HDR metadata; extracting HEVC stream")
         self.hevc_file = extract_hevc(self.infile, self.outfile)
 
         if self.hevc_file is None:
@@ -657,7 +657,11 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         cmd = self._ffmpeg_base( )
 
         # Attempt to detect cropping
-        crop_vals  = cropdetect( self.infile, threads = self.threads )
+        crop_vals = cropdetect(
+            self.infile,
+            self.video_size,
+            threads=self.threads,
+        )
         video_keys = self._video_keys()
         audio_keys = self._audio_keys()
         # Booleans for if all av options have been parsed

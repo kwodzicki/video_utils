@@ -19,7 +19,7 @@ from . import isRunning
 # Regex pattern for locating file duration in ffmpeg ouput
 PROGPAT = re.compile( r'time=(\d{2}:\d{2}:\d{2}.\d{2})' )
 # Regex pattern for extracting crop information
-CROPPAT = re.compile( r'(?:crop=(\d+:\d+:\d+:\d+))' )
+CROPPAT = re.compile( r'(?:crop=(-?\d+):(-?\d+):(-?\d+):(-?\d+))' )
 # Regex pattern for video resolution
 RESPAT  = re.compile( r'(\d{3,5}x\d{3,5})' )
 # Regex pattern for locating file processing location
@@ -414,7 +414,7 @@ def cropdetect_cmd(infile, start_time, seg_len, threads):
         '-',
     ]
 
-def cropdetect( infile, seg_len = 20, threads = None):
+def cropdetect(infile, video_res, seg_len=20, threads=None):
     """
     Use FFmpeg to to detect a cropping region for video files
 
@@ -431,7 +431,7 @@ def cropdetect( infile, seg_len = 20, threads = None):
 
     """
 
-    log     = logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
 
     # Set default value for number of threads
     threads = max(
@@ -439,14 +439,12 @@ def cropdetect( infile, seg_len = 20, threads = None):
         1,
     )
 
-    # Initialize video resolution to None
-    res  = None
     # Counter for number of crop regions detected
-    n_crop   = 0
+    n_crop = 0
     # Initialize list of 4 lists for crop parameters
     whxy = [ [] for i in range(4) ]
-    seg_len = timedelta(seconds = seg_len)
-    start_time   = timedelta(seconds = 0)
+    seg_len = timedelta(seconds=seg_len)
+    start_time = timedelta(seconds=0)
     crop = CHUNK.copy()
 
     log.debug( 'Detecting crop using chunks of length %s', seg_len )
@@ -459,44 +457,40 @@ def cropdetect( infile, seg_len = 20, threads = None):
         cmd  = cropdetect_cmd( infile, start_time, seg_len, threads )
         # Start the command, piping stdout and stderr to a pipe
         with Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True) as proc:
-            line = proc.stdout.readline()
+            line = " "
             while line != '':
-                # If resolution not yet found
-                if res is None:
-                    # Try to find resolution information
-                    res = RESPAT.findall( line )
-                    # Set res to resolution if len of res is 1, else set back to None
-                    res = [int(i) for i in res[0].split('x')] if len(res) == 1 else None
-
-                # Try to find pattern in line
-                whxy = CROPPAT.findall( line )
-                # If found the pattern
-                if len(whxy) == 1:
-                    if not detect:
-                        detect = True
-                    # If the current row is outside of the number of rows
-                    if n_crop == crop.shape[0]:
-                        # Concat a new chunk onto the array
-                        crop = np.concatenate( [crop, CHUNK], axis = 0 )
-                    # Split the string on colon
-                    crop[n_crop,:] = np.array( [int(i) for i in whxy[0].split(':')] )
-                    n_crop += 1
                 line = proc.stdout.readline()
+                # Try to find pattern in line
+                whxy = CROPPAT.search(line)
+                if not whxy:
+                    continue
 
-        start_time += timedelta( seconds = 60 * 5 )
+                if not detect:
+                    detect = True
+                # If the current row is outside of the number of rows
+                if n_crop == crop.shape[0]:
+                    # Concat a new chunk onto the array
+                    crop = np.concatenate([crop, CHUNK], axis=0)
+                # Split the string on colon
+                crop[n_crop,:] = np.array(
+                    tuple(map(int, whxy.groups()))
+                )
+                n_crop += 1
 
-    # If resolution is still None
-    if res is None:
-        log.error('Could not determine video resolution, will NOT crop!')
-        return None
+        start_time += timedelta(seconds=60 * 5)
 
     # Compute maximum across all values
-    max_vals = np.nanmax(crop, axis = 0)
-    x_width  = max_vals[0]# First value is maximum width
-    y_width  = max_vals[1]# Second is maximum height
+    good, _ = np.where(crop[:,:2] > 0)
+    if good.size == 0:
+        log.debug('No valid cropping values detected')
+        return None
 
-    x_check = x_width/res[0]# Compute ratio of cropping width to source width
-    y_check = y_width/res[1]# Compute ratio of cropping height to source height
+    max_vals = np.nanmax(crop[good,:], axis=0)
+    x_width = max_vals[0]# First value is maximum width
+    y_width = max_vals[1]# Second is maximum height
+
+    x_check = x_width/video_res[0]# Compute ratio of cropping width to source width
+    y_check = y_width/video_res[1]# Compute ratio of cropping height to source height
 
     # If crop width and height are atleast 50% of video width and height
 
@@ -505,7 +499,7 @@ def cropdetect( infile, seg_len = 20, threads = None):
         return None
 
     # If the crop size is the same as the input size
-    if (x_width == res[0]) and (y_width == res[1]):
+    if (x_width == video_res[0]) and (y_width == video_res[1]):
         log.debug( 'Crop size same as input size, NOT cropping' )
         return None
 
@@ -514,23 +508,23 @@ def cropdetect( infile, seg_len = 20, threads = None):
             'Crop size very similar to input size (%0.0fx%0.0f vs. %dx%d), NOT cropping',
             x_width,
             y_width,
-            *res,
+            *video_res,
         )
         return None
 
     if x_check >= CROPTHRES:
         # If x ratio is above CROPTHRES, then set xWidth to resolution width
-        x_width = res[0]
+        x_width = video_res[0]
     if y_check >= CROPTHRES:
         # If y ratio is above CROPTHRES, then set yWidth to resolution height
-        y_width = res[1]
+        y_width = video_res[1]
 
     # Compute x-offset, this is half of the difference between video width and
     # crop width because applies to both sizes of video
-    x_offset = (res[0] - x_width) // 2
+    x_offset = (video_res[0] - x_width) // 2
     # Compute x-offset, this is half of the difference between video height and
     # crop height because applies to both top and bottom of video
-    y_offset = (res[1] - y_width) // 2
+    y_offset = (video_res[1] - y_width) // 2
 
     crop = (x_width, y_width, x_offset, y_offset)
     crop = map(int, crop )
