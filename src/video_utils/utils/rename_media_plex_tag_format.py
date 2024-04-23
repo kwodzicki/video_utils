@@ -83,7 +83,8 @@ def main( topdir, **kwargs ):
         if kwargs.get('test', False):
             return
 
-if __name__ == "__main__":
+
+def cli():
     parser = argparse.ArgumentParser(
         description = (
             'Rename Movies/TV Shows to match the new Plex file formatting that '

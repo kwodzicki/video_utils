@@ -9,9 +9,13 @@ segments.
 
 import logging
 import os
+import sys
+import argparse
 from datetime import timedelta
+from importlib.metadata import version as pkg_version
 
-from . import config, POPENPOOL
+from . import __version__, config, POPENPOOL
+from .utils import MAXTHREADS
 from .utils.check_cli import check_cli
 from .utils.ffmpeg_utils import get_video_length, FFMetaData
 from .utils.handlers import RotatingFile
@@ -524,3 +528,55 @@ class ComRemove( ):
                 return f"{num:3.1f}{unit}{suffix}"
             num /= 1024.0
         return f"{num:.1f}Y{suffix}"
+
+    
+def cli():
+    parser = argparse.ArgumentParser(
+        description="comskip",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "infile",
+        type = str,
+        help = "Input file to remove commercials from",
+    )
+    parser.add_argument(
+        "--ini",
+        type    = str,
+        default = config.COMSKIPINI,
+        help    = "comskip ini file to use for commercial detection",
+    )
+    parser.add_argument(
+        "-t", "--threads",
+        type    = int,
+        default = MAXTHREADS,
+        help    = "Set number of threads to use. Default: all the threads",
+    )
+    parser.add_argument(
+        "-c", "--cpulimit",
+        type    = int,
+        default = 75,
+        help    = "Set to limit CPU usage.",
+    )
+    parser.add_argument(
+        "-v", "--verbose",
+        action = "store_true",
+        help   = "Increase verbosity (not implemented)",
+    )
+    parser.add_argument(
+        '--version',
+        action  = 'version',
+        version = '%(prog)s '+__version__,
+    )
+
+    args = parser.parse_args()
+    inst = ComRemove(
+        ini      = args.ini,
+        threads  = args.threads,
+        cpulimit = args.cpulimit,
+        verbose  = args.verbose,
+    )
+
+    sys.exit(
+        inst.process( args.infile )
+    )

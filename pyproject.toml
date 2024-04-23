@@ -1,0 +1,63 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video_utils"
+version = "3.6.0"
+description = "Package for transcoding video files to h264/h265 codec"
+readme = "README.md"
+authors = [
+    {name="Kyle R. Wodzicki", email="krwodzicki@gmail.com"},
+]
+
+classifiers = [
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia :: Video",
+]
+
+requires-python = ">=3.9"
+
+dependencies = [
+    "mutagen",
+    "soundfile",
+    "pillow", 
+    "numpy",
+    "scipy",
+    "requests",
+    "psutil",
+    "watchdog",
+    "pyYAML",
+    "pgsrip",
+    "plexapi",
+]
+
+[project.scripts]
+comremove = "video_utils.comremove:cli"
+MakeMKV_Watchdog = "video_utils.watchdogs.makemkv:cli"
+videotagger = "video_utils.videotagger.cli:cli"
+rename_media_plex_tag_format = "video_utils.utils.rename_media_plex_tag_format:cli"
+updateFileNames = "video_tagger.utils.update_file_names.cli"
+
+
+#SCRIPTS = [
+#    'bin/Plex_DVR_Watchdog',
+#    'bin/splitOnChapter',
+#    'bin/plexToken',
+#]
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yml", "*.ini", "*.ttf"]

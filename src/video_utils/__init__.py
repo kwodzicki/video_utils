@@ -2,6 +2,7 @@ import logging
 import os
 import json
 import signal
+from importlib.metadata import version as get_version
 from threading import Event
 
 from .version import __version__
@@ -15,6 +16,7 @@ __doc__ = (
     "subtitle extraction, audio aligning/downmixing, and metadata editing."
 )
 
+__version__ = get_version(__name__)
 # Set up the logger for the module
 log = logging.getLogger( __name__ )
 log.setLevel(logging.DEBUG)

@@ -14,12 +14,13 @@ try:
 except:
     QApplication = None
 
-import video_utils
-from video_utils.mediainfo import MediaInfo
-from video_utils.videotagger import getMetaData
+from .. import log, __version__, __name__ as pkg_name
+
+from ..mediainfo import MediaInfo
+from . import getMetaData
 
 if QApplication is not None:
-    from video_utils.videotagger import gui
+    from . import gui
 
 def tag_file( args ):
     """
@@ -28,7 +29,7 @@ def tag_file( args ):
     """
 
     if not args.path.endswith( ('.mkv', '.mp4') ):
-        video_utils.log.critical('File must be MP4 or MKV!')
+        log.critical('File must be MP4 or MKV!')
         return False
     metadata = getMetaData(
         args.path,
@@ -37,12 +38,12 @@ def tag_file( args ):
         dvdOrder = args.dvdOrder,
     )
     metadata.addComment(
-        f'Metadata written with {video_utils.__name__} version {video_utils.__version__}.'
+        f'Metadata written with {pkg_name} version {__version__}.'
     )
     try:
         metadata.write_tags( args.path )
     except:
-        video_utils.log.critical('Failed to write tags')
+        log.critical('Failed to write tags')
         return False
     if args.rename:
         mediainfo = MediaInfo( args.path )
@@ -53,11 +54,12 @@ def tag_file( args ):
         os.makedirs( new_dir, exist_ok = True )
         new_file = [metadata.get_basename()] + video['file_info'] + audio['file_info']
         new_path = os.path.join( new_dir, '.'.join(new_file) + ext )
-        video_utils.log.info('Renaming file: %s ---> %s', args.path, new_path)
+        log.info('Renaming file: %s ---> %s', args.path, new_path)
         os.rename( args.path, new_path )
     return True
 
-if __name__ == "__main__":
+    
+def cli():
     parser = argparse.ArgumentParser(
         description="Write metadata to MP4 and MKV files",
     )
@@ -108,11 +110,11 @@ if __name__ == "__main__":
     parser.add_argument(
         '--version',
         action  = 'version',
-        version = '%(prog)s '+video_utils.__version__,
+        version = '%(prog)s '+__version__,
     )
 
     args = parser.parse_args()
-    video_utils.log.setLevel(
+    log.setLevel(
         logging.DEBUG if args.verbose == 'debug' else logging.INFO
     )
 
@@ -122,7 +124,7 @@ if __name__ == "__main__":
     screen_log = logging.StreamHandler()
     screen_log.setFormatter( SCREEN_FMT )
     screen_log.setLevel( SCREEN_LVL )
-    video_utils.log.addHandler(screen_log)
+    log.addHandler(screen_log)
 
     if args.gui:
         if QApplication is None:
@@ -141,7 +143,7 @@ if __name__ == "__main__":
     elif os.path.isfile( args.path ):
         files = [ args.path ]
     else:
-        video_utils.log.critical("'path' argument must be a file or directory")
+        log.critical("'path' argument must be a file or directory")
         sys.exit(1)
 
     for fpath in files:
