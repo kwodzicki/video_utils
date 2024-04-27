@@ -251,8 +251,9 @@ def get_dvr_section_dir( path ):
         section_dir = os.path.basename(root)
 
     return section_dir
+
   
-def get_token( login=False ):
+def get_token(login=False):
     """
     Use plexapi to get token for server
 
@@ -291,3 +292,8 @@ def get_token( login=False ):
             return pickle.load( iid )
 
     return None
+
+
+def get_token_cli():
+    get_token(login=True)
+

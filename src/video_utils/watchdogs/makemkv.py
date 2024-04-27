@@ -128,11 +128,10 @@ class MakeMKV_Watchdog( BaseWatchdog ):
             )
 
 def cli():
-    desc = """
-    A CLI for running a watchdog to monitor a directory (or directories)
-    for new files to transcode and add Plex
-
-    """
+    desc = (
+        'A CLI for running a watchdog to monitor a directory (or directories)'
+        'for new files to transcode and add Plex'
+    )
 
     # Set the description of the script to be printed in the help doc, i.e., ./script -h
     parser = argparse.ArgumentParser(

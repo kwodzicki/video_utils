@@ -17,7 +17,6 @@ except:
 else:
     imdb = IMDb()
 
-from .. import log
 from ..videotagger import TMDb
 from ..videotagger import TVDb
 from ..videotagger.episode import TVDbEpisode
@@ -297,47 +296,4 @@ def update_file_names(*args, rootdir = None, dbID = None, **kwargs):
                     else:
                         print(f'Removed directory : {path}' )
         PMS(section)
-
-def cli():
-    """
-    CLI to update file names to a newer convention
-    
-    """
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        'indir',
-        nargs = '+',
-        help  = 'Directories to rename files in',
-    )
-    parser.add_argument(
-        '--root',
-        type = str,
-        help = 'Directories to rename files in',
-    )
-    parser.add_argument(
-        '--dbID',
-        type = str,
-        help = 'Directories to rename files in',
-    )
-    parser.add_argument(
-        '--dvdOrder',
-        action = 'store_true',
-        help   = 'Match episodes based on DVD order',
-    )
-    parser.add_argument(
-        '--log-level',
-        type    = int,
-        default = 20,
-        help    = 'Set logging leve',
-    )
-    args = parser.parse_args()
-
-    log.handlers[0].setLevel( args.log_level )
-    update_file_names(
-        *args.indir,
-        rootdir=args.root,
-        dbID=args.dbID,
-        dvdOrder=args.dvdOrder,
-    )
 

@@ -8,7 +8,6 @@ within the Movie/TV Series forlder name and file names.
 """
 
 import os
-import argparse
 
 MATCH = ('tmdb', 'tvdb')
 
@@ -83,39 +82,3 @@ def main( topdir, **kwargs ):
         if kwargs.get('test', False):
             return
 
-
-def cli():
-    parser = argparse.ArgumentParser(
-        description = (
-            'Rename Movies/TV Shows to match the new Plex file formatting that '
-            'supports TMDb, TVDb, and IMDb tags in the directory/file names. '
-            'Previous of file naming contained the tags, but not in the new '
-            'format that Plex expects. Simply point this script to the Movie '
-            'and/or TV Show directory and let it rename all your files. '
-            'Note that this will NOT make duplicates of files and run the '
-            'Plex Media Scanner to ensure that files are not re-added to the '
-            'library like the updateFileNames script does. This utility '
-            'simply renames the files.'
-        ),
-    )
-    parser.add_argument(
-        'dir',
-        nargs = '+',
-        type = str,
-        help = 'Directories to iterate over',
-    )
-    parser.add_argument(
-        '-n', '--dry-run',
-        action = 'store_true',
-        help   = "Set to do a dry run; don't actually rename files/directories",
-    )
-    parser.add_argument(
-        '--test',
-        action = 'store_true',
-        help   = "Set for testing purposes",
-    )
-
-    args = parser.parse_args()
-
-    for arg in args.dir:
-        main( arg, dry_run = args.dry_run, test = args.test)

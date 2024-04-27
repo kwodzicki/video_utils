@@ -10,6 +10,9 @@ is moved to its final location
 import logging
 
 import os
+import sys
+import argparse
+
 import time
 from datetime import timedelta
 from subprocess import run, STDOUT, DEVNULL
@@ -18,15 +21,37 @@ from threading import Thread, Timer, Event, Lock
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from ..config import plex_dvr
+from .. import __version__, log
+from ..config import (
+    plex_dvr, BASEPARSER, plexFMT, get_transcode_log, get_comskip_log
+)
+
 from ..utils import isRunning#_sigintEvent, _sigtermEvent
-from ..utils.handlers import send_email
+from ..utils.pid_check import pid_running
+from ..utils.handlers import send_email, EMailHandler, init_log_file
 from ..plex.dvr_converter import DVRconverter
 from ..plex.utils import DVRqueue, get_dvr_section_dir
 
 RECORDTIMEOUT = timedelta(days=1)
-TIMEOUT       =     1.0
-SLEEP         =     1.0
+TIMEOUT = 1.0
+SLEEP = 1.0
+
+"""
+The following code 'attempts' to add what should be the 
+site-packages location where video_utils is installed
+to sys.path
+"""
+
+#binDir  = os.path.dirname( os.path.realpath( __file__ ) )
+#topDir  = os.path.dirname( binDir )
+#pyVers  = f'python{sys.version_info.major}.{sys.version_info.minor}'
+#siteDir = ['lib', pyVers, 'site-packages']
+#siteDir = os.path.join( topDir, *siteDir )
+#
+#if os.path.isdir(siteDir):
+#    if siteDir not in sys.path:
+#        sys.path.append( siteDir )
+
 
 class PlexDVRWatchdog( FileSystemEventHandler ):
     """Class to watch for, and convert, new DVR recordings"""
@@ -329,3 +354,79 @@ class PlexDVRWatchdog( FileSystemEventHandler ):
         self.__purge_timer.cancel()
         self.__observer.stop()
         self.log.info('Plex watchdog stopped!')
+
+
+def cli():
+    desc = (
+        'A CLI for running a watchdog to monitor a Plex library (or libraries) '
+        'for new files to convert to h264 encoded videos'
+    )
+
+    parser = argparse.ArgumentParser(
+        description=desc,
+        parents=[BASEPARSER],
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.set_defaults(
+        loglevel=plexFMT['level'],
+    )
+    parser.add_argument(
+        "dir",
+        type=str,
+        nargs='+',
+        help="Plex library directory(s) to watch for DVR recordings",
+    )
+    parser.add_argument(
+        "--script",
+        type=str,
+        help=(
+            "Set full path of Plex DVR Post-processing script to run. "
+            "Use this if you already have a script that you would like to "
+            "run instead of using the utilities included in this distribution."
+        ),
+    )
+    parser.add_argument(
+        "--comdetect",
+        action = "store_true",
+        help   = "Enable commercial detection",
+    )
+    parser.add_argument(
+        "--destructive",
+        action = "store_true",
+        help   = (
+            "Set to cut commercials out of file. Default is to leave "
+            "commercials in file and add chapters for show segments and "
+            "commercials. This is safer."
+        ),
+    )
+
+    args = parser.parse_args()
+
+    if pid_running( plexFMT['pidFile'] ):
+        log.critical( '%s instance already running!', parser.prog )
+        sys.exit(1)
+    plexFMT['level'] = args.loglevel
+    init_log_file( plexFMT )
+
+    email = EMailHandler( subject = f'{parser.prog} Update' )
+    if email:
+        log.addHandler( email )
+
+    try:
+        wd = PlexDVRWatchdog(
+            *args.dir,
+            threads       = args.threads,
+            cpulimit      = args.cpulimit,
+            script        = args.script,
+            lang          = args.lang,
+            transcode_log = get_transcode_log( parser.prog ),
+            comskip_log   = get_comskip_log(   parser.prog ),
+            comdetect     = args.comdetect,
+            destructive   = args.destructive,
+            no_remove     = args.no_remove,
+            no_srt        = args.no_srt,
+        )
+    except:
+        log.exception('Something went wrong! Watchdog failed to start')
+    else:
+        wd.join()

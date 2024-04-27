@@ -44,17 +44,12 @@ dependencies = [
 [project.scripts]
 comremove = "video_utils.comremove:cli"
 MakeMKV_Watchdog = "video_utils.watchdogs.makemkv:cli"
+Plex_DVR_Watchdog = "video_utils.watchdogs.plex_dvr:cli"
 videotagger = "video_utils.videotagger.cli:cli"
-rename_media_plex_tag_format = "video_utils.utils.rename_media_plex_tag_format:cli"
-updateFileNames = "video_tagger.utils.update_file_names.cli"
-
-
-#SCRIPTS = [
-#    'bin/Plex_DVR_Watchdog',
-#    'bin/splitOnChapter',
-#    'bin/plexToken',
-#]
-
+rename_media_plex_tag_format = "video_utils.utils.clis:rename_media_plex_tag_format"
+updateFileNames = "video_utils.utils.clis:update_file_names"
+splitOnChapter = "video_utils.utils.clis:split_on_chapter"
+plexToken = "video_utils.plex.utils:get_token_cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
