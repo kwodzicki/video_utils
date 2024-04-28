@@ -23,6 +23,7 @@ HDR10PLUS_TOOL = os.path.join(
     "hdr10plus_tool",
 )
 
+
 def ingect_hdr(hevc_file, dolby_vision_file, hdr10plus_file):
     """
     Ingect Dolby Vision/HDR10 data
@@ -34,7 +35,7 @@ def ingect_hdr(hevc_file, dolby_vision_file, hdr10plus_file):
         hevc_file (str) : Path to hevc_mp4toannexb formatted video stream.
         dolby_vision_file (str): Path to Dolby Vision .bin metadata file.
             If set to None, or file not exist, then no data injected.
-        hdr10plus_file (str): Path to HDR10+ .json metadta file 
+        hdr10plus_file (str): Path to HDR10+ .json metadta file
             If set to None, or file not exist, then no data injected.
 
     Returns:
@@ -45,7 +46,7 @@ def ingect_hdr(hevc_file, dolby_vision_file, hdr10plus_file):
     hevc_file = dovi_inject(hevc_file, dolby_vision_file)
     hevc_file = hdr10plus_inject(hevc_file, hdr10plus_file)
 
-    return hevc_file 
+    return hevc_file
 
 
 def dovi_inject(hevc_file, dolby_vision_file):
@@ -61,7 +62,7 @@ def dovi_inject(hevc_file, dolby_vision_file):
         str : Path to HEVC file with injected metadata
 
     """
- 
+
     log = logging.getLogger(__name__)
 
     if not os.path.isfile(DOVI_TOOL):
@@ -144,7 +145,7 @@ def hdr10plus_inject(hevc_file, hdr10plus_file):
 
     Arguments:
         hevc_file (str) : Path to hevc_mp4toannexb formatted video stream.
-        hdr10plus_file (str): Path to HDR10+ .json metadta file 
+        hdr10plus_file (str): Path to HDR10+ .json metadta file
             If set to None, or file not exist, then no data injected.
 
     Returns:
@@ -156,7 +157,7 @@ def hdr10plus_inject(hevc_file, hdr10plus_file):
 
     if not os.path.isfile(HDR10PLUS_TOOL):
         log.error("hdr10plus_tool NOT installed!")
-        return hevc_file 
+        return hevc_file
 
     if not check_file(hdr10plus_file):
         return hevc_file
@@ -184,7 +185,7 @@ def hdr10plus_inject(hevc_file, hdr10plus_file):
 
     return hevc_file
 
- 
+
 def hdr10plus_extract(hevc_file):
     """
     Run 'hdr10plus_tool' for Dolby Vision data
@@ -199,7 +200,6 @@ def hdr10plus_extract(hevc_file):
             else None
 
     """
-
 
     log = logging.getLogger(__name__)
     if not os.path.isfile(HDR10PLUS_TOOL):

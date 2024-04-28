@@ -6,7 +6,8 @@ Utility to check if CLI is installed
 import sys
 from subprocess import check_output, STDOUT
 
-def check_cli( cli ):
+
+def check_cli(cli):
     """
     Check if CLI is installed
 
@@ -27,7 +28,7 @@ def check_cli( cli ):
         cmd = ['which', cli]
 
     try:
-        path = check_output( cmd, stderr = STDOUT )
+        path = check_output(cmd, stderr=STDOUT)
     except:
         path = None
 

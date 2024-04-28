@@ -11,14 +11,16 @@ import os
 
 MATCH = ('tmdb', 'tvdb')
 
-def strip_empty_dir( topdir ):
+
+def strip_empty_dir(topdir: str) -> str:
     """Strip off any trailing path separaters"""
 
-    while os.path.split( topdir )[1] == '':
-        topdir = os.path.dirname( topdir )
+    while os.path.split(topdir)[1] == '':
+        topdir = os.path.dirname(topdir)
     return topdir
 
-def rename_files( topdir, dry_run = False, **kwargs ):
+
+def rename_files(topdir: str, dry_run: bool = False, **kwargs) -> None:
     """
     Actually rename files
 
@@ -36,37 +38,38 @@ def rename_files( topdir, dry_run = False, **kwargs ):
 
     """
 
-    topdir = strip_empty_dir( topdir )
-    mid    = None
+    topdir = strip_empty_dir(topdir)
+    mid = None
 
-    for root, _, items in os.walk( topdir ):
+    for root, _, items in os.walk(topdir):
         for item in items:
-            src = os.path.join( root, item )
-            if not os.path.isfile( src ):
+            src = os.path.join(root, item)
+            if not os.path.isfile(src):
                 continue
 
             parts = item.split('.')
             for i, part in enumerate(parts):
-                if part.startswith( MATCH ):
+                if part.startswith(MATCH):
                     parts[i] = '{' + part[:4] + '-' + part[4:] + '}'
                     if mid is None:
                         mid = parts[i]
                     break
-            dst = os.path.join( root, '.'.join( parts ) )
+            dst = os.path.join(root, '.'.join(parts))
 
-            print( f'{src} -- > {dst}' )
+            print(f'{src} -- > {dst}')
             if not dry_run:
-                os.rename( src, dst )
+                os.rename(src, dst)
 
     if mid is not None:
         src = topdir
         if mid not in src:
             dst = f'{src} {mid}'
-            print( f'{src} --> {dst}' )
+            print(f'{src} --> {dst}')
             if not dry_run:
-                os.rename( src, dst )
+                os.rename(src, dst)
 
-def main( topdir, **kwargs ):
+
+def main(topdir: str, **kwargs) -> None:
     """
     Main function to iterate over directories at within topdir
 
@@ -75,10 +78,9 @@ def main( topdir, **kwargs ):
 
     """
 
-    for item in os.listdir( topdir ):
-        path = os.path.join( topdir, item )
-        if os.path.isdir( path ):
-            rename_files( path, **kwargs )
+    for item in os.listdir(topdir):
+        path = os.path.join(topdir, item)
+        if os.path.isdir(path):
+            rename_files(path, **kwargs)
         if kwargs.get('test', False):
             return
-
