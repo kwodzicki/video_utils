@@ -9,10 +9,11 @@ from subprocess import check_output
 
 from .utils.ffmpeg_utils import get_hdr_opts
 
-class MediaInfo( ):
+
+class MediaInfo:
     """Class that acts as wrapper for mediainfo CLI"""
 
-    def __init__( self, infile = None, **kwargs ):
+    def __init__(self, infile: str | None = None, **kwargs):
         """
         Initialize MediaInfo class
 
@@ -32,13 +33,14 @@ class MediaInfo( ):
         """
 
         super().__init__(**kwargs)
-        self.__log  = logging.getLogger(__name__)
+        self.__log = logging.getLogger(__name__)
         self.infile = infile
 
     @property
-    def infile(self):
+    def infile(self) -> str | None:
         """Return the input file path"""
         return self.__infile
+
     @infile.setter
     def infile(self, value):
         """Set the input file path"""
@@ -46,10 +48,11 @@ class MediaInfo( ):
         if self.__infile is None:
             self.__mediainfo = None
         else:
-            self.__mediainfo = mediainfo( value )
+            self.__mediainfo = mediainfo(value)
 #          self.__parse_output()
+
     @property
-    def format(self):
+    def format(self) -> str | None:
         """Full name of file format; e.g., MPEG-4, Matroska"""
 
         if self.__mediainfo:
@@ -57,7 +60,7 @@ class MediaInfo( ):
         return None
 
     @property
-    def video_size(self):
+    def video_size(self) -> tuple[int] | None:
         """
         Method to get dimensions of video
 
@@ -73,7 +76,7 @@ class MediaInfo( ):
             return None
 
     @property
-    def is_sd(self):
+    def is_sd(self) -> bool | None:
         """Is file standard definition"""
 
         try:
@@ -82,7 +85,7 @@ class MediaInfo( ):
             return None
 
     @property
-    def is_hd(self):
+    def is_hd(self) -> bool | None:
         """Is file high definition"""
 
         try:
@@ -91,7 +94,7 @@ class MediaInfo( ):
             return None
 
     @property
-    def is_uhd(self):
+    def is_uhd(self) -> bool | None:
         """Is file high definition"""
 
         try:
@@ -100,7 +103,7 @@ class MediaInfo( ):
             return None
 
     @property
-    def hdr_format(self):
+    def hdr_format(self) -> str:
 
         video = self.__mediainfo.get('Video', [])
         if len(video) < 1:
@@ -108,35 +111,43 @@ class MediaInfo( ):
 
         return video[0].get("HDR_Format_String", "")
 
-
     @property
-    def is_dolby_vision(self):
+    def is_dolby_vision(self) -> bool:
 
         return "DOLBY VISION" in self.hdr_format.upper()
 
     @property
-    def is_hdr10(self):
+    def is_hdr10(self) -> bool:
 
         return "HDR10" in self.hdr_format.upper()
 
     @property
-    def is_hdr10plus(self):
+    def is_hdr10plus(self) -> bool:
 
         return "HDR10+" in self.hdr_format.upper()
 
     @property
-    def is_hdr(self):
+    def is_hdr(self) -> bool:
 
         return self.is_dolby_vision or self.is_hdr10 or self.is_hdr10plus
 
-
     def __getitem__(self, key):
-        """Method for easily getting key from mediainfo; similar to dict[key]"""
+        """
+        Method for easily getting key from mediainfo
+
+        Similar to dict[key]
+
+        """
 
         return self.__mediainfo[key]
 
     def __setitem__(self, key, value):
-        """Method for easily setting key in mediainfo; similar to dict[key] = value"""
+        """
+        Method for easily setting key in mediainfo
+
+        Similar to dict[key] = value
+
+        """
 
         self.__mediainfo[key] = value
 
@@ -145,25 +156,25 @@ class MediaInfo( ):
 
         return self.__mediainfo.get(*args)
 
-    def keys(self):
+    def keys(self) -> list:
         """Method for geting mediainfo keys; similar to dict.keys()"""
 
         return self.__mediainfo.keys()
 
-    def is_valid_file(self):
-        """ 
+    def is_valid_file(self) -> bool | None:
+        """
         Check if file is valid.
 
-        This is done by checking that the size of the first video stream is less than
-        the size of the file. This many not work in all cases, but seems to be
-        true for MPEGTS files.
+        This is done by checking that the size of the first video stream is
+        less than the size of the file. This many not work in all cases,
+        but seems to be true for MPEGTS files.
 
         """
 
         if self.__mediainfo:
             try:
-                file_size   = self.__mediainfo['General'][0]['FileSize'  ]
-                stream_size = self.__mediainfo['Video'  ][0]['StreamSize']
+                file_size = self.__mediainfo['General'][0]['FileSize']
+                stream_size = self.__mediainfo['Video'][0]['StreamSize']
             except:
                 return False
             return file_size > stream_size
@@ -183,20 +194,23 @@ class MediaInfo( ):
             return track_lang in languages
         return True
 
-    ################################################################################
-    def get_audio_info( self, language = None ):
-        """ 
+    def get_audio_info(
+        self,
+        language: str | list[str] | None = None,
+    ) -> dict | None:
+        """
         Get audio stream information from a video
 
-        Audio stream information is obtained using information from the mediainfo
-        command and parsing it into a dictionary in a format that allows for input
-        into ffmpeg command for transcoding.
+        Audio stream information is obtained using information from the
+        mediainfo command and parsing it into a dictionary in a format that
+        allows for input into ffmpeg command for transcoding.
 
         Arguments:
             None
 
         Keyword arguments:
-            language (str,list): Language(s) for audio tracks. Must be ISO 639-2 codes.
+            language (str,list): Language(s) for audio tracks.
+                Must be ISO 639-2 codes.
 
         Returns:
             dict: Information in a format for input into the ffmpeg command.
@@ -210,37 +224,39 @@ class MediaInfo( ):
         if 'Audio' not in self.__mediainfo:
             self.__log.warning('No audio information!')
             return None
-        if language is not None and not isinstance( language, (list, tuple) ):
+        if language is not None and not isinstance(language, (list, tuple)):
             language = (language,)
 
         info = {
-            '-map'       : [],
-            '-codec'     : [],
-            '-title'     : [],
-            '-language'  : [],
-            'order'      : ('-map', '-codec', '-title', '-language'),
-            'file_info'  : [],
+            '-map': [],
+            '-codec': [],
+            '-title': [],
+            '-language': [],
+            'order': ('-map', '-codec', '-title', '-language'),
+            'file_info': [],
         }
-        track_id  = '1'
+        track_id = '1'
         track_num = 0
         for track in self.__mediainfo['Audio']:
-            lang3 = track.get( 'Language_String3', '' )
+            lang3 = track.get('Language_String3', '')
 
             # If track language does not match requested, skip it
-            if not self._check_languages( language, lang3 ):
+            if not self._check_languages(language, lang3):
                 continue
 
-            fmt    = track.get( 'Format',           '' )
-            n_chan = track.get( 'Channels',         '' )
-            #lang1  = track.get( 'Language_String',  '' )
-            lang2  = track.get( 'Language_String2', '' )
-            title  = track.get( 'Title',            f"Source Track: {track_id}" )
+            fmt = track.get('Format', '')
+            n_chan = track.get('Channels', '')
+            # lang1  = track.get( 'Language_String',  '' )
+            lang2 = track.get('Language_String2', '')
+            title = track.get('Title', f"Source Track: {track_id}")
 
             # If n_chan is of type string, split number of channels for the
             # audio stream on forward slash, convert all to integer type,
             # take maximum; some DTS streams have 6 or 7 channel layouts
             if isinstance(n_chan, str):
-                n_chan = max( map( int, n_chan.split('/') ) )
+                n_chan = max(
+                    map(int, n_chan.split('/'))
+                )
 
             # Set default language to English
             lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_'
@@ -248,53 +264,54 @@ class MediaInfo( ):
                 mapping = track['StreamOrder'].split('-')
             except:
                 mapping = ['0', str(track['StreamOrder'])]
-            mapping = ':'.join( mapping )
+            mapping = ':'.join(mapping)
 
-            info['file_info'].append( '-'.join( (lang2 + fmt).split() ) )
+            info['file_info'].append(
+                '-'.join((lang2 + fmt).split())
+            )
 
             # If there are more than 2 audio channels
             if n_chan > 2:
-                info['-map'     ].extend( [ '-map', mapping]            )
-                info['-codec'   ].extend( [f"-c:a:{track_num}", 'copy'] )
-                info['-title'   ].append(  f"-metadata:s:a:{track_num}" )
-                info['-title'   ].append(  f"title={title} - {fmt}"     )
-                info['-language'].append(  f"-metadata:s:a:{track_num}" )
-                info['-language'].append(  f"language={lang3}"          )
+                info['-map'].extend(['-map', mapping])
+                info['-codec'].extend([f"-c:a:{track_num}", 'copy'])
+                info['-title'].append(f"-metadata:s:a:{track_num}")
+                info['-title'].append(f"title={title} - {fmt}")
+                info['-language'].append(f"-metadata:s:a:{track_num}")
+                info['-language'].append(f"language={lang3}")
             else:
-                info['-map'  ].extend( [ '-map', mapping]            )
-                info['-codec'].extend( [f"-c:a:{track_num}", 'copy'] )
-                info['-title'].append(  f"-metadata:s:a:{track_num}" )
+                info['-map'].extend(['-map', mapping])
+                info['-codec'].extend([f"-c:a:{track_num}", 'copy'])
+                info['-title'].append(f"-metadata:s:a:{track_num}")
                 info['-title'].append(
                     'title=stereo'
                     if n_chan == 2 else
                     'title=mono'
                 )
-                info['-language'].append( f"-metadata:s:a:{track_num}" )
-                info['-language'].append( f"language={lang3}"          )
+                info['-language'].append(f"-metadata:s:a:{track_num}")
+                info['-language'].append(f"language={lang3}")
 
-            track_id   = str( int(track_id) + 1 )
+            track_id = str(int(track_id) + 1)
             track_num += 1
 
         if len(info['-map']) == 0:
-            self.__log.warning( 'NO audio stream(s) selected...' )
+            self.__log.warning('NO audio stream(s) selected...')
             return None
 
         return info
 
-    ################################################################################
     def get_video_info(
         self,
-        x265=False,
-        dolby_vision_file=None,
-        hdr10plus_file=None,
-    ):
+        x265: bool = False,
+        dolby_vision_file: str | None = None,
+        hdr10plus_file: str | None = None,
+    ) -> dict | None:
         """
         Get video stream information from a video
 
-        Video stream information is obtained using information from the mediainfo
-        command and parsing it into a dictionary in a format that allows for input
-        into ffmpeg command for transcoding. Rate factors for different resolutions
-        are the mid-points from the ranges provided by:
+        Video stream information is obtained using information from the
+        mediainfo command and parsing it into a dictionary in a format that
+        allows for input into ffmpeg command for transcoding. Rate factors for
+        different resolutions are the mid-points from the ranges provided by:
         https://handbrake.fr/docs/en/latest/workflow/adjust-quality.html
 
             - RF 18-22 for 480p/576p Standard Definition
@@ -328,44 +345,44 @@ class MediaInfo( ):
         if 'Video' not in self.__mediainfo:
             self.__log.warning('No video information!')
             return None
-        if len( self.__mediainfo['Video'] ) > 1:
+        if len(self.__mediainfo['Video']) > 1:
             self.__log.error('More than one (1) video stream...Stopping!')
             return None
 
-        encoder    = ''
+        encoder = ''
         video_data = self.__mediainfo['Video'][0]
 
         # Get stream order; check for integer
         try:
             mapping = video_data['StreamOrder'].split('-')
         except:
-            mapping = ['0', str( video_data['StreamOrder'] )]
-        mapping = ':'.join( mapping )
+            mapping = ['0', str(video_data['StreamOrder'])]
+        mapping = ':'.join(mapping)
 
         info = {
-            'order' : ('-map', '-filter', '-opts'),
+            'order': ('-map', '-filter', '-opts'),
         }
         for tag in info['order']:
             info[tag] = []
 
-        info['-map'].extend( ['-map', mapping] )
+        info['-map'].extend(['-map', mapping])
 
         # Set resolution and rate factor based on video height
-        resolution, crf = set_resolution( video_data['Height'] )
+        resolution, crf = set_resolution(video_data['Height'])
 
         if resolution <= 1080 and not x265:
             encoder = 'x264'
             info['-opts'].extend(
                 [
-                    '-c:v',       'libx264',
-                    '-preset',    'slow',
+                    '-c:v', 'libx264',
+                    '-preset', 'slow',
                     '-profile:v', 'high',
-                    '-level',     '4.0',
-                    '-crf',       str(crf),
+                    '-level', '4.0',
+                    '-crf', str(crf),
                 ]
             )
         else:
-            encoder   = 'x265'
+            encoder = 'x265'
             bit_depth = video_data.get('BitDepth', '')
             opts = self.get_x265_opts(
                 video_data,
@@ -376,17 +393,17 @@ class MediaInfo( ):
 
             info['-opts'].extend(
                 [
-                    '-c:v',         'libx265',
-                    '-preset',      'slow',
+                    '-c:v', 'libx265',
+                    '-preset', 'slow',
                     '-profile:v',  f'main{bit_depth}',
-                    '-level',       '5.1',
+                    '-level', '5.1',
                     *opts,
                 ]
             )
 
         # Deinterlace video; send_frame is one frame for each frame
         if video_data.get('ScanType', '').upper() == 'INTERLACED':
-            info['-filter'].append( 'bwdif=send_frame:auto:all' )
+            info['-filter'].append('bwdif=send_frame:auto:all')
 
         info['file_info'] = [f'{resolution}p', encoder]
 
@@ -398,7 +415,13 @@ class MediaInfo( ):
             info['-filter'] = ['-vf', ','.join(info['-filter'])]
         return info
 
-    def get_x265_opts(self, video_data, crf, dolby_vision_file, hdr10plus_file):
+    def get_x265_opts(
+        self,
+        video_data: dict,
+        crf: int,
+        dolby_vision_file: str | None,
+        hdr10plus_file: str | None,
+    ) -> list[str]:
         """
         Get options for x265 encoding
 
@@ -418,7 +441,7 @@ class MediaInfo( ):
 
         # Define a maximum for vbv-maxrate at 20 Mbps
         # Try to get max bit rate from video_data (using maxrate as default).
-        # Then take the smaller of the 2 values and convert to Kbps 
+        # Then take the smaller of the 2 values and convert to Kbps
         maxrate = 20 * 10**6
         vbv_maxrate = video_data.get('BitRate', maxrate)
         vbv_maxrate = min(vbv_maxrate, maxrate)//1000
@@ -442,19 +465,19 @@ class MediaInfo( ):
 
         return opts + ["-x265-params", ":".join(x265_opts)]
 
-    ################################################################################
-    def get_text_info( self, languages ):
+    def get_text_info(self, languages: str | list[str]) -> dict | None:
         """
         Get text stream information from a video
 
-        Video stream information is obtained using information from the mediainfo
-        command and parsing it into a dictionary in a format for use in either the
-        :meth:`video_utils.subtitles.subtitle_extract` or 
-        :meth:`video_utils.subtitles.ccextract` functions to extract the text to
-        individual files and/or convert the text to SRT format.
+        Video stream information is obtained using information from the
+        mediainfo command and parsing it into a dictionary in a format for
+        use in either the :meth:`video_utils.subtitles.subtitle_extract` or
+        :meth:`video_utils.subtitles.ccextract` functions to extract the text
+        to individual files and/or convert the text to SRT format.
 
         Arguments:
-            language (str,list): Language(s) for text streams.Must be ISO 639-2 codes.
+            language (str,list): Language(s) for text streams.
+                Must be ISO 639-2 codes.
                 Note that language selection is not currently
                 available for mpeg transport streams with CC
                 muxed into video as mediainfo gives no information
@@ -464,16 +487,16 @@ class MediaInfo( ):
             None
 
         Returns:
-            dict : Dictionary containing the 3 different language strings, the output
-                extension to be used on the subtitle file, and the MKV ID used
-                to identify tracks in MKVToolNix for each text stream of interest.
-                Returns None if NO text streams found.
+            dict : Dictionary containing the 3 different language strings,
+                the output extension to be used on the subtitle file, and the
+                MKV ID used to identify tracks in MKVToolNix for each text
+                stream of interest. Returns None if NO text streams found.
 
-        Note: 
-            (20190219) - While this method will parse information from all the 
+        Note:
+            (20190219) - While this method will parse information from all the
             text streams in the file, the ccextract
             function currently only extracts the first CC stream as
-            there is not clear documentation on how to extract 
+            there is not clear documentation on how to extract
             specific streams and mediainfo does not return any
             language information for the streams
 
@@ -486,7 +509,7 @@ class MediaInfo( ):
         if 'Text' not in self.__mediainfo:
             self.__log.warning('No text information!')
             return None
-        if not isinstance( languages, (list, tuple) ):
+        if not isinstance(languages, (list, tuple)):
             languages = (languages,)
 
         mpegts = self.__mediainfo['General'][0]['Format'] == 'MPEG-TS'
@@ -496,14 +519,14 @@ class MediaInfo( ):
         # and a dictionary
         j, n_elems, info = 0, [], []
         for track in self.__mediainfo['Text']:
-            lang3  = track.get( 'Language_String3', '' )
+            lang3 = track.get('Language_String3', '')
             if (not mpegts) and (lang3 not in languages):
                 continue
-            idx    = track.get( 'StreamOrder',       ''  )
-            lang1  = track.get( 'Language_String',   ''  )
-            lang2  = track.get( 'Language_String2',  ''  )
-            elems  = track.get( 'ElementCount',      '0' )
-            frames = track.get( 'FrameCount',        '0' )
+            idx = track.get('StreamOrder', '')
+            lang1 = track.get('Language_String', '')
+            lang2 = track.get('Language_String2', '')
+            elems = track.get('ElementCount', '0')
+            frames = track.get('FrameCount', '0')
 
             forced = track.get('Forced', '').upper() == 'YES'
 
@@ -516,43 +539,44 @@ class MediaInfo( ):
 
             # Append the number of VobSub images to the sub_elems list
             # Or number of vobsub frames
-            n_elems.append( max(int(elems), int(frames), 0) )
+            n_elems.append(max(int(elems), int(frames), 0))
 
             track_info = {
-                'format' : track.get('Format', ''), 
-                'lang1'  : lang1,
-                'lang2'  : lang2,
-                'lang3'  : lang3,
-                'ext'    : f".{j}.{lang}",
-                'forced' : forced,
-                'track'  : j,
-                'vobsub' : False,
-                'srt'    : False,
+                'format': track.get('Format', ''),
+                'lang1': lang1,
+                'lang2': lang2,
+                'lang3': lang3,
+                'ext': f".{j}.{lang}",
+                'forced': forced,
+                'track': j,
+                'vobsub': False,
+                'srt': False,
             }
             if not mpegts:
-                track_info.update( {'mkvID' : idx} )
+                track_info.update({'mkvID': idx})
 
             info.append(track_info)
-            j+=1
+            j += 1
 
         if len(n_elems) == 0:
-            self.__log.warning(  'NO text stream(s) in file...')
+            self.__log.warning('NO text stream(s) in file...')
             return None
 
         # Double check forced flag
         # Get maximum number of elements over all text streams
-        max_elems = float( max(n_elems) )
+        max_elems = float(max(n_elems))
         for i, elem in enumerate(n_elems):
             if max_elems > 0 and (elem / max_elems) < 0.1:
-                info[i]['ext']    += '.forced'
-                info[i]['forced']  = True
+                info[i]['ext'] += '.forced'
+                info[i]['forced'] = True
 
         if len(info) > 0:
             return info
 
         return None
 
-def aspect_adjust(video_data):
+
+def aspect_adjust(video_data: dict) -> str:
     """
     Check video aspect ratio
 
@@ -565,7 +589,8 @@ def aspect_adjust(video_data):
         video_data (dict) : Information about video stream from mediainfo.
 
     Returns:
-        str : Empty string if no adjustment needed, otherwise is a video filter.
+        str : Empty string if no adjustment needed,
+            otherwise is a video filter.
 
     """
 
@@ -573,16 +598,21 @@ def aspect_adjust(video_data):
         return ''
     if 'OriginalDisplayAspectRatio' not in video_data:
         return ''
-    if video_data['DisplayAspectRatio'] == video_data['OriginalDisplayAspectRatio']:
+    if (
+        video_data['DisplayAspectRatio']
+        ==
+        video_data['OriginalDisplayAspectRatio']
+    ):
         return ''
 
     xpix, ypix = video_data['DisplayAspectRatio_String'].split(':')
-    width      = video_data['Height'] * float(xpix)/float(ypix)
-    width     -= (width % 16)
+    width = video_data['Height'] * float(xpix)/float(ypix)
+    width -= (width % 16)
 
     return f"setsar={width:.0f}:{video_data['Width']:.0f}"
 
-def num_convert( val ):
+
+def num_convert(val: str) -> int | float | str:
     """
     Convert string to int/float
 
@@ -595,11 +625,12 @@ def num_convert( val ):
         return int(val)
 
     try:
-        return float( val )
+        return float(val)
     except:
         return val
 
-def set_resolution(video_height):
+
+def set_resolution(video_height: int) -> tuple[int]:
     """
     Determine video resolution
 
@@ -612,7 +643,7 @@ def set_resolution(video_height):
             the source video.
 
     Returns:
-        tuple : Resolution of the video (int) and the 
+        tuple : Resolution of the video (int) and the
             constant rate factor options (list) for ffmpeg
 
     """
@@ -626,31 +657,31 @@ def set_resolution(video_height):
 
     return 2160, 20
 
-def mediainfo( fname ):
+
+def mediainfo(fname: str) -> dict:
     """
     Parse mediainfo JSON output
 
     Parse the JSON formatted output of the mediainfo
-    command into a format that is similar to that 
+    command into a format that is similar to that
     parsed from the OLDXML style
 
     """
 
-    cmd  = ['mediainfo', '--Full', '--Output=JSON', fname]
-    res  = check_output( cmd )
+    cmd = ['mediainfo', '--Full', '--Output=JSON', fname]
+    res = check_output(cmd)
     data = json.loads(res)
 
     out = {}
     for track in data['media']['track']:
         track_type = track['@type']
         if track_type not in out:
-            out[ track_type ] = []
-        out[ track_type ].append(
-            {key : num_convert(val) for key, val in track.items()}
+            out[track_type] = []
+        out[track_type].append(
+            {key: num_convert(val) for key, val in track.items()}
         )
 
     for val in out.values():
-        val.sort( key=lambda x: x.get('@typeorder', 0) )
+        val.sort(key=lambda x: x.get('@typeorder', 0))
 
     return out
-
