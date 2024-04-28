@@ -1,0 +1,6 @@
+[flake8]
+ignore=
+    # Bare except
+	E722,
+	# Line break before binary
+	W503

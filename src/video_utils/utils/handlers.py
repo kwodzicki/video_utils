@@ -19,7 +19,8 @@ from ..config import CONFIG, ROTATING_FORMAT
 
 EMAILNAME = 'emailer'
 
-def send_email( func ):
+
+def send_email(func):
     """
     Function to act as decorator to send email using EMailHandler
 
@@ -42,15 +43,16 @@ def send_email( func ):
         for handler in log.handlers:
             # If the handler matches the EMAILNAME variable
             if handler.get_name() == EMAILNAME:
-                handler.send()# call send method
+                handler.send()  # call send method
                 break
-        return val# Return function return value
+        return val  # Return function return value
     return send_email_wrapper
 
-class EMailHandler( logging.Handler ):
+
+class EMailHandler(logging.Handler):
     """
     Logging handler for sending email
-    
+
     Send an email with some logging information
 
     """
@@ -59,12 +61,12 @@ class EMailHandler( logging.Handler ):
         maxlogs = kwargs.pop('maxLogs', 50)
         subject = kwargs.pop('subject', None)
         super().__init__(*args, **kwargs)
-        self._max        = maxlogs
-        self._subject    = subject
-        self._logs       = []
+        self._max = maxlogs
+        self._subject = subject
+        self._logs = []
         self._send_level = logging.CRITICAL
-        self._is_valid   = True
-        self.set_name( EMAILNAME )
+        self._is_valid = True
+        self.set_name(EMAILNAME)
 
         info = CONFIG.get('email', None)
         if info is None:
@@ -76,7 +78,7 @@ class EMailHandler( logging.Handler ):
             self._is_valid = False
             return
 
-        send_to   = self.parse_send_to( info.get('send_to',  None) )
+        send_to = self.parse_send_to(info.get('send_to', None))
         if not send_to:
             self._is_valid = False
 
@@ -89,13 +91,13 @@ class EMailHandler( logging.Handler ):
         with self.lock:
             if len(self._logs) > self._max:
                 self._logs.pop(0)
-            self._logs.append( self.format(record) )
+            self._logs.append(self.format(record))
         if record.levelno >= self._send_level:
             self.send()
 
     def set_send_level(self, level):
         """
-        Set the level at which logs are automatically 
+        Set the level at which logs are automatically
         emailed. For example, if the SendLevel is set
         to logging.WARNING, if a log with level WARNING
         or higher is encountered, an email will be sent.
@@ -132,12 +134,12 @@ class EMailHandler( logging.Handler ):
         """
 
         if isinstance(send_to, (list, tuple,)):
-            return ','.join( [s for s in send_to if s is not None] )
+            return ','.join([s for s in send_to if s is not None])
         if isinstance(send_to, str):
             return send_to
         return None
 
-    def send(self, subject = None):
+    def send(self, subject=None):
         """
         Actually send the email
 
@@ -158,18 +160,18 @@ class EMailHandler( logging.Handler ):
         if body == '':
             return False
 
-        email     = CONFIG['email']
+        email = CONFIG['email']
         send_from = email['send_from']
-        send_to   = self.parse_send_to( email['send_to'] )
+        send_to = self.parse_send_to(email['send_to'])
         msg = EmailMessage()
         if subject:
             msg['Subject'] = subject
         elif self._subject:
             msg['Subject'] = self._subject
 
-        msg['From']    = send_from['user']
-        msg['To']      = send_to
-        msg.set_content( body )
+        msg['From'] = send_from['user']
+        msg['To'] = send_to
+        msg.set_content(body)
 
         try:
             server = smtplib.SMTP_SSL(send_from['server'], send_from['port'])
@@ -189,7 +191,8 @@ class EMailHandler( logging.Handler ):
             pass
         return True
 
-class RotatingFile( Thread ):
+
+class RotatingFile(Thread):
     """
     A class that acts like the logging.handlers.RotatingFileHander;
     writing data out to a file until file grows too large, then rolling
@@ -203,18 +206,20 @@ class RotatingFile( Thread ):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self.rw         = None# Initialize read/write pipe as None
-        self.callback   = kwargs.pop('callback', None)
+        self.rw = None  # Initialize read/write pipe as None
+        self.callback = kwargs.pop('callback', None)
         for key, val in ROTATING_FORMAT.items():
             if key not in kwargs:
                 kwargs[key] = val
 
         formatter = kwargs.pop('formatter', None)
-        self.log  = RotatingFileHandler(*args, **kwargs)
+        self.log = RotatingFileHandler(*args, **kwargs)
         if isinstance(formatter, logging.Formatter):
-            self.log.setFormatter( formatter )
+            self.log.setFormatter(formatter)
         else:
-            self.log.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+            self.log.setFormatter(
+                logging.Formatter('%(asctime)s - %(message)s')
+            )
 
     def __enter__(self, *args, **kwargs):
         self.start()
@@ -225,18 +230,18 @@ class RotatingFile( Thread ):
     def setFormatter(self, *args):
         """Set the formatter for the log handler"""
 
-        self.log.setFormatter( *args )
+        self.log.setFormatter(*args)
 
     def start(self):
         """Overload thread start method"""
 
-        self.rw = os.pipe()# Open a pipe
-        super().start()# Call supercalls start method
+        self.rw = os.pipe()  # Open a pipe
+        super().start()  # Call supercalls start method
 
     def run(self):
         """
         Overloads the run method; this method will run in own thread.
-        
+
         Reads data from pipe and passes to self.log.emit
 
         Arguments:
@@ -254,10 +259,12 @@ class RotatingFile( Thread ):
         with os.fdopen(self.rw[0]) as fid:
             # Iterate over all lines
             for line in iter(fid.readline, ''):
-                record = logging.LogRecord('', 20, '', '', line.rstrip(), '', '')
-                self.log.emit( record )# Pass line to rotating logger
-                if self.callback:# If call back is set
-                    self.callback( line )# Pass line to call back
+                record = logging.LogRecord(
+                    '', 20, '', '', line.rstrip(), '', '',
+                )
+                self.log.emit(record)  # Pass line to rotating logger
+                if self.callback:  # If call back is set
+                    self.callback(line)  # Pass line to call back
         self.close()
 
     def close(self):
@@ -265,20 +272,20 @@ class RotatingFile( Thread ):
 
         # If read/write pip IS set
         if self.rw:
-            os.close(self.rw[1])# Close the write-end of pipe
-            self.rw = None# Set rw to None
-        self.log.close()# Close the log
+            os.close(self.rw[1])  # Close the write-end of pipe
+            self.rw = None  # Set rw to None
+        self.log.close()  # Close the log
 
     def fileno(self):
         """Method to get underlying file pointer; in this case pipe"""
 
         # If read/write pipe NOT set
         if not self.rw:
-            self.start()# Start thread
-        return self.rw[1]# Return write-end of pipe
+            self.start()  # Start thread
+        return self.rw[1]  # Return write-end of pipe
 
-########################################################################################
-def init_log_file( format_dict ):
+
+def init_log_file(format_dict: dict) -> None:
     """
     Initialize new handlers given options
 
@@ -299,23 +306,25 @@ def init_log_file( format_dict ):
         if handler.get_name() == format_dict['name']:
             return
 
-    log_dir = os.path.dirname( format_dict['file'] )
-    if not os.path.isdir( log_dir ):
-        os.makedirs( log_dir )
+    log_dir = os.path.dirname(format_dict['file'])
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
 
-    rfh = RotatingFileHandler( format_dict['file'], **ROTATING_FORMAT )
-    rfh.setFormatter( format_dict['formatter'] )
-    rfh.setLevel(     format_dict['level']     )
-    rfh.set_name(     format_dict['name']      )
-    log.addHandler( rfh )
+    rfh = RotatingFileHandler(format_dict['file'], **ROTATING_FORMAT)
+    rfh.setFormatter(format_dict['formatter'])
+    rfh.setLevel(format_dict['level'])
+    rfh.set_name(format_dict['name'])
+    log.addHandler(rfh)
 
-    info = os.stat( format_dict['file'] )
+    info = os.stat(format_dict['file'])
     # If file permissions match those requested, return
-    if (info.st_mode & format_dict['permissions']) == format_dict['permissions']:
+    if (
+        info.st_mode & format_dict['permissions']
+    ) == format_dict['permissions']:
         return
 
     # Attempt to set logging file permissions
     try:
-        os.chmod( format_dict['file'], format_dict['permissions'] )
+        os.chmod(format_dict['file'], format_dict['permissions'])
     except:
         log.info('Failed to change log permissions; this may cause issues')

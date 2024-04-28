@@ -37,8 +37,8 @@ def isRunning(**kwargs):
     key = 'timeout'
     if key in kwargs:
         return not (
-            _sigintEvent.wait(timeout=kwargs[key]) or
-            _sigtermEvent.wait(timeout=kwargs[key])
+            _sigintEvent.wait(timeout=kwargs[key])
+            or _sigtermEvent.wait(timeout=kwargs[key])
         )
 
     return (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set())

@@ -34,9 +34,9 @@ def check_cli(cli):
 
     if path is None:
         raise Exception(
-          "The following required command line utility was NOT found." +
-          " If it is installed, be sure it is in your PATH: " +
-          cli
+            "The following required command line utility was NOT found."
+            + " If it is installed, be sure it is in your PATH: "
+            + cli
         )
 
     return path.decode().rstrip()
