@@ -9,7 +9,7 @@ they are not as large as MPEG-TS files are not very efficient.
 import logging
 import os
 
-from ..utils import isRunning#_sigintEvent, _sigtermEvent
+from ..utils import isRunning  # _sigintEvent, _sigtermEvent
 from ..videoconverter import VideoConverter
 
 from .plex_media_scanner import plex_media_scanner
@@ -17,30 +17,36 @@ from .utils import plex_dvr_rename
 
 
 class DVRconverter(VideoConverter):
-    """Combines the VideoConverter and ComRemove classes for post-processing Plex DVR recordings"""
+    """
+    Combines VideoConverter and ComRemove
 
-    def __init__(self,
-            logdir      = None,
-            lang        = None,
-            destructive = False,
-            no_remove   = False,
-            no_srt      = False,
-            **kwargs,
+    Used for post-processing Plex DVR recordings
+
+    """
+
+    def __init__(
+        self,
+        logdir: str | None = None,
+        lang: str | list[str] | None = None,
+        destructive: bool = False,
+        no_remove: bool = False,
+        no_srt: bool = False,
+        **kwargs,
     ):
         """
         Method to initialize class and superclasses along with a few attributes
-        
+
         Arguments:
             None
 
         Keyword arguments:
-            logdir      (str) : Directory for any extra log files
-            threads     (int) : Number of threads to use for comskip and transcode
-            cpulimit    (int) : Percentage to limit cpu usage to
-            lang        (list): Language for audio/subtitles
-            destructive (bool): If set, will cut commercials out of file. Note that
-                commercial identification is NOT perfect, so this could
-                lead to missing pieces of content. 
+            logdir (str) : Directory for any extra log files
+            threads (int) : Number of threads to use for comskip and transcode
+            cpulimit (int) : Percentage to limit cpu usage to
+            lang (list): Language for audio/subtitles
+            destructive (bool): If set, will cut commercials out of file.
+                Note that commercial identification is NOT perfect, so this
+                could lead to missing pieces of content.
                 By default, will add chapters to output file marking
                 commercial breaks. This enables easy skipping, and does
                 not delete content if commercials misidentified
@@ -54,19 +60,19 @@ class DVRconverter(VideoConverter):
         """
 
         super().__init__(
-            log_dir       = logdir,
-            in_place      = True,
-            lang          = lang,
-            remove        = not no_remove,
-            subfolder     = False,
-            srt           = not no_srt,
+            log_dir=logdir,
+            in_place=True,
+            lang=lang,
+            remove=not no_remove,
+            subfolder=False,
+            srt=not no_srt,
             **kwargs,
         )
 
         self.destructive = destructive
-        self.log         = logging.getLogger(__name__)
+        self.log = logging.getLogger(__name__)
 
-    def convert(self, infile, section='TV Shows'):
+    def convert(self, infile: str, section: str = 'TV Shows') -> tuple:
         """
         Method to actually post process Plex DVR files.
 
@@ -79,7 +85,7 @@ class DVRconverter(VideoConverter):
             infile (str) : Path to file to process
 
         Keyword Arguments:
-            None
+            section (str): Name of Plex Media Server Library file is part of
 
         Returns:
             int: Returns success of transocde
@@ -87,29 +93,32 @@ class DVRconverter(VideoConverter):
         """
 
         # Set some variable defaults
-        infile       = os.path.realpath( infile )
-        out_file     = None
-        success      = False
+        infile = os.path.realpath(infile)
+        out_file = None
+        success = False
         # Set to opposite of the remove attribute
-        no_remove    = not self.remove
+        no_remove = not self.remove
         # Set infile class attribute; this will trigger mediainfo parsing
-        self.infile  = infile
+        self.infile = infile
 
-        self.log.info('Input file: %s', infile )
+        self.log.info('Input file: %s', infile)
 
         self.log.debug('Checking file integrity')
         # If is NOT a valid file; i.e., video stream size is larger than
         # file size OR found 'overread' errors in file
         if not self.is_valid_file():
-            self.log.warning('File determined to be invalid, deleting: %s', infile )
-            # Set local no_remove variable to True; done so that directory is not
-            # scanned twice when the Plex Media Scanner command is run
+            self.log.warning(
+                'File determined to be invalid, deleting: %s',
+                infile,
+            )
+            # Set local no_remove variable to True; done so that directory
+            # is not scanned twice when the Plex Media Scanner command is run
             no_remove = True
-            self._clean_up( infile )
+            self._clean_up(infile)
         else:
             # Try to rename the input file using standard convention and get
             # parsed file info; creates hard link to source file
-            fname, metadata = plex_dvr_rename( infile )
+            fname, metadata = plex_dvr_rename(infile)
             # if the rename fails
             if not fname:
                 self.log.critical('Error renaming file: %s', infile)
@@ -120,11 +129,11 @@ class DVRconverter(VideoConverter):
 
             out_file = self.transcode(
                 fname,
-                metadata = metadata,
-                chapters = not self.destructive,
+                metadata=metadata,
+                chapters=not self.destructive,
             )
 
-            self._clean_up( fname )
+            self._clean_up(fname)
 
             if self.transcode_status == 0:
                 success = True
@@ -132,30 +141,35 @@ class DVRconverter(VideoConverter):
                 return success, out_file
             elif self.transcode_status == 5:
                 self.log.error('Assuming bad file, deleting: %s', infile)
-                # Set local no_remove variable to True; done so that directory is
-                # not scanned twice when the Plex Media Scanner command is run
+                # Set local no_remove variable to True; done so that
+                # directory is not scanned twice when the Plex Media Scanner
+                # command is run
                 no_remove = True
-                self._clean_up( infile )
+                self._clean_up(infile)
             else:
                 self.log.error('Failed to transcode file. Will delete input')
-                # Set local no_remove variable to True; done so that directory is
-                # not scanned twice when the Plex Media Scanner command is run
+                # Set local no_remove variable to True; done so that
+                # directory is not scanned twice when the Plex Media Scanner
+                # command is run
                 no_remove = True
-                self._clean_up( infile, out_file )
+                self._clean_up(infile, out_file)
 
         if isRunning():
             # Set arguments for PlexMediaScanner
-            args   = (section,)
-            kwargs = {'path' : os.path.dirname( infile )}
-            plex_media_scanner( *args, **kwargs )
+            args = (section,)
+            kwargs = {'path': os.path.dirname(infile)}
+            plex_media_scanner(*args, **kwargs)
             # If no_remove is NOT set, then we want to delete infile and rescan
             # the directory so original file is removed from Plex
             if not no_remove:
-                self._clean_up( infile )
+                self._clean_up(infile)
                 # If file no longer exists; if it exists, don't want to run
                 # Plex Media Scanner for no reason
-                if not os.path.isfile( infile ):
-                    self.log.debug('Original file removed, rescanning: %s', infile)
-                    plex_media_scanner( *args, **kwargs )
+                if not os.path.isfile(infile):
+                    self.log.debug(
+                        'Original file removed, rescanning: %s',
+                        infile,
+                    )
+                    plex_media_scanner(*args, **kwargs)
 
         return success, out_file

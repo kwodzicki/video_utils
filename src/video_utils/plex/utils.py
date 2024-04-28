@@ -11,7 +11,6 @@ import logging
 import os
 import re
 import pickle
-from difflib import SequenceMatcher
 from threading import Lock
 from getpass import getpass
 
@@ -29,14 +28,15 @@ _tmdb = TMDb()
 _tvdb = TVDb()
 
 # Pattern for locating season/episode numbering
-_se_pattern   = re.compile( r'[sS](\d{2,})[eE](\d{2,})' )
+_se_pattern = re.compile(r'[sS](\d{2,})[eE](\d{2,})')
 # Pattern for finding year
-_year_pattern = re.compile( r'\(([0-9]{4})\)' )
+_year_pattern = re.compile(r'\(([0-9]{4})\)')
 # Pattern for finding date in DVR recording
-_date_pattern = re.compile( r'\d{4}-\d{2}-\d{2} \d{2} \d{2} \d{2}')
+_date_pattern = re.compile(r'\d{4}-\d{2}-\d{2} \d{2} \d{2} \d{2}')
 
-def plex_file_info( in_file ):
-    """ 
+
+def plex_file_info(in_file: str) -> tuple:
+    """
     Extract info from file path
 
     Extracts series, season/episode, and episode title information from
@@ -49,24 +49,25 @@ def plex_file_info( in_file ):
         None.
 
     Returns:
-        tuple: series name, season/episode or date, episode title, and file extension
+        tuple: series name, season/episode or date, episode title,
+            and file extension
 
     """
 
-    log        = logging.getLogger(__name__)
-    log.debug( 'Getting information from file name' )
+    log = logging.getLogger(__name__)
+    log.debug('Getting information from file name')
 
-    filebase   = os.path.basename( in_file )
-    fname, ext = os.path.splitext( filebase )
+    filebase = os.path.basename(in_file)
+    fname, ext = os.path.splitext(filebase)
 
-    title     = None
-    year      = None
+    title = None
+    year = None
     season_ep = None
-    episode   = None
+    episode = None
 
     # If the date pattern is found in the file name
-    if _date_pattern.search( in_file ) is not None:
-        log.warning( 'ISO date string found in file name; NO METADATA WILL BE DOWNLOADED!!!' )
+    if _date_pattern.search(in_file) is not None:
+        log.warning('ISO date string found in file name; NO METADATA WILL BE DOWNLOADED!!!')
         return title, year, season_ep, episode, ext
 
     # Split the file name on ' - '; not header information of function
@@ -77,16 +78,16 @@ def plex_file_info( in_file ):
         log.warning('Error splitting file name, does it match Plex convention?')
 
     # Try to find year in series name
-    year = _year_pattern.findall( title )
+    year = _year_pattern.findall(title)
     if len(year) == 1:
-        year  = int( year[0] )
-        title = _year_pattern.sub('', title)# Remove year for series name
+        year = int(year[0])
+        title = _year_pattern.sub('', title)  # Remove year for series name
     else:
         year = None
     title = title.strip()
 
     try:
-        season_ep = _se_pattern.findall( season_ep )[0]
+        season_ep = _se_pattern.findall(season_ep)[0]
     except:
         season_ep = None
     else:
@@ -97,8 +98,9 @@ def plex_file_info( in_file ):
 
     return title, year, season_ep, episode, ext
 
-def plex_dvr_rename( in_file, hardlink = True ):
-    """ 
+
+def plex_dvr_rename(in_file: str, hardlink: bool = True) -> tuple:
+    """
     Function to rename Plex DVR files to match file nameing convetion.
 
     Arguments:
@@ -113,16 +115,16 @@ def plex_dvr_rename( in_file, hardlink = True ):
 
     """
 
-    log      = logging.getLogger(__name__)
-    file_dir = os.path.dirname(  in_file )
-    title, year, season_ep, episode, ext = plex_file_info( in_file )
+    log = logging.getLogger(__name__)
+    file_dir = os.path.dirname(in_file)
+    title, year, season_ep, episode, ext = plex_file_info(in_file)
 
     # If all the values are None, then date in file name
-    if all( v is None for v in [title, year, season_ep, episode] ):
+    if all(v is None for v in [title, year, season_ep, episode]):
         return in_file, None
 
     if not season_ep:
-        log.warning( 'Season/episode info NOT found; assuming movie...things may break' )
+        log.warning('Season/episode info NOT found; assuming movie...things may break')
         # Search the movie database
         searcher = _tmdb.search
     else:
@@ -130,10 +132,10 @@ def plex_dvr_rename( in_file, hardlink = True ):
         searcher = _tvdb.search
 
     metadata = searcher(
-        title    = title,
-        year     = year,
-        episode  = episode,
-        seasonEp = season_ep,
+        title=title,
+        year=year,
+        episode=episode,
+        seasonEp=season_ep,
     )
 
     if len(metadata) != 1:
@@ -142,35 +144,36 @@ def plex_dvr_rename( in_file, hardlink = True ):
         )
         metadata = None
         new = (
-            _episode.get_basename( *season_ep, episode )
+            _episode.get_basename(*season_ep, episode)
             if season_ep else
-            _movie.get_basename( title, year )
+            _movie.get_basename(title, year)
         )
     else:
         metadata = metadata[0]
         new = metadata.get_basename()
 
     # Build new file path
-    new = os.path.join( file_dir, new+ext )
+    new = os.path.join(file_dir, new+ext)
 
     if hardlink:
-        log.debug( 'Creating hard link to input file' )
-        if os.path.exists( new ):
+        log.debug('Creating hard link to input file')
+        if os.path.exists(new):
             try:
-                os.remove( new )
+                os.remove(new)
             except:
                 pass
         try:
-            os.link( in_file, new )
+            os.link(in_file, new)
         except Exception as err:
-            log.warning( 'Error creating hard link : %s', err )
+            log.warning('Error creating hard link : %s', err)
     else:
-        log.debug( 'Renaming input file' )
-        os.replace( in_file, new )
+        log.debug('Renaming input file')
+        os.replace(in_file, new)
 
     return new, metadata
 
-class DVRqueue( list ):
+
+class DVRqueue(list):
     """
     Sub-class of list that writes list to pickled file on changes
 
@@ -186,7 +189,7 @@ class DVRqueue( list ):
         self.__file = file
         self.__load_file()
         self.__lock = Lock()
-        self.__log  = logging.getLogger(__name__)
+        self.__log = logging.getLogger(__name__)
 
     def append(self, val):
         with self.__lock:
@@ -206,27 +209,31 @@ class DVRqueue( list ):
 
     def __save_file(self):
         if len(self) > 0:
-            self.__log.debug( 'Storing list in : %s', self.__file )
+            self.__log.debug('Storing list in : %s', self.__file)
             fdir = os.path.dirname(self.__file)
-            if not os.path.isdir( fdir ):
-                self.__log.debug( 'Making directory : %s', fdir )
-                os.makedirs( fdir )
+            if not os.path.isdir(fdir):
+                self.__log.debug('Making directory : %s', fdir)
+                os.makedirs(fdir)
             with open(self.__file, 'wb') as fid:
-                pickle.dump( list(self), fid )
+                pickle.dump(list(self), fid)
         else:
-            self.__log.debug( 'No data in list, removing file : %s', self.__file )
-            os.remove( self.__file )
+            self.__log.debug(
+                'No data in list, removing file : %s',
+                self.__file,
+            )
+            os.remove(self.__file)
 
     def __load_file(self):
         if os.path.isfile(self.__file):
             try:
                 with open(self.__file, 'rb') as fid:
-                    self.extend( pickle.load(fid) )
+                    self.extend(pickle.load(fid))
             except:
                 self.__log.error('Failed to load old queue. File corrupt?')
-                os.remove( self.__file )
+                os.remove(self.__file)
 
-def get_dvr_section_dir( path ):
+
+def get_dvr_section_dir(path: str) -> str:
     """
     Extract the section directory from DVR grab path
 
@@ -244,16 +251,16 @@ def get_dvr_section_dir( path ):
 
     """
 
-    root, _     = path.split('.grab', maxsplit=1)
+    root, _ = path.split('.grab', maxsplit=1)
     section_dir = os.path.basename(root)
     while section_dir == '':
-        root        = os.path.dirname(root)
+        root = os.path.dirname(root)
         section_dir = os.path.basename(root)
 
     return section_dir
 
-  
-def get_token(login=False):
+
+def get_token(login: bool = False) -> dict | None:
     """
     Use plexapi to get token for server
 
@@ -267,33 +274,32 @@ def get_token(login=False):
 
     """
 
-
     if login:
-        server  = input( "Enter Plex server name : " )
-        user    = input( "Enter Plex user name : " )
+        server = input("Enter Plex server name : ")
+        user = input("Enter Plex user name : ")
         account = MyPlexAccount(
             user,
-            getpass( "Enter Plex password : " ),
-            code = input( "Enter Plex 2FA code : " )
+            getpass("Enter Plex password : "),
+            code=input("Enter Plex 2FA code : ")
         )
-        plex = account.resource( server ).connect()
+        plex = account.resource(server).connect()
 
         info = {
-            'baseurl' : plex._baseurl,
-            'token'   : plex._token,
+            'baseurl': plex._baseurl,
+            'token': plex._token,
         }
 
-        with open( PLEXTOKEN, 'wb' ) as oid:
-            pickle.dump( info, oid )
+        with open(PLEXTOKEN, 'wb') as oid:
+            pickle.dump(info, oid)
         return info
 
-    if os.path.isfile( PLEXTOKEN ):
-        with open( PLEXTOKEN, 'rb' ) as iid:
-            return pickle.load( iid )
+    if os.path.isfile(PLEXTOKEN):
+        with open(PLEXTOKEN, 'rb') as iid:
+            return pickle.load(iid)
 
     return None
 
 
-def get_token_cli():
+def get_token_cli() -> None:
+    """Entry point for plexToken CLI"""
     get_token(login=True)
-
