@@ -11,7 +11,7 @@ from ..utils.check_cli import check_cli
 
 CLINAME = 'ccextractor'
 try:
-    CLI = check_cli( CLINAME )
+    CLI = check_cli(CLINAME)
 except:
     logging.getLogger(__name__).warning(
         "'%s' is NOT installed or not in your PATH!",
@@ -19,7 +19,8 @@ except:
     )
     CLI = None
 
-def dir_list( path ):
+
+def dir_list(path: str):
     """
     Generate path to all files in a directory
 
@@ -33,12 +34,17 @@ def dir_list( path ):
     """
 
     root = os.path.dirname(path) if not os.path.isdir(path) else path
-    for item in os.listdir( root ):
-        path = os.path.join( root, item )
-        if os.path.isfile( path ):
+    for item in os.listdir(root):
+        path = os.path.join(root, item)
+        if os.path.isfile(path):
             yield path
 
-def ccextract( in_file, out_base, text_info ):
+
+def ccextract(
+    in_file: str,
+    out_base: str,
+    text_info: dict,
+) -> list[str] | None:
     """
     Wrapper for the ccextrator CLI
 
@@ -57,22 +63,24 @@ def ccextract( in_file, out_base, text_info ):
 
     """
 
-    log  = logging.getLogger(__name__)                                           # Set up logger
+    log = logging.getLogger(__name__)  # Set up logger
     if CLI is None:
-        log.warning( "%s CLI not found; cannot extract!", CLINAME )
+        log.warning("%s CLI not found; cannot extract!", CLINAME)
         return None
 
     # Get list of files that were originally in the directory
-    orig  = list( dir_list( out_base ) )
+    orig = list(dir_list(out_base))
 
     fname = out_base + text_info[0]['ext'] + '.srt'
-    cmd   = [CLI, '-autoprogram', in_file, '-o', fname]
-    log.debug( "%s command: %s", CLINAME, ' '.join(cmd) )
-    proc = run( cmd, stdout=DEVNULL, stderr=STDOUT, check=False )
+    cmd = [CLI, '-autoprogram', in_file, '-o', fname]
+    log.debug("%s command: %s", CLINAME, ' '.join(cmd))
+    proc = run(cmd, stdout=DEVNULL, stderr=STDOUT, check=False)
     new_files = [item for item in dir_list(out_base) if item not in orig]
     if proc.returncode != 0:
-        log.error('Something went wrong extracting subtitles, removing any files')
+        log.error(
+            'Something went wrong extracting subtitles, removing any files'
+        )
         for path in new_files:
-            os.remove( path )
+            os.remove(path)
 
     return new_files

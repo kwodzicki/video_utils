@@ -12,17 +12,24 @@ from .srt_utils import srt_cleanup
 
 CLINAME = 'vobsub2srt'
 try:
-    CLI = check_cli( CLINAME )
+    CLI = check_cli(CLINAME)
 except:
-    logging.getLogger(__name__).warning( "%s is NOT installed", CLINAME )
+    logging.getLogger(__name__).warning("%s is NOT installed", CLINAME)
     CLI = None
 
-def vobsub_to_srt( out_file, text_info, delete_source=False, cpulimit=None, **kwargs ):
+
+def vobsub_to_srt(
+    out_file: str,
+    text_info: dict | None,
+    delete_source: bool = False,
+    cpulimit: int | None = None,
+    **kwargs,
+) -> tuple:
     """
     Convert VobSub(s) to SRT(s).
 
-    Will convert all VobSub(s) in the output directory as long as a matching SRT file
-    does NOT exist.
+    Will convert all VobSub(s) in the output directory as long as a matching
+    SRT file does NOT exist.
 
     Arguments:
         None
@@ -33,7 +40,8 @@ def vobsub_to_srt( out_file, text_info, delete_source=False, cpulimit=None, **kw
     Returns:
         int: Updates vobsub_status and creates/updates list of VobSubs that
             failed vobsub2srt conversion.
-            Returns codes for success/failure of extraction. Codes are as follows:
+            Returns codes for success/failure of extraction.
+            Codes are as follows:
 
               - 0 : Completed successfully.
               - 1 : SRT(s) already exist
@@ -52,30 +60,30 @@ def vobsub_to_srt( out_file, text_info, delete_source=False, cpulimit=None, **kw
 
     # Generate file name for subtitle file
     basename = f"{out_file}{text_info['ext']}"
-    srtname  = f"{basename}.srt" 
-    if os.path.exists( srtname ):
-        log.info( "%s Exists...Skipping", srtname )
+    srtname = f"{basename}.srt"
+    if os.path.exists(srtname):
+        log.info("%s Exists...Skipping", srtname)
         text_info['srt'] = True
         return 1, srtname
 
     # Initialize cmd as list containing 'vobsub2srt'
-    cmd = [ CLI ]
+    cmd = [CLI]
     # If the two(2) and three (3) character language codes are NOT empty
     if text_info['lang2'] != '' and text_info['lang3'] != '':
-        cmd.extend( ['--tesseract-lang', text_info['lang3']] )
-        cmd.extend( ['--lang', text_info['lang2']] )
-    cmd.append( basename )
+        cmd.extend(['--tesseract-lang', text_info['lang3']])
+        cmd.extend(['--lang', text_info['lang2']])
+    cmd.append(basename)
 
-    proc = PopenThread( cmd, cpulimit=cpulimit )
+    proc = PopenThread(cmd, cpulimit=cpulimit)
     proc.start()
     proc.wait()
     if proc.returncode != 0:
         return 2, ''
 
     try:
-        _ = srt_cleanup( srtname )
+        _ = srt_cleanup(srtname)
     except Exception as err:
-        log.error( 'Failed to convert VobSub to SRT : %s', err )
+        log.error('Failed to convert VobSub to SRT : %s', err)
         return 3, ''
 
     text_info['srt'] = True

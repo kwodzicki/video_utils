@@ -11,8 +11,9 @@ import os
 import re
 from datetime import datetime, timedelta
 
-EIGHTH_NOTE       = '\xe2\x99\xaa'
+EIGHTH_NOTE = '\xe2\x99\xaa'
 LEFT_SINGLE_QUOTE = '\xe2\x80\x98'
+
 
 class SRTsubs():
     """A python class to parse SRT subtitle files"""
@@ -33,15 +34,15 @@ class SRTsubs():
         """
 
         self.log = logging.getLogger(__name__)
-        if not os.path.isfile( fpath ):
-            self.log.error( 'File does NOT exist!' )
+        if not os.path.isfile(fpath):
+            self.log.error('File does NOT exist!')
             return
         if not fpath.endswith('.srt'):
-            self.log.error( 'Not an SRT file!' )
+            self.log.error('Not an SRT file!')
             return
         self.fpath = fpath
         self.subs = []
-        self.fmt  = '%H:%M:%S,%f'
+        self.fmt = '%H:%M:%S,%f'
         self.parse_subs()
 
     def parse_subs(self):
@@ -63,25 +64,26 @@ class SRTsubs():
             lines = fid.readlines()
 
         self.raw = ''.join(lines)
-        lines = [line.rstrip() for line in lines]# Strip return characters
+        lines = [line.rstrip() for line in lines]  # Strip return characters
         nlines, i = len(lines), 0
         while i < nlines:
             if not lines[i].isdigit():
-                i+=1
+                i += 1
                 continue
 
             # If made here, the line is a digit then begging of sub title
-            # Line i+1 is the start and end time of the subtitle; split on space
+            # Line i+1 is the start and end time of the subtitle;
+            # split on space
             times = lines[i+1].split()
 
             # Append initial subtitle dictionary to subs list with subtitle
             # number, start/end times, and empty list for text
             self.subs.append(
                 {
-                    'sub_num' : int(lines[i]), 
-                    'start'   : times[0],
-                    'end'     : times[2], 
-                    'text'    : [],
+                    'sub_num': int(lines[i]),
+                    'start': times[0],
+                    'end': times[2],
+                    'text': [],
                 }
             )
             # Increment i by tow (2) to skip start/stop time and get to first
@@ -90,12 +92,12 @@ class SRTsubs():
             # While line[i] is not a digit, i.e., the next subtitle, iterate
             while not lines[i].isdigit():
                 # Append the line to the list of subtitle text
-                self.subs[-1]['text'].append( lines[i] )
+                self.subs[-1]['text'].append(lines[i])
                 i += 1
                 if i >= nlines:
                     break
 
-    def adjust_timing( self, offset ):
+    def adjust_timing(self, offset: float) -> None:
         """
         Adjust timing of subtitles
 
@@ -112,14 +114,15 @@ class SRTsubs():
         """
 
         # Set time offset based on input
-        dlt   = timedelta(milliseconds = offset)
+        dlt = timedelta(milliseconds=offset)
         # Get start time of first subtitle in datetime format
         start = datetime.strptime(self.subs[0]['start'], self.fmt)
 
         # If the year of the change to the first subtitle is less than 1900,
         # then the time would be negative, so much change time delta
         if (start + dlt).year < 1900:
-            # Compute time delta so that start time of first subtitle is zero (0)
+            # Compute time delta so that start time of
+            # first subtitle is zero (0)
             dlt = datetime(1900, 1, 1, 0, 0, 0) - start
             self.log.warning(
                 'Offset too large (start time < zero) changed to: %d',
@@ -130,11 +133,11 @@ class SRTsubs():
             # Iterate over the start and end tags
             for j in ['start', 'end']:
                 # Compute new timing
-                time = datetime.strptime( sub[j], self.fmt) + dlt
+                time = datetime.strptime(sub[j], self.fmt) + dlt
                 # Update timing in the dictionary of the subs array
-                self.subs[i][j] = time.strftime( self.fmt )[:-3]
+                self.subs[i][j] = time.strftime(self.fmt)[:-3]
 
-    def write_file(self, raw = False):
+    def write_file(self, raw: bool = False) -> None:
         """
         Write subtitle data to SRT file.
 
@@ -150,25 +153,26 @@ class SRTsubs():
         """
 
         if len(self.subs) == 0:
-            self.log.warning( 'Now subtitles read in!' )
+            self.log.warning('Now subtitles read in!')
             return
 
         with open(self.fpath, mode='w', encoding='utf8') as fid:
             if raw:
-                fid.write( self.raw )
+                fid.write(self.raw)
             else:
                 for sub in self.subs:
-                    fid.write( f"{sub['sub_num']}{os.linesep}" )
-                    fid.write( f"{sub['start']} --> {sub['end']}{os.linesep}" )
-                    fid.write( os.linesep.join( sub['text'] ) )
-                    fid.write( os.linesep )
+                    fid.write(f"{sub['sub_num']}{os.linesep}")
+                    fid.write(f"{sub['start']} --> {sub['end']}{os.linesep}")
+                    fid.write(os.linesep.join(sub['text']))
+                    fid.write(os.linesep)
 
-def srt_cleanup( fname, **kwargs ):
+
+def srt_cleanup(fname, **kwargs) -> int:
     """
     Fix some known bad characters in SRT file
 
-    A python function to replace J' characters at the beginning or ending of 
-    a subtitle line with a musical note character as this seems to be an issue 
+    A python function to replace J' characters at the beginning or ending of
+    a subtitle line with a musical note character as this seems to be an issue
     with the vobsub2srt program.
 
     Arguments:
@@ -178,14 +182,15 @@ def srt_cleanup( fname, **kwargs ):
         verbose : Set to increase verbosity.
 
     Returns:
-        int: Outputs a file to the same name as input, i.e., over writes the file.
+        int: Outputs a file to the same name as input;
+            i.e., over writes the file.
 
     """
 
     log = logging.getLogger(__name__)
     out_file = fname + '.tmp'
-    iid   = open(fname,    mode='r', encoding='utf8')
-    oid   = open(out_file, mode='w', encoding='utf8')
+    iid = open(fname, mode='r', encoding='utf8')
+    oid = open(out_file, mode='w', encoding='utf8')
     music = False
     for i, in_line in enumerate(iid):
         line = in_line.rstrip()
@@ -195,28 +200,28 @@ def srt_cleanup( fname, **kwargs ):
             continue
 
         # Checking for J' at beginning or end of line, likely music note
-        if line[:4]  == f"J{LEFT_SINGLE_QUOTE}":
+        if line[:4] == f"J{LEFT_SINGLE_QUOTE}":
             log_msg = f"Line: {i} changed {line}"
             # Replace J' with the music note
             line = f"{EIGHTH_NOTE} {line[4:]}"
             # If the end of the line is J'
             if line[-4:] == f"J{LEFT_SINGLE_QUOTE}":
                 line = f"{line[:-4]} {EIGHTH_NOTE}"
-            log.debug( '%s ---> %s', log_msg, line )
+            log.debug('%s ---> %s', log_msg, line)
             music = True
         # Else, if the J' is at the end of the line
         elif line[-4:] == f"J{LEFT_SINGLE_QUOTE}":
             log_msg = f"Line: {i} changed {line}"
             # Replace the J' with the music note
             line = f"{line[:-4]} {EIGHTH_NOTE}"
-            log.debug( '%s ---> %s', log_msg, line )
+            log.debug('%s ---> %s', log_msg, line)
             music = True
         # Check for ,' anywhere in line, Likely music note
         # If ,' is in the line
         elif f",{LEFT_SINGLE_QUOTE}" in line:
             # If the first characters are ,' and the last character is ;,
             # then last character should be music note
-            if line[:4]  == f",{LEFT_SINGLE_QUOTE}" and line[-1] == ';':
+            if line[:4] == f",{LEFT_SINGLE_QUOTE}" and line[-1] == ';':
                 # Replace last character with a music note
                 line = f"{line[:-1]} {EIGHTH_NOTE}"
             # Replace the ,' with a music note
@@ -230,7 +235,8 @@ def srt_cleanup( fname, **kwargs ):
         elif line[:2] == 'J ':
             line = f"{EIGHTH_NOTE} {line[1:]}"
             music = True
-        # If "J" is found followed by another capital letter, likely is a music note.
+        # If "J" is found followed by another capital letter,
+        # likely is a music note.
         elif re.match(re.compile(r'J[A-Z]{1}'), line):
             line = f"{EIGHTH_NOTE} {line[1:]}"
             music = True
@@ -238,7 +244,8 @@ def srt_cleanup( fname, **kwargs ):
         # line
         elif music is True:
             if line[-1] == ';':
-                # If the last character is a semi colon, replace with music note
+                # If the last character is a semi colon,
+                # replace with music note
                 line = f"{line[:-1]} {EIGHTH_NOTE}"
             elif line[-5:] == f", {LEFT_SINGLE_QUOTE}":
                 # If the last characters are ", '" then replace with music note
@@ -252,15 +259,15 @@ def srt_cleanup( fname, **kwargs ):
             elif line[-4:] == f"J{LEFT_SINGLE_QUOTE}":
                 # If the end of the line is J'
                 line = f"{line[:-4]}{EIGHTH_NOTE}"
-            elif line[-2:]  == ' J':
+            elif line[-2:] == ' J':
                 # If last characters are " J" then replace with music note
                 line = f"{line[:-2]} {EIGHTH_NOTE}"
-            elif line[-1]  == 'J':
+            elif line[-1] == 'J':
                 # If last character is "J" then replace with music note
                 line = f"{line[:-1]} {EIGHTH_NOTE}"
         oid.write(line + os.linesep)
 
     iid.close()
     oid.close()
-    os.rename( out_file, fname )
+    os.rename(out_file, fname)
     return 0

@@ -14,7 +14,7 @@ from .vobsub_to_srt import vobsub_to_srt
 from .pgs_to_srt import pgs_to_srt
 
 
-def sub_to_srt( out_file, text_info, **kwargs ):
+def sub_to_srt(out_file: str, text_info: list[dict], **kwargs) -> list[str]:
     """
     Convert image based subtitles to srt
 
@@ -37,19 +37,19 @@ def sub_to_srt( out_file, text_info, **kwargs ):
 
     """
 
-    log   = logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
     files = []
     for info in text_info:
         fmt = info.get('format', '')
         if fmt == 'PGS':
-            res, fname = pgs_to_srt( out_file, info, **kwargs )
+            res, fname = pgs_to_srt(out_file, info, **kwargs)
         elif fmt == 'VobSub':
-            res, fname = vobsub_to_srt( out_file, info, **kwargs )
+            res, fname = vobsub_to_srt(out_file, info, **kwargs)
         else:
-            log.info( "Format not supported : %s", fmt )
+            log.info("Format not supported : %s", fmt)
             continue
 
         if res <= 1:
-            files.append( fname )
+            files.append(fname)
 
     return files
