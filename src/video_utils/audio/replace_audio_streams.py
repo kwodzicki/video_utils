@@ -23,10 +23,16 @@ import psutil
 from ..mediainfo import MediaInfo
 
 from .audio_delay import audio_delay
-from .dolby_downmix  import dolby_downmix
+from .dolby_downmix import dolby_downmix
 
-################################################################################
-def extract_audio( info, infile, outdir, result, time = None ):
+
+def extract_audio(
+    info: dict,
+    infile: str,
+    outdir: str,
+    result: list,
+    time: timedelta | None = None,
+):
     """
     A function to extract an audio stream from a video file
 
@@ -45,15 +51,15 @@ def extract_audio( info, infile, outdir, result, time = None ):
     """
 
     log = logging.getLogger(__name__)
-    log.info( 'Extracting audio for alignment: %s', infile )
-    outfile = os.path.splitext( os.path.basename(infile) )[0] + '.ogg'
+    log.info('Extracting audio for alignment: %s', infile)
+    outfile = os.path.splitext(os.path.basename(infile))[0] + '.ogg'
     outfile = os.path.join(outdir, outfile)
 
-    log.info( 'Output file: %s', outfile )
+    log.info('Output file: %s', outfile)
 
     if info['Channel_s_'] <= 2:
         cmd = [
-            'ffmpeg', 
+            'ffmpeg',
             '-y',
             '-nostdin',
             '-v', 'quiet',
@@ -62,20 +68,21 @@ def extract_audio( info, infile, outdir, result, time = None ):
             '-vn',
         ]
         if time is not None:
-            cmd.extend( ['-t', str(time)] )
-        cmd.append( outfile )
-        proc = subprocess.run( cmd, check=False )
+            cmd.extend(['-t', str(time)])
+        cmd.append(outfile)
+        proc = subprocess.run(cmd, check=False)
         if proc.returncode != 0:
             log.error('There was an error')
-            if os.path.isfile( outfile ):
-                os.remove( outfile )
+            if os.path.isfile(outfile):
+                os.remove(outfile)
             return
     else:
-        outfile = dolby_downmix( infile, outdir=outdir, time=time )
+        outfile = dolby_downmix(infile, outdir=outdir, time=time)
 
     result[0] = outfile
 
-def file_name_info( infile, info=None ):
+
+def file_name_info(infile: str, info: dict | None = None):
     """
     A function to get information for naming a file
 
@@ -100,32 +107,38 @@ def file_name_info( infile, info=None ):
     elif minfo['Video'][0]['Height'] <= 2160:
         info = ['2160p']
     try:
-        info.append( minfo['Video'][0]['Encoded_Library_Name'] )
+        info.append(minfo['Video'][0]['Encoded_Library_Name'])
     except:
-        info.append( minfo['Video'][0]['Writing_library/String'].split()[0] )
+        info.append(minfo['Video'][0]['Writing_library/String'].split()[0])
     for track in minfo['Audio']:
-        fmt   = track.get('Format', '')
+        fmt = track.get('Format', '')
         lang2 = track.get('Language/String2', '')
         lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_'
-        info.append( lang2 + fmt )
+        info.append(lang2 + fmt)
     return info
 
-################################################################################
-def compute_offset(in1, in2, info1, info2, outdir):
+
+def compute_offset(
+    in1: str,
+    in2: str,
+    info1: dict,
+    info2: dict,
+    outdir: str,
+):
     """Function to get offset between files."""
 
-    log     = logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
     # Set size to third of total memory
     mem_size = psutil.virtual_memory().total // 4
 
     # Length in seconds is the total memory divided by
     # (48kHz sample rate, times 2 bytes per sample, times 2 channels)
     a_length = mem_size / (48000 * 2 * 2) / 2
-    a_length = timedelta( seconds = a_length)
+    a_length = timedelta(seconds=a_length)
 
     in1_audio, in2_audio = [None], [None]
-    args1   = (info1['Audio'][0], in1, outdir, in1_audio, a_length, )
-    args2   = (info2['Audio'][0], in2, outdir, in2_audio, a_length, )
+    args1 = (info1['Audio'][0], in1, outdir, in1_audio, a_length)
+    args2 = (info2['Audio'][0], in2, outdir, in2_audio, a_length)
     threads = [
         Thread(target=extract_audio, args=args1),
         Thread(target=extract_audio, args=args2),
@@ -148,8 +161,13 @@ def compute_offset(in1, in2, info1, info2, outdir):
         os.remove(in2_audio)
     return delay
 
-################################################################################
-def replace_audio_streams( in1, in2, outdir = None, replace = False):
+
+def replace_audio_streams(
+    in1: str,
+    in2: str,
+    outdir: str | None = None,
+    replace: bool = False,
+):
     """
     Replace audio streams in one file with those from another.
 
@@ -162,15 +180,15 @@ def replace_audio_streams( in1, in2, outdir = None, replace = False):
     log = logging.getLogger(__name__)
     if outdir is None:
         outdir = os.path.dirname(in1)
-    out         = os.path.join(outdir, 'test.mp4')
-    base        = ['ffmpeg', '-nostdin', '-v', 'quiet', '-stats']
-    inputs      = []
-    codecs      = ['-c:v', 'copy']
-    opts        = ['-movflags', 'disable_chpl', '-hide_banner']
+    out = os.path.join(outdir, 'test.mp4')
+    base = ['ffmpeg', '-nostdin', '-v', 'quiet', '-stats']
+    inputs = []
+    codecs = ['-c:v', 'copy']
+    opts = ['-movflags', 'disable_chpl', '-hide_banner']
     audio_codec = '-c:a:{} aac -b:a:{} 192k'
 
-    info1   = MediaInfo( in1 )
-    info2   = MediaInfo( in2 )
+    info1 = MediaInfo(in1)
+    info2 = MediaInfo(in2)
 
     if len(info1['Video']) != 1:
         log.error('Input one (1) must have only one (1) video stream!')
@@ -182,57 +200,57 @@ def replace_audio_streams( in1, in2, outdir = None, replace = False):
 
     # Dictionary to hold information about new merged file
     new_info = {
-        'Video' : info1['Video'],
-        'Audio' : [],
+        'Video': info1['Video'],
+        'Audio': [],
     }
     # Set mapping to map video stream from input one
     mapping = ['-map', '0:' + str(info1['Video'][0]['StreamOrder'])]
 
-    test_time = None#str( timedelta( seconds = 300 ) )
+    test_time = None  # str( timedelta( seconds = 300 ) )
 
     # Search for any two channel audio streams in second input
-    any2ch = any( i['Channel_s_'] <=2 for i in info2['Audio'] )
+    any2ch = any(i['Channel_s_'] <= 2 for i in info2['Audio'])
     audio_stream_id = 0
     # If there are no audio streams in the second file with 2 or fewer tracks
     if not any2ch:
         # Append the information for the first audio stream of input2
         # to the newInfo list; copy ensures is own instance of dict
-        new_info['Audio'].append( info2['Audio'][0].copy() )
+        new_info['Audio'].append(info2['Audio'][0].copy())
         new_info['Audio'][-1]['Format'] = 'AAC'
         audio_stream_id += 1
 
     # Mapping for the second input file
-    for i in range( len(info2['Audio']) ):
+    for i in range(len(info2['Audio'])):
         # Get information for the ith audio stream of input 2
         info = info2['Audio'][i]
         # Append the information to the newInfo dictionary
-        new_info['Audio'].append( info )
+        new_info['Audio'].append(info)
         stream_num = info['StreamOrder'] if 'StreamOrder' in info else 0
-        mapping.extend( ['-map', f"1:{stream_num}"] )
+        mapping.extend(['-map', f"1:{stream_num}"])
         if info['Channel_s_'] <= 2:
-            codecs.extend( audio_codec.format(i, i).split() )
+            codecs.extend(audio_codec.format(i, i).split())
         else:
-            codecs.extend( [f"-c:a:{audio_stream_id}", 'copy'] )
+            codecs.extend([f"-c:a:{audio_stream_id}", 'copy'])
         audio_stream_id += 1
 
     # Set up output file name
-    info  = file_name_info( out, new_info )
+    info = file_name_info(out, new_info)
     fbase = os.path.basename(in1)
     fname = fbase.split('.')
     if re.match(r'S\d{2,}E\d{2,}', fbase):
-        fname = '.'.join( [fname[0]] + info + fname[-2:] )
+        fname = '.'.join([fname[0]] + info + fname[-2:])
     else:
-        fname = '.'.join( fname[:3] + info + fname[-2:] )
+        fname = '.'.join(fname[:3] + info + fname[-2:])
     out = os.path.join(outdir, fname)
-    log.info( 'Output: %s', out )
+    log.info('Output: %s', out)
     if out == in1:
-        log.warning( 'Output matches input one!' )
+        log.warning('Output matches input one!')
         return False
 
     # If the output file exits and replace is NOT set
     if os.path.isfile(out) and not replace:
-        log.error( 'Output file already exits!' )
-        log.error( 'Set replace key to overwrite' )
+        log.error('Output file already exits!')
+        log.error('Set replace key to overwrite')
         return False
 
     # If the file exits, delete it; replace MUST be set
@@ -245,64 +263,69 @@ def replace_audio_streams( in1, in2, outdir = None, replace = False):
 
     # If there are not any 2 channel audio streams in file2
     if not any2ch:
-        log.info( 'Downmixing surround stream to stereo AAC' )
-        audio_in = dolby_downmix( in2, aac=True, outdir=outdir, time=test_time)
+        log.info('Downmixing surround stream to stereo AAC')
+        audio_in = dolby_downmix(in2, aac=True, outdir=outdir, time=test_time)
         if audio_in is None:
             log.error('Reorder during Dolby Downmix, returning!')
             return False
         # Get information from the first audio stream
-        info   = info2['Audio'][0]
+        info = info2['Audio'][0]
         # Append down-mixed file path to inputs list
         inputs = ['-itsoffset', delay[1], '-i', audio_in]
         # Add mapping for the file
-        mapping.extend( ['-map', '2:0'] )
-        opts  += [
-            '-metadata:s:a:0', 'title=Dolby Pro Logic II', 
+        mapping.extend(['-map', '2:0'])
+        opts += [
+            '-metadata:s:a:0', 'title=Dolby Pro Logic II',
             '-metadata:s:a:0', 'language='+info['Language/String2'],
         ]
 
     # Set up input files with offset for audio
     inputs = ['-i', in1, '-itsoffset', delay[1], '-i', in2] + inputs
-    # Generate the command by combining by adding inputs, mapping, codecs, and extra options
-    cmd    = base + inputs + mapping + codecs + opts
+    # Generate the command by combining by adding inputs, mapping, codecs,
+    # and extra options
+    cmd = base + inputs + mapping + codecs + opts
     if test_time is not None:
-        cmd.extend( ['-t', test_time] )
+        cmd.extend(['-t', test_time])
 
-    cmd.append( out )
+    cmd.append(out)
     log.info('Combining files')
-    _ = subprocess.run( cmd, check=False )
+    _ = subprocess.run(cmd, check=False)
     if audio_in is None:
         return False
 
     if os.path.isfile(audio_in):
-        os.remove(audio_in)                             # If the file exists, remove it
+        os.remove(audio_in)  # If the file exists, remove it
 
     return True
+
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
-        description="Utility to replace audio streams one file with audio streams from another"
+        description=(
+            "Utility to replace audio streams one file with "
+            "audio streams from another"
+        )
     )
     parser.add_argument(
         "orig",
-        type = str,
-        help = "Original file; will replace audio",
+        type=str,
+        help="Original file; will replace audio",
     )
     parser.add_argument(
         "new",
-        type = str,
-        help = "New file with surround stream(s); new audio",
+        type=str,
+        help="New file with surround stream(s); new audio",
     )
     parser.add_argument(
         "-o", "--output",
-        type = str,
-        help = "Output directory.",
+        type=str,
+        help="Output directory.",
     )
     parser.add_argument(
         "-r", "--replace",
-        action = "store_true",
-        help   = "Set to replace existing output file.",
+        action="store_true",
+        help="Set to replace existing output file.",
     )
 
     args = parser.parse_args()

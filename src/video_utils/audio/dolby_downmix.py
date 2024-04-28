@@ -8,19 +8,18 @@ from subprocess import run, STDOUT, DEVNULL
 
 # Panning settings for Dolby Pro Logic and Dolby Pro Logic II
 _panning = {
-    'PLII' : {
-        'L' : 'FL + 0.707*FC - 0.8165*BL - 0.5774*BR',
-        'R' : 'FR + 0.707*FC + 0.5774*BL + 0.8165*BR',
+    'PLII': {
+        'L': 'FL + 0.707*FC - 0.8165*BL - 0.5774*BR',
+        'R': 'FR + 0.707*FC + 0.5774*BL + 0.8165*BR',
     },
-    'PL'  : {
-        'L' : 'FL + 0.707*FC - 0.707*BL - 0.707*BR',
-        'R' : 'FR + 0.707*FC + 0.707*BL + 0.707*BR',
+    'PL': {
+        'L': 'FL + 0.707*FC - 0.707*BL - 0.707*BR',
+        'R': 'FR + 0.707*FC + 0.707*BL + 0.707*BR',
     },
 }
 
 
-################################################################################
-def get_downmix_filter( pro_logic_2 = True ):
+def get_downmix_filter(pro_logic_2: bool = True):
     """
     Get format string for downmix filter
 
@@ -31,7 +30,8 @@ def get_downmix_filter( pro_logic_2 = True ):
         None
 
     Keyword arguments:
-        pro_logic_2 : Set to use Dolby Pro Logic II downmix. This is the default
+        pro_logic_2 : Set to use Dolby Pro Logic II downmix.
+            This is the default
 
     Returns:
         str: Format string for filter
@@ -40,12 +40,19 @@ def get_downmix_filter( pro_logic_2 = True ):
 
     fmt = 'PLII' if pro_logic_2 else 'PL'
     left, right = _panning[fmt]['L'], _panning[fmt]['R']
-    return '|'.join( [ "pan=stereo", f"FL<{left}", f"FR<{right}" ] )
+    return '|'.join(["pan=stereo", f"FL<{left}", f"FR<{right}"])
 
-################################################################################
-def dolby_downmix( infile, outdir=None, pro_logic_2=True, aac=False, flac=False, time=None ):
+
+def dolby_downmix(
+    infile,
+    outdir: str | None = None,
+    pro_logic_2: bool = True,
+    aac: bool = False,
+    flac: bool = False,
+    time: str | None = None,
+):
     """
-    Downmix surround sound channels (5.1+) in a video file to Dolby Pro Logic II
+    Downmix surround sound channels (5.1+) to Dolby Pro Logic II
 
     A function that downmixes surround sound channels (5.1+) in
     a video file to Dolby Pro Logic II.
@@ -59,44 +66,45 @@ def dolby_downmix( infile, outdir=None, pro_logic_2=True, aac=False, flac=False,
 
     Keyword arguments:
         pro_logic_2 (bool): Set to downmix to Dolby Pro Logic II.
-            This is the default. Setting to False will downmix in Dolby Pro Logic.
+            This is the default. Setting to False will downmix in
+            Dolby Pro Logic.
         flac (bool): Set to output as FLAC encoded file. Default is OGG.
         aac (bool): Set to output as AAC encoded file. Default is OGG.
         time (str): String in format HH:MM:SS.0 specifing the
             length of the downmix. Default is complete stream.
 
     Returns:
-        None: A stereo downmix of audio tracks in infile with the same name as input.
-            Only first audio stream is downmixed
+        None: A stereo downmix of audio tracks in infile with the same name
+            as input. Only first audio stream is downmixed
 
     """
 
-    infile  = os.path.abspath( infile )
-    base = ['ffmpeg','-y', '-nostdin', '-v', 'quiet', '-stats', '-i',infile]
+    infile = os.path.abspath(infile)
+    base = ['ffmpeg', '-y', '-nostdin', '-v', 'quiet', '-stats', '-i', infile]
     opts = ['-vn', '-ac', '2', '-b:a', '192k']
 
     if outdir is None:
-        outdir = os.path.dirname( infile )
-    outfile = os.path.splitext( os.path.basename(infile) )[0]
+        outdir = os.path.dirname(infile)
+    outfile = os.path.splitext(os.path.basename(infile))[0]
     outfile = os.path.join(outdir, outfile)
     if flac:
         outfile += '.flac'
-        opts.extend( ['-c:a','flac'] )
+        opts.extend(['-c:a', 'flac'])
     elif aac:
         outfile += '.m4a'
-        opts.extend( ['-c:a','aac'] )
+        opts.extend(['-c:a', 'aac'])
     else:
         outfile += '.ogg'
-        opts.extend( ['-c:a','libvorbis'] )
-    opts.extend( ['-af', get_downmix_filter(pro_logic_2) ] )
+        opts.extend(['-c:a', 'libvorbis'])
+    opts.extend(['-af', get_downmix_filter(pro_logic_2)])
     cmd = base + opts
     if time is not None:
-        cmd.extend( ['-t', str(time)] )
-    cmd.append( outfile )
+        cmd.extend(['-t', str(time)])
+    cmd.append(outfile)
 
-    proc = run( cmd, stdout=DEVNULL, stderr=STDOUT, check=False )
+    proc = run(cmd, stdout=DEVNULL, stderr=STDOUT, check=False)
     if proc.returncode == 0:
         return outfile
-    if os.path.isfile( outfile ):
-        os.remove( outfile )
+    if os.path.isfile(outfile):
+        os.remove(outfile)
     return None
