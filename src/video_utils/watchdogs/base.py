@@ -1,7 +1,7 @@
 """
 Watchdog for MakeMKV output
 
-A watchdog is defined that monitors direcory(ies) for files 
+A watchdog is defined that monitors direcory(ies) for files
 output by MakeMKV so that these files can be transcoded and add
 to Plex.
 
@@ -17,10 +17,11 @@ from watchdog.observers import Observer
 
 from ..utils import isRunning
 
-TIMEOUT =  1.0
-SLEEP   = 30.0
+TIMEOUT = 1.0
+SLEEP = 30.0
 
-class BaseWatchdog( FileSystemEventHandler ):
+
+class BaseWatchdog(FileSystemEventHandler):
     """
     Base watchdog class for package
 
@@ -28,26 +29,26 @@ class BaseWatchdog( FileSystemEventHandler ):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self.log      = logging.getLogger(__name__)
+        self.log = logging.getLogger(__name__)
         # Initialize queue for sending files to converting thread
-        self.queue    = Queue()
+        self.queue = Queue()
         # Initialize a watchdog Observer
         self.observer = Observer()
 
         self.file_ext = None
 
-    def set_file_exts( self, file_ext, default_ext ):
+    def set_file_exts(self, file_ext, default_ext):
         """
         Get file extension(s) to use
-    
+
         Arguments:
             file_ext (str) : File extenion to defined by user
             default_ext (tuple) : Default file extensions defined
                 in code
-    
+
         Returns:
             tuple : File extensions for valid files
-    
+
         """
 
         if file_ext is None:
@@ -73,9 +74,9 @@ class BaseWatchdog( FileSystemEventHandler ):
 
         if event.is_directory:
             return
-        if event.src_path.endswith( self.file_ext ):
-            self.queue.put( event.src_path )
-            self.log.debug( 'New file added to queue : %s', event.src_path )
+        if event.src_path.endswith(self.file_ext):
+            self.queue.put(event.src_path)
+            self.log.debug('New file added to queue : %s', event.src_path)
 
     def on_moved(self, event):
         """
@@ -91,9 +92,9 @@ class BaseWatchdog( FileSystemEventHandler ):
 
         if event.is_directory:
             return
-        if event.dest_path.endswith( self.file_ext ):
-            self.queue.put( event.dest_path )
-            self.log.debug( 'New file added to queue : %s', event.dest_path )
+        if event.dest_path.endswith(self.file_ext):
+            self.queue.put(event.dest_path)
+            self.log.debug('New file added to queue : %s', event.dest_path)
 
     def join(self):
         """Method to wait for the watchdog Observer to finish."""
@@ -115,13 +116,13 @@ class BaseWatchdog( FileSystemEventHandler ):
 
         """
 
-        self.log.debug( 'Waiting for file to finish being created : %s', fpath )
+        self.log.debug('Waiting for file to finish being created : %s', fpath)
         prev = -1
 
         try:
             curr = os.stat(fpath).st_size
         except Exception as err:
-            self.log.debug( "Failed to get file size : %s", err )
+            self.log.debug("Failed to get file size : %s", err)
             return False
 
         # While sizes differ and isRunning()
@@ -131,7 +132,7 @@ class BaseWatchdog( FileSystemEventHandler ):
             try:
                 curr = os.stat(fpath).st_size
             except Exception as err:
-                self.log.debug( "Failed to get file size : %s", err )
+                self.log.debug("Failed to get file size : %s", err)
                 return False
 
         if not isRunning():
@@ -156,11 +157,11 @@ class BaseWatchdog( FileSystemEventHandler ):
 
         while isRunning():
             try:
-                fpath = self.queue.get( timeout = TIMEOUT )
+                fpath = self.queue.get(timeout=TIMEOUT)
             except:
                 continue
 
-            self._process( fpath )
+            self._process(fpath)
             self.queue.task_done()
 
         self.log.info('MakeMKV watchdog stopped!')
