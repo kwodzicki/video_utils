@@ -11,6 +11,7 @@ import os
 import re
 import time
 from datetime import datetime
+from colletions.abc import Generator
 
 from . import __name__ as __pkg_name__
 from . import __version__ as __pkg_version__
@@ -21,7 +22,7 @@ from .comremove import ComRemove
 from .utils import _sigintEvent, _sigtermEvent, isRunning, thread_check
 from .utils import hdr_utils
 from .utils.handlers import RotatingFile
-from .utils.ffmpeg_utils   import cropdetect, extract_hevc, FFmpegProgress
+from .utils.ffmpeg_utils import cropdetect, extract_hevc, FFmpegProgress
 
 from .subtitles import opensubtitles
 from .subtitles import ccextract
@@ -35,69 +36,72 @@ from .config import get_comskip_log, get_transcode_log, fileFMT
 # Matching pattern for season/episode files; lower/upper case 's' followed by
 # 2 or more digits followed by upper/lower 'e' followed by 2 or more digits
 # followed by ' - ' string
-SE_PAT = re.compile( r'[sS](\d{2,})[eE](\d{2,})' )
+SE_PAT = re.compile(r'[sS](\d{2,})[eE](\d{2,})')
 
-class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
+
+class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
     """
-    For converting video files h264 encoded files in either the MKV or MP4 container.
+    Convert video files to h264/265 MP4/MKV
 
     Video files must be decodeable by the ffmpeg video software.
     All audio tracks will be passed through to the output file
-    The x264 video code will be used for all files with resolutions of 1080P and lower,
-    while x265 will be used for all videos with resolution greater than 1080P. 
-    The x265 codec can be enabled for lower resolution videos.
+    The x264 video code will be used for all files with resolutions of
+    1080P and lower, while x265 will be used for all videos with resolution
+    greater than 1080P. The x265 codec can be enabled for lower resolution
+    videos.
 
     Dependencies:
        ffmpeg, mediainfo
 
     """
 
-    def __init__(self,
-            in_place          = False,
-            transcode_log     = None,
-            comskip_log       = None,
-            lang              = None,
-            threads           = None,
-            container         = 'mp4',
-            cpulimit          = None,
-            x265              = False,
-            remove            = False,
-            comdetect         = False,
-            subtitles         = False,
-            srt               = False,
-            sub_delete_source = False,
+    def __init__(
+            self,
+            in_place: bool = False,
+            transcode_log: str | None = None,
+            comskip_log: str | None = None,
+            lang: str | list[str] | None = None,
+            threads: int | None = None,
+            container: str = 'mp4',
+            cpulimit: int | None = None,
+            x265: bool = False,
+            remove: bool = False,
+            comdetect: bool = False,
+            subtitles: bool = False,
+            srt: bool = False,
+            sub_delete_source: bool = False,
             **kwargs,
-        ):
+    ):
         """
         Keyword arguments:
-            outdir   (str): Path to output directory. Optional input. 
+            outdir   (str): Path to output directory. Optional input.
                 DEFAULT: Place output file(s) in source directory.
             logdir  (str): Path to log file directory. Optional input.
                 DEFAULT: Place log file(s) in source directory.
-            in_place (bool): Set to transcode file in place; i.e., do NOT create a 
-                new path to file such as with TV, where
+            in_place (bool): Set to transcode file in place; i.e., do NOT
+                create a new path to file such as with TV, where
                 ./Series/Season XX/ directories are created
-            lang          : String or list of strings of ISO 639-2 codes for 
-                subtitle and audio languages to use. 
+            lang          : String or list of strings of ISO 639-2 codes for
+                subtitle and audio languages to use.
                 Default is english (eng).
-            threads  (int): Set number of threads to use. Default is to use half
-                of total available.
-            cpulimit (int): Set to percentage to limit cpu usage to. This value
-                is multiplied by number of threads to use.
+            threads  (int): Set number of threads to use.
+                Default is to use half of total available.
+            cpulimit (int): Set to percentage to limit cpu usage to.
+                This value is multiplied by number of threads to use.
                 DEFAULT: 75 per cent.
                 TO DISABLE LIMITING - set to 0.
             remove (bool): Set to True to remove mkv file after transcode
             comdetect (bool): Set to remove/mark commercial segments in file
-            subtitles (bool): Set to extract VobSub file(s). If SRT is set, then
-                this keyword is also set. Setting this will NOT
+            subtitles (bool): Set to extract VobSub file(s). If SRT is set,
+                then this keyword is also set. Setting this will NOT
                 enable downloading from opensubtitles.org as the
                 subtitles for opensubtitles.org are SRT files.
             srt  (bool): Set to convert the extracted VobSub file(s) to SRT
-                format. Also enables opensubtitles.org downloading 
+                format. Also enables opensubtitles.org downloading
                 if no subtitles are found in the input file.
-            sub_delete_source (bool): Set to delete VobSub file(s) after they have been 
-                converted to SRT format. Used in conjunction with
-                srt keyword.
+            sub_delete_source (bool): Set to delete VobSub file(s) after
+                they have been  converted to SRT format. Used in conjunction
+                with srt keyword.
             username (str): User name for opensubtitles.org
             userpass (str): Password for opensubtitles.org. Recommend that
                 this be the md5 hash of the password and not
@@ -107,11 +111,11 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         """
 
         super().__init__(**kwargs)
-        self.__log = logging.getLogger( __name__ )
+        self.__log = logging.getLogger(__name__)
         self.container = container
-        self.srt       = srt
-        self.cpulimit  = cpulimit if isinstance(cpulimit, int) else 75
-        self.threads   = thread_check( threads )
+        self.srt = srt
+        self.cpulimit = cpulimit if isinstance(cpulimit, int) else 75
+        self.threads = thread_check(threads)
 
         self.subtitles = False
         if subtitle_extract.CLI is None:
@@ -123,14 +127,14 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             self.subtitles = subtitles
 
         # Set up all the easy parameters first
-        self.outdir        = kwargs.get('outdir', None)
-        self.logdir        = kwargs.get('logdir', None)
-        self.in_place      = in_place
-        self.comdetect     = comdetect
+        self.outdir = kwargs.get('outdir', None)
+        self.logdir = kwargs.get('logdir', None)
+        self.in_place = in_place
+        self.comdetect = comdetect
 
-        self.miss_lang     = []
-        self.x265          = x265
-        self.remove        = remove
+        self.miss_lang = []
+        self.x265 = x265
+        self.remove = remove
         self.sub_delete_source = sub_delete_source
         self.infile = None
         self.outfile = None
@@ -157,46 +161,46 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             self.comskip_log = comskip_log
 
         if lang:
-            self.lang = lang if isinstance(lang, (tuple,list,)) else [lang]
+            self.lang = lang if isinstance(lang, (tuple, list)) else [lang]
         if len(self.lang) == 0:
             self.lang = ["eng"]
 
-        self.chapter_file     = None
-        self.video_info       = None
-        self.audio_info       = None
-        self.text_info        = None
-        self.subtitle_ltf     = None
-        self.sub_status       = None
-        self.srt_status       = None
+        self.chapter_file = None
+        self.video_info = None
+        self.audio_info = None
+        self.text_info = None
+        self.subtitle_ltf = None
+        self.sub_status = None
+        self.srt_status = None
         self.transcode_status = None
-        self.tagging_status   = None
+        self.tagging_status = None
 
-        self.metadata         = None
+        self.metadata = None
 
-        self.tagging          = False
+        self.tagging = False
 
-        self.v_preset         = 'slow'
+        self.v_preset = 'slow'
 
         self._start_time = None
-        self._created_files   = None
-        self.__file_handler   = None
+        self._created_files = None
+        self.__file_handler = None
 
     @property
-    def outdir(self):
+    def outdir(self) -> str:
         """Output directory for transcoded and extra files"""
 
         return self.__outdir
 
     @outdir.setter
-    def outdir(self, val):
+    def outdir(self, val: str | None):
         if isinstance(val, str):
-            os.makedirs( val, exist_ok=True )
+            os.makedirs(val, exist_ok=True)
             self.__outdir = val
         else:
             self.__outdir = os.path.expanduser('~')
 
     @property
-    def container(self):
+    def container(self) -> str:
         """Video container; e.g., mp4 or mkv"""
 
         return self.__container
@@ -205,12 +209,14 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
     def container(self, val):
         self.__container = val.lower()
 
-    def transcode( self, infile,
-          log_file  = None,
-          metadata  = None,
-          chapters  = False,
-          **kwargs
-    ):
+    def transcode(
+        self,
+        infile: str,
+        log_file: str | None = None,
+        metadata: dict | None = None,
+        chapters: bool = False,
+        **kwargs
+    ) -> str | bool | None:
         """
         Actually transcode a file
 
@@ -224,17 +230,18 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             - Used variable frame rate, which 'preserves the source timing
             - Uses x264 codec for all video 1080P or lower, uses x265 for
                 video greater than 1080P, i.e., 4K content.
-            - Copy any audio streams with more than two (2) channels 
+            - Copy any audio streams with more than two (2) channels
             - Extract VobSub subtitle file(s) from the mkv file.
             - Convert VobSub subtitles to SRT files.
 
         This program will accept both movies and TV episodes, however,
-        movies and TV episodes must follow specific naming conventions 
+        movies and TV episodes must follow specific naming conventions
         as specified under in the 'File Naming' section below.
 
         Arguments:
-            infile (str): Full path to MKV file to covert. Make sure that the file names
-                follow the following formats for movies and TV shows:
+            infile (str): Full path to MKV file to covert. Make sure that
+                the file names  follow the following formats for movies
+                and TV shows:
 
         Keyword arguments:
             log_file (str): File to write logging information to
@@ -244,9 +251,9 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             comdetect (bool): Set to remove/mark commercial segments in file
 
         Returns:
-            Outputs a transcoded video file in the MP4 container and 
-                subtitle files, based on keywords used. Also returns codes 
-                to signal any errors. 
+            Outputs a transcoded video file in the MP4 container and
+                subtitle files, based on keywords used. Also returns codes
+                to signal any errors.
 
         Transcode Status
             -  0 : Everything finished cleanly
@@ -263,11 +270,11 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         _sigintEvent.clear()
 
         # If there was an issue with the file_info function, just return
-        if not self.file_info( infile, metadata = metadata ):
+        if not self.file_info(infile, metadata=metadata):
             return False
 
         # Run method to initialize logging to file
-        self._init_logger( log_file )
+        self._init_logger(log_file)
 
         # If there is not video stream found OR no audio stream(s) found
         if self.video_info is None or self.audio_info is None:
@@ -288,9 +295,9 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         else:
             outfile = f"{self.outfile}.{self.container}"
 
-        self.__log.info( "Output file: %s", outfile )
+        self.__log.info("Output file: %s", outfile)
 
-        self._prog_file = self._check_outfile_exists( outfile )
+        self._prog_file = self._check_outfile_exists(outfile)
         if self._prog_file is None:
             return False
 
@@ -298,11 +305,12 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         with open(self._prog_file, mode='a', encoding='ascii') as _:
             pass
 
-        # If the comdetect keywords is set; if key not given use class-wide setting
+        # If the comdetect keywords is set; if key not given use
+        # class-wide setting
         if not self._comdetect(chapters, **kwargs):
             return None
 
-        self.__log.info( "Transcoding file..." )
+        self.__log.info("Transcoding file...")
 
         self.hdr_metadata()
 
@@ -375,14 +383,15 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
             # If made here, then app is sitll running, so other issue
             self.__log.critical(
-                "All transcode attempts failed : %s. Removing all created files.",
+                "All transcode attempts failed : %s. "
+                "Removing all created files.",
                 self.infile,
             )
             self._created_files = self._clean_up(*self._created_files)
             return None
 
-        self.__log.info( "Transcode SUCCESSFUL!" )
-        
+        self.__log.info("Transcode SUCCESSFUL!")
+
         if self.hevc_file:
             self.hevc_file = hdr_utils.ingect_hdr(
                 self.hevc_file,
@@ -395,7 +404,9 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             proc.wait()
 
             if proc.returncode != 0:
-                self.__log.error('Issue running mkvmerge! Removing all created files')
+                self.__log.error(
+                    'Issue running mkvmerge! Removing all created files',
+                )
                 self._created_files = self._clean_up(*self._created_files)
                 return None
 
@@ -408,12 +419,12 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         self.__log.info(
             "Duration: %s",
-            datetime.now()-self._start_time
+            datetime.now() - self._start_time,
         )
 
         return outfile
 
-    def hdr_metadata(self):
+    def hdr_metadata(self) -> None:
         """
         To get HDR metdata from input file
 
@@ -437,16 +448,18 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             self.others_file = None
             self.dolby_vision_file = None
             self.hdr10plus_file = None
-            
+
             return
 
         # Use self.outfile as has not extension yet
-        self.__log.info("Attempting to get HDR metadata; extracting HEVC stream")
+        self.__log.info(
+            "Attempting to get HDR metadata; extracting HEVC stream",
+        )
         self.hevc_file = extract_hevc(self.infile, self.outfile)
 
         if self.hevc_file is None:
             return
-        
+
         # Could check the is_dolby_vision and is_hdr10plus properties here...
         self.dolby_vision_file = hdr_utils.dovi_extract(self.hevc_file)
         self.hdr10plus_file = hdr_utils.hdr10plus_extract(self.hevc_file)
@@ -463,13 +476,17 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         self.others_file = f"{self.outfile}.mka"
 
-    def file_info( self, infile, metadata = None):
+    def file_info(
+        self,
+        infile: str,
+        metadata: dict | None = None,
+    ) -> bool | None:
         """
         Extract some information from the input file name
 
         Extracts information from the input file name and sets up some
         output file variables.
-        
+
         Arguments:
             infile (str): Full path of file
 
@@ -490,57 +507,69 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         # Set up file/directory information
         # Set the infile attribute for the class to the file input IF it
         # exists, else, set the infile to None
-        self.infile  = infile if os.path.exists( infile ) else None
+        self.infile = infile if os.path.exists(infile) else None
         if self.infile is None:
-            self.__log.info("File requested does NOT exist. Exitting..." )
-            self.__log.info("   %s", infile )
+            self.__log.info("File requested does NOT exist. Exitting...")
+            self.__log.info("   %s", infile)
             return False
 
-        self.__log.info( "Input file: %s", self.infile )
-        self.__log.info( "Getting video, audio, information...")
+        self.__log.info("Input file: %s", self.infile)
+        self.__log.info("Getting video, audio, information...")
 
         # Get and parse video information from the file
-        self.video_info = self.get_video_info( x265 = self.x265 )
+        self.video_info = self.get_video_info(x265=self.x265)
         if self.video_info is None:
             return None
         # Get and parse audio information from the file
-        self.audio_info = self.get_audio_info( self.lang )
+        self.audio_info = self.get_audio_info(self.lang)
         if self.audio_info is None:
             return None
 
         # Set outdir to dirname of infile if in_place is set
-        outdir = os.path.dirname(self.infile) if self.in_place else self.outdir
+        outdir = (
+            os.path.dirname(self.infile)
+            if self.in_place else
+            self.outdir
+        )
 
         # Try to get metadata
-        self.metadata = getMetaData(self.infile) if metadata is None else metadata
+        self.metadata = (
+            getMetaData(self.infile)
+            if metadata is None else
+            metadata
+        )
 
         # If metadata is valid
         if self.metadata:
             self.metadata.addComment(
-                f"File converted and tagged using {__pkg_name__} version {__pkg_version__}"
+                f"File converted and tagged using {__pkg_name__} "
+                f"version {__pkg_version__}"
             )
             outfile = self.metadata.get_basename()
             if not self.in_place:
                 # Set outdir based on self.outdir and get_dirname() method
-                outdir = self.metadata.get_dirname( root = self.outdir )
+                outdir = self.metadata.get_dirname(root=self.outdir)
         else:
             # Set outfile to infile basename without extension
-            outfile = os.path.splitext( os.path.basename( self.infile ) )[0]
+            outfile = os.path.splitext(os.path.basename(self.infile))[0]
 
-        os.makedirs( outdir, exist_ok=True )
+        os.makedirs(outdir, exist_ok=True)
 
         # Create full path to output file; no extension
-        outfile      = os.path.join( outdir, outfile )
-        extra_info   = self.video_info["file_info"] + self.audio_info["file_info"]
-        self.outfile = '.'.join( [outfile] + extra_info )
+        outfile = os.path.join(outdir, outfile)
+        extra_info = (
+            self.video_info["file_info"]
+            + self.audio_info["file_info"]
+        )
+        self.outfile = '.'.join([outfile] + extra_info)
         return True
 
-    def get_subtitles( self, *args, **kwargs ):
+    def get_subtitles(self, *args, **kwargs) -> None:
         """
         Try to get subtitles through various means
 
-        Get subtitles for a movie/tv show via extracting VobSub(s) from the input
-        file and converting them to SRT file(s).
+        Get subtitles for a movie/tv show via extracting VobSub(s) from
+        the input file and converting them to SRT file(s).
         If a file fails to convert, the VobSub files are removed.
 
         Arguments:
@@ -573,21 +602,23 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             return
 
         # Get and parse text information from the file
-        self.text_info = self.get_text_info( self.lang )
+        self.text_info = self.get_text_info(self.lang)
         if self.text_info is None:
             return
 
         # If the input file format is MPEG-TS, then must use CCExtractor
         if self.format == "MPEG-TS":
             if not ccextract.CLI:
-                self.__log.warning("ccextractor failed to import, nothing to do")
+                self.__log.warning(
+                    "ccextractor failed to import, nothing to do",
+                )
                 return
 
             srt_files = ccextract.ccextract(
                 self.infile, self.outfile, self.text_info
             )
 
-            self._created_files.extend( srt_files )
+            self._created_files.extend(srt_files)
 
             return
 
@@ -599,25 +630,27 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             self.infile,
             self.outfile,
             self.text_info,
-            srt = self.srt,
+            srt=self.srt,
         )
-        # Add list of files created by subtitles_extract to list of created files
-        self._created_files.extend( sub_files )
+        # Add list of files created by subtitles_extract to
+        # list of created files
+        self._created_files.extend(sub_files)
         # If there were major errors in the subtitles extraction
         if self.sub_status > 1:
             return
 
         if self.srt:
             srt_files = sub_to_srt(
-                self.outfile, self.text_info,
-                delete_soure = self.sub_delete_source,
-                cpulimit     = self.cpulimit,
-                threads      = self.threads,
+                self.outfile,
+                self.text_info,
+                delete_soure=self.sub_delete_source,
+                cpulimit=self.cpulimit,
+                threads=self.threads,
             )
 
-            self._created_files.extend( srt_files )
+            self._created_files.extend(srt_files)
 
-    def _clean_up(self, *args):
+    def _clean_up(self, *args) -> None:
         """Method to delete arbitrary number of files, catching exceptions"""
 
         to_clean = [
@@ -631,7 +664,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             if not isinstance(arg, str) or not os.path.isfile(arg):
                 continue
             try:
-                os.remove( arg )
+                os.remove(arg)
             except Exception as err:
                 self.__log.warning(
                     "Failed to delete file: %s ---> %s",
@@ -639,7 +672,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
                     err,
                 )
 
-    def _ffmpeg_command(self, video_file):
+    def _ffmpeg_command(self, video_file: str) -> list[str]:
         """
         A method to generate full ffmpeg command list
 
@@ -654,7 +687,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         """
 
-        cmd = self._ffmpeg_base( )
+        cmd = self._ffmpeg_base()
 
         # Attempt to detect cropping
         crop_vals = cropdetect(
@@ -665,20 +698,22 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         video_keys = self._video_keys()
         audio_keys = self._audio_keys()
         # Booleans for if all av options have been parsed
-        #av_opts    = [True, True]
+        # av_opts    = [True, True]
 
         for key in video_keys:
             cmd.extend(self.video_info[key])
-            if key == '-filter':
-               if crop_vals is not None:
-                   if len(self.video_info[key]) != 0:
-                       # Add cropping to video filter
-                       cmd[-1] = f"{cmd[-1]},{crop_vals}"
-                   else:
-                       # Add cropping values
-                       cmd.extend( ["-vf", crop_vals] )
-               # Add next options to ffmpeg
-               cmd.extend(self.video_info[next(video_keys)])
+            if key != '-filter':
+                continue
+
+            if crop_vals is not None:
+                if len(self.video_info[key]) != 0:
+                    # Add cropping to video filter
+                    cmd[-1] = f"{cmd[-1]},{crop_vals}"
+                else:
+                    # Add cropping values
+                    cmd.extend(["-vf", crop_vals])
+            # Add next options to ffmpeg
+            cmd.extend(self.video_info[next(video_keys)])
 
         if self.others_file is not None:
             cmd.append(video_file)
@@ -688,11 +723,14 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             if key == '-filter':
                 cmd.extend(self.audio_info[next(audio_keys)])
 
-        if isinstance(self.chapter_file, str) and os.path.isfile(self.chapter_file):
+        if (
+            isinstance(self.chapter_file, str)
+            and os.path.isfile(self.chapter_file)
+        ):
             cmd.extend(["-map_metadata", "1"])
         else:
             cmd.extend(["-map_chapters", "0"])
- 
+
         if self.others_file is not None:
             cmd.append(self.others_file)
         else:
@@ -704,7 +742,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             self,
             strict='experimental',
             max_muxing_queue_size=4096,
-        ):
+    ):
         """
         A method to generate basic ffmpeg command
 
@@ -715,16 +753,16 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             strict (str): Specify how strictly to follow the standards.
                 Possible values:
                     - ‘very’ : strictly conform to an older more strict
-                        version of the spec or reference software 
+                        version of the spec or reference software
                     - ‘strict’ : strictly conform to all the things in the
-                        spec no matter what consequences 
+                        spec no matter what consequences
                     - ‘normal’
-                    - ‘unofficial’ : allow unofficial extensions 
+                    - ‘unofficial’ : allow unofficial extensions
                     - ‘experimental’ : allow non standardized experimental
                         things, experimental (unfinished/work in progress/not
                         well tested) decoders and encoders. Note: experimental
                         decoders can pose a security risk, do not use this for
-                        decoding untrusted input. 
+                        decoding untrusted input.
             max_muxing_queue_size (int): Should not have to change;
                 see https://trac.ffmpeg.org/ticket/6375
 
@@ -733,8 +771,14 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         """
 
-        if isinstance(self.chapter_file, str) and os.path.isfile(self.chapter_file):
-            self.__log.info("Adding chapters from file : %s", self.chapter_file )
+        if (
+            isinstance(self.chapter_file, str)
+            and os.path.isfile(self.chapter_file)
+        ):
+            self.__log.info(
+                "Adding chapters from file : %s",
+                self.chapter_file,
+            )
             chapters = ["-i", self.chapter_file]
         else:
             chapters = []
@@ -767,7 +811,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         if that file does NOT exist, then assume the output file actually
         exists (i.e., is not currently being created). If the .inprogress
         file exists AND the output file size is changing, then assume another
-        instance is currently converting. Otherwise, asssume old/failed 
+        instance is currently converting. Otherwise, asssume old/failed
         conversion and delete output file.
 
         Arguments:
@@ -779,29 +823,31 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         """
 
-        prog_file = self._inprogress_file( outfile )
-        if os.path.exists( outfile ):
+        prog_file = self._inprogress_file(outfile)
+        if os.path.exists(outfile):
             # If the inprogress file does NOT exists, then conversion
             # completed in previous attempt
-            if not os.path.exists( prog_file ):
+            if not os.path.exists(prog_file):
                 self.__log.info("Output file Exists...Skipping!")
                 self.transcode_status = 1
                 if self.remove:
-                    self._clean_up( self.infile )
-                self.chapter_file = self._clean_up( self.chapter_file )
+                    self._clean_up(self.infile)
+                self.chapter_file = self._clean_up(self.chapter_file)
                 return None
-            if self._being_converted( outfile ):
-                self.__log.info("It seems another process is creating the output file")
+            if self._being_converted(outfile):
+                self.__log.info(
+                    "It seems another process is creating the output file",
+                )
                 return None
 
             self.__log.info(
                 "It looks like there was a previous attempt to transcode "
                 "the file. Re-attempting transcode..."
             )
-            self._clean_up( outfile )
+            self._clean_up(outfile)
         return prog_file
 
-    def _comdetect(self, chapters, **kwargs):
+    def _comdetect(self, chapters: bool, **kwargs) -> bool:
         """
         Try to detect commercials
 
@@ -810,7 +856,7 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         Arguments:
             chapters (bool): Set if commericals are to be marked with chapters.
-        
+
         Keyword arguments:
             comdetect (bool): Set to remove/mark commercial segments in file
             **kwargs : All other ignored
@@ -833,8 +879,8 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             )
         status = self.remove_commercials(
             self.infile,
-            chapters = chapters,
-            name = name
+            chapters=chapters,
+            name=name
 
         )
         # If string instance, then is path to chapter file
@@ -844,13 +890,15 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         elif not status:
             self.transcode_status = 5
             if isRunning():
-                self.__log.error( "Error cutting commercials, assuming bad file..." )
-                self._prog_file = self._clean_up( self._prog_file )
+                self.__log.error(
+                    "Error cutting commercials, assuming bad file...",
+                )
+                self._prog_file = self._clean_up(self._prog_file)
             return False
 
         return True
 
-    def _compression_ratio(self, outfile):
+    def _compression_ratio(self, outfile: str) -> None:
         """
         Calculate and log outfile compression ratio
 
@@ -862,25 +910,24 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         """
 
-        in_size  = os.stat(self.infile).st_size# Size of infile
-        out_size = os.stat(outfile).st_size# Size of out_file
+        in_size = os.stat(self.infile).st_size  # Size of infile
+        out_size = os.stat(outfile).st_size  # Size of out_file
         self.__log.info(
             "The new file is %4.1f%% %s than the original",
-            abs(in_size-out_size)/in_size*100,
+            abs(in_size - out_size) / in_size * 100,
             'larger' if out_size > in_size else 'smaller',
         )
 
-    def _remove_source(self):
+    def _remove_source(self) -> None:
         """To remove infile"""
 
         if self.remove:
-            self.__log.info( "Removing the input file..." )
-            self._clean_up( self.infile )
+            self.__log.info("Removing the input file...")
+            self._clean_up(self.infile)
 
-
-    def _video_keys(self):
+    def _video_keys(self) -> Generator[str]:
         """
-        A generator method to produce next ordered key from video_info attribute
+        Generator next ordered key from video_info attribute
 
         Arguments:
             None
@@ -896,9 +943,9 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
         for key in self.video_info["order"]:
             yield key
 
-    def _audio_keys(self):
+    def _audio_keys(self) -> Generator[str]:
         """
-        A generator method to produce next ordered key from audio_info attribute
+        Generate next ordered key from audio_info attribute
 
         Arguments:
             None
@@ -926,17 +973,18 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
 
         """
 
-        fdir, fbase = os.path.split( outfile )
-        return os.path.join( fdir, f".{fbase}.inprogress" )
+        fdir, fbase = os.path.split(outfile)
+        return os.path.join(fdir, f".{fbase}.inprogress")
 
-    def _being_converted( self, fpath ):
+    def _being_converted(self, fpath):
         """Method to check if file is currently being convert"""
 
-        fsize = os.path.getsize( fpath )
+        fsize = os.path.getsize(fpath)
         time.sleep(0.5)
-        return fsize != os.path.getsize(fpath)# Check that size of file has changed
+        # Check that size of file has changed
+        return fsize != os.path.getsize(fpath)
 
-    def _init_logger(self, log_file = None):
+    def _init_logger(self, log_file: str | None = None) -> None:
         """Function to set up the logger for the package"""
 
         # If there is a file handler defined
@@ -950,11 +998,11 @@ class VideoConverter( ComRemove, MediaInfo, opensubtitles.OpenSubtitles ):
             return
 
         os.makedirs(
-            os.path.dirname( log_file ),
-            exist_ok = True,
-         )
+            os.path.dirname(log_file),
+            exist_ok=True,
+        )
 
-        self.__file_handler = logging.FileHandler( log_file, 'w' )
-        self.__file_handler.setLevel(     fileFMT["level"]     )
-        self.__file_handler.setFormatter( fileFMT["formatter"] )
+        self.__file_handler = logging.FileHandler(log_file, mode='w')
+        self.__file_handler.setLevel(fileFMT["level"])
+        self.__file_handler.setFormatter(fileFMT["formatter"])
         self.__log.addHandler(self.__file_handler)
