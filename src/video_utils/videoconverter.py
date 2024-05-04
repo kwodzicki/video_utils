@@ -11,7 +11,7 @@ import os
 import re
 import time
 from datetime import datetime
-from colletions.abc import Generator
+from collections.abc import Generator
 
 from . import __name__ as __pkg_name__
 from . import __version__ as __pkg_version__
