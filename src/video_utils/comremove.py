@@ -64,7 +64,7 @@ class ComRemove:
         super().__init__(**kwargs)
         self.__log = logging.getLogger(__name__)
 
-        threads = kwargs.get('threads',  None)
+        threads = kwargs.get('threads', None)
         if not isinstance(threads, int):
             threads = POPENPOOL.threads
 
@@ -91,7 +91,7 @@ class ComRemove:
         self.threads = threads
         self.comskip_log = comskip_log
         self.cpulimit = kwargs.get('cpulimit', None)
-        self.verbose = kwargs.get('verbose',  None)
+        self.verbose = kwargs.get('verbose', None)
         self.__outdir = None
         self.__fileext = None
 
@@ -488,11 +488,11 @@ class ComRemove:
 
         with open(txt_file, 'r') as txt, open(edl_file, 'w') as edl:
             line = txt.readline()
-            rate = int(line.split()[-1])/100.0
+            rate = int(line.split()[-1]) / 100.0
             line = txt.readline()  # Read past a line
             line = txt.readline()  # Read line
             while line != '':
-                start, end = [float(i)/rate for i in line.rstrip().split()]
+                start, end = [float(i) / rate for i in line.rstrip().split()]
                 edl.write(f'{start:0.2f} {end:0.2f} 0{os.linesep}')
                 line = txt.readline()
         return edl_file
@@ -594,7 +594,7 @@ def cli() -> None:
     parser.add_argument(
         '--version',
         action='version',
-        version='%(prog)s '+__version__,
+        version='%(prog)s ' + __version__,
     )
 
     args = parser.parse_args()

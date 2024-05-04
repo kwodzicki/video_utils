@@ -137,8 +137,8 @@ class MyPgsToSrtRipper(PgsToSrtRipper):
             width = height = 0
             while ii < nn:
                 item = items[ii]
-                width = width+item.width+2*self.gap[0]
-                height = height+item.height+2*self.gap[1]
+                width = width + item.width + 2 * self.gap[0]
+                height = height + item.height + 2 * self.gap[1]
                 if width > max_width or height > max_width:
                     break
                 to_process.append(item)
@@ -236,7 +236,7 @@ class PgsParser:
 
                 segment_type = SEGMENT_TYPE[SegmentType(info[10])]
                 size = from_hex(info[-2:])
-                yield segment_type(info+iid.read(size))
+                yield segment_type(info + iid.read(size))
                 info = iid.read(PGS_HEADER)
 
     def gen_display_sets(self):

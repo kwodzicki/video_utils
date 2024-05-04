@@ -67,7 +67,10 @@ def plex_file_info(in_file: str) -> tuple:
 
     # If the date pattern is found in the file name
     if _date_pattern.search(in_file) is not None:
-        log.warning('ISO date string found in file name; NO METADATA WILL BE DOWNLOADED!!!')
+        log.warning(
+            'ISO date string found in file name; '
+            'NO METADATA WILL BE DOWNLOADED!!!',
+        )
         return title, year, season_ep, episode, ext
 
     # Split the file name on ' - '; not header information of function
@@ -75,7 +78,9 @@ def plex_file_info(in_file: str) -> tuple:
         title, season_ep, episode = fname.split(' - ')
     except:
         title = fname
-        log.warning('Error splitting file name, does it match Plex convention?')
+        log.warning(
+            'Error splitting file name, does it match Plex convention?',
+        )
 
     # Try to find year in series name
     year = _year_pattern.findall(title)
@@ -124,7 +129,9 @@ def plex_dvr_rename(in_file: str, hardlink: bool = True) -> tuple:
         return in_file, None
 
     if not season_ep:
-        log.warning('Season/episode info NOT found; assuming movie...things may break')
+        log.warning(
+            'Season/episode info NOT found; assuming movie...things may break',
+        )
         # Search the movie database
         searcher = _tmdb.search
     else:
@@ -153,7 +160,7 @@ def plex_dvr_rename(in_file: str, hardlink: bool = True) -> tuple:
         new = metadata.get_basename()
 
     # Build new file path
-    new = os.path.join(file_dir, new+ext)
+    new = os.path.join(file_dir, new + ext)
 
     if hardlink:
         log.debug('Creating hard link to input file')

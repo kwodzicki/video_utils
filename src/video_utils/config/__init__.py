@@ -76,12 +76,13 @@ plexFMT = {
     'name': 'plex_dvr',
     'level': logging.DEBUG,
     'formatter': logging.Formatter(
-        '%(levelname)-.4s - %(asctime)s - %(name)s.%(funcName)-15.15s - %(message)s',
+        '%(levelname)-.4s - %(asctime)s - '
+        '%(name)s.%(funcName)-15.15s - %(message)s',
         '%Y-%m-%d %H:%M:%S',
     ),
     'permissions': (
-        stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | stat.S_IRGRP |
-        stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
+        stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | stat.S_IRGRP
+        | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
     ),
 }
 
@@ -91,12 +92,13 @@ MakeMKVFMT = {
     'name': 'MakeMKV',
     'level': logging.DEBUG,
     'formatter': logging.Formatter(
-        '%(levelname)-.4s - %(asctime)s - %(name)s.%(funcName)-15.15s - %(message)s',
+        '%(levelname)-.4s - %(asctime)s - '
+        '%(name)s.%(funcName)-15.15s - %(message)s',
         '%Y-%m-%d %H:%M:%S',
     ),
     'permissions': (
-        stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | stat.S_IRGRP |
-        stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
+        stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | stat.S_IRGRP
+        | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
     ),
 }
 
@@ -111,8 +113,8 @@ plex_dvr = {
     'queueFile': os.path.join(APPDIR, 'plex_dvr_convert_queue.pic'),
     'lock_file': '/tmp/Plex_DVR_PostProcess.lock',
     'lock_perm': (
-        stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | stat.S_IRGRP |
-        stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
+        stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | stat.S_IRGRP
+        | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
     ),
 }
 
@@ -167,7 +169,7 @@ BASEPARSER.add_argument(
 BASEPARSER.add_argument(
     "--version",
     action='version',
-    version='%(prog)s '+__version__,
+    version='%(prog)s ' + __version__,
 )
 
 

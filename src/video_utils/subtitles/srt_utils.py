@@ -74,7 +74,7 @@ class SRTsubs():
             # If made here, the line is a digit then begging of sub title
             # Line i+1 is the start and end time of the subtitle;
             # split on space
-            times = lines[i+1].split()
+            times = lines[i + 1].split()
 
             # Append initial subtitle dictionary to subs list with subtitle
             # number, start/end times, and empty list for text
@@ -225,7 +225,7 @@ def srt_cleanup(fname, **kwargs) -> int:
                 # Replace last character with a music note
                 line = f"{line[:-1]} {EIGHTH_NOTE}"
             # Replace the ,' with a music note
-            line = line.replace(f",{LEFT_SINGLE_QUOTE}", EIGHTH_NOTE+' ')
+            line = line.replace(f",{LEFT_SINGLE_QUOTE}", EIGHTH_NOTE + ' ')
             music = True
         # If line begins and ends with capital J, then likely music notes
         elif line[0] == "J" and line[-1] == "J":

@@ -259,7 +259,7 @@ class MediaInfo:
                 )
 
             # Set default language to English
-            lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_'
+            lang2 = lang2.upper() + '_' if lang2 != '' else 'EN_'
             try:
                 mapping = track['StreamOrder'].split('-')
             except:
@@ -395,7 +395,7 @@ class MediaInfo:
                 [
                     '-c:v', 'libx265',
                     '-preset', 'slow',
-                    '-profile:v',  f'main{bit_depth}',
+                    '-profile:v', f'main{bit_depth}',
                     '-level', '5.1',
                     *opts,
                 ]
@@ -444,8 +444,8 @@ class MediaInfo:
         # Then take the smaller of the 2 values and convert to Kbps
         maxrate = 20 * 10**6
         vbv_maxrate = video_data.get('BitRate', maxrate)
-        vbv_maxrate = min(vbv_maxrate, maxrate)//1000
-        vbv_bufsize = 2*vbv_maxrate
+        vbv_maxrate = min(vbv_maxrate, maxrate) // 1000
+        vbv_bufsize = 2 * vbv_maxrate
 
         x265_opts.extend(
             [f"vbv-maxrate={vbv_maxrate}", f"vbv-bufsize={vbv_bufsize}"]
@@ -600,13 +600,12 @@ def aspect_adjust(video_data: dict) -> str:
         return ''
     if (
         video_data['DisplayAspectRatio']
-        ==
-        video_data['OriginalDisplayAspectRatio']
+        == video_data['OriginalDisplayAspectRatio']
     ):
         return ''
 
     xpix, ypix = video_data['DisplayAspectRatio_String'].split(':')
-    width = video_data['Height'] * float(xpix)/float(ypix)
+    width = video_data['Height'] * float(xpix) / float(ypix)
     width -= (width % 16)
 
     return f"setsar={width:.0f}:{video_data['Width']:.0f}"

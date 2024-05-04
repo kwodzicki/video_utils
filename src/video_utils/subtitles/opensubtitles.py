@@ -251,9 +251,9 @@ class OpenSubtitles(ServerProxy):
                 if isinstance(sub, str):
                     sub = sub_data[sub]
                 test = (
-                    int(sub['SubBad']) != 1 and
-                    sub['SubFormat'] == 'srt' and
-                    sub['SubLanguageID'] == lang
+                    int(sub['SubBad']) != 1
+                    and sub['SubFormat'] == 'srt'
+                    and sub['SubLanguageID'] == lang
                 )
                 if test is False:
                     continue

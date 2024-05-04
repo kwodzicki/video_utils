@@ -113,7 +113,7 @@ def file_name_info(infile: str, info: dict | None = None):
     for track in minfo['Audio']:
         fmt = track.get('Format', '')
         lang2 = track.get('Language/String2', '')
-        lang2 = lang2.upper()+'_' if lang2 != '' else 'EN_'
+        lang2 = lang2.upper() + '_' if lang2 != '' else 'EN_'
         info.append(lang2 + fmt)
     return info
 
@@ -276,7 +276,7 @@ def replace_audio_streams(
         mapping.extend(['-map', '2:0'])
         opts += [
             '-metadata:s:a:0', 'title=Dolby Pro Logic II',
-            '-metadata:s:a:0', 'language='+info['Language/String2'],
+            '-metadata:s:a:0', 'language=' + info['Language/String2'],
         ]
 
     # Set up input files with offset for audio

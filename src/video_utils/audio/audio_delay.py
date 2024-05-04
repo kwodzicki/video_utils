@@ -72,7 +72,7 @@ def audio_delay(
         limit = 60 * 1
 
     # Convert limit into samples
-    limit = round(limit*fs1)
+    limit = round(limit * fs1)
 
     # Get data from the first file
     signal1, fs1 = sf.read(file1, frames=limit, dtype=np.int16)
@@ -93,7 +93,7 @@ def audio_delay(
     cutoff = 400
 
     # Get values for the filter and apply to signals
-    const_b, const_a = butter(4, cutoff / (fs1/2), btype='lowpass')
+    const_b, const_a = butter(4, cutoff / (fs1 / 2), btype='lowpass')
     signal1 = lfilter(const_b, const_a, signal1, axis=0)
     signal2 = lfilter(const_b, const_a, signal2, axis=0)
 
@@ -113,8 +113,8 @@ def audio_delay(
         )
 
     # Get delay, in samples, between left and right channels
-    delay_left = -(len(corr_left)//2 - np.argmax(corr_left))
-    delay_right = -(len(corr_right)//2 - np.argmax(corr_right))
+    delay_left = -(len(corr_left) // 2 - np.argmax(corr_left))
+    delay_right = -(len(corr_right) // 2 - np.argmax(corr_right))
     # Compute mean delay between channels
     delay_mean = np.mean([delay_left, delay_right]).astype(np.int32)
     log.info("L Delay:     %010.4f s", delay_left / fs1)
@@ -131,7 +131,7 @@ def audio_delay(
     if delay_mean < 0:
         delay_str = '-' + delay_str
     # Return delay as float and string
-    return (delay_mean/fs1, delay_str)
+    return (delay_mean / fs1, delay_str)
 
 
 def fft_xcorr(samples1, samples2):
@@ -194,7 +194,7 @@ def plot_signals(signal1, signal2, fs, delay_mean):
     ax2.legend()
 
     # Plots for adjusted data
-    left3 = np.roll(left2,  delay_mean)
+    left3 = np.roll(left2, delay_mean)
     right3 = np.roll(right2, delay_mean)
     ax3 = plt.subplot(222, sharex=ax2, sharey=ax2)
     ax3.plot(time, left1[::skip], 'r')
