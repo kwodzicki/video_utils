@@ -21,9 +21,10 @@ try:
 except:
     MKVEXTRACT = None
 
-def _mp4_extract_cover( info ):
+
+def _mp4_extract_cover(info):
     """
-    Write MP4Cover information to temporary file 
+    Write MP4Cover information to temporary file
 
     Arguments:
         info  : Dictionary of metadata information in internal format
@@ -38,23 +39,28 @@ def _mp4_extract_cover( info ):
 
     key = 'cover'
     if key in info:
-        if isinstance(info[key], (list,tuple)):
+        if isinstance(info[key], (list, tuple)):
             if len(info[key]) == 0:
                 return info
             # Set value to first element of list
             info[key] = info[key][0]
 
         # Set extension based on image type
-        ext   = 'jpeg' if info[key].imageformat == info[key].FORMAT_JPEG else 'png'
+        ext = (
+            'jpeg'
+            if info[key].imageformat == info[key].FORMAT_JPEG else
+            'png'
+        )
         # Build path to cover file using random uuid
-        cover = os.path.join( CACHEDIR, f'{uuid4().hex}.{ext}' )
+        cover = os.path.join(CACHEDIR, f'{uuid4().hex}.{ext}')
         with open(cover, 'wb') as fid:
-            fid.write( info[key] )
+            fid.write(info[key])
         info[key] = cover
 
     return info
 
-def mp4_reader( file_path ):
+
+def mp4_reader(file_path):
     """
     Read metadata from MP4 file and parse into 'internal' format
 
@@ -69,15 +75,20 @@ def mp4_reader( file_path ):
 
     """
 
-    log  = logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
 
     # Create mutagen.mp4.MP4 object
-    obj  = mp4.MP4( file_path )
+    obj = mp4.MP4(file_path)
     info = {}
     for mp4_key, val in obj.items():
-        if isinstance(val, (tuple,list)):
+        if isinstance(val, (tuple, list)):
             # Decode every MP4FreeForm type element in the iterable
-            val = [v.decode() if isinstance(v, mp4.MP4FreeForm) else v for v in val]
+            val = [
+                v.decode()
+                if isinstance(v, mp4.MP4FreeForm) else
+                v
+                for v in val
+            ]
             # If only one (1) element in iterable, convert to scalar
             if len(val) == 1:
                 val = val[0]
@@ -88,11 +99,12 @@ def mp4_reader( file_path ):
         else:
             log.debug('Invalid key : %s', mp4_key)
 
-    info = _mp4_extract_cover( info )
+    info = _mp4_extract_cover(info)
 
     return info
 
-def _mkv_extract_cover( file_path ):
+
+def _mkv_extract_cover(file_path):
     """
     Run mkvextact to get first attachment from file
 
@@ -103,31 +115,35 @@ def _mkv_extract_cover( file_path ):
         None
 
     Returns:
-        str: Path to cover art file if extraction success, empty string otherwise
+        str: Path to cover art file if extraction success,
+            empty string otherwise
 
     """
 
     # Build path to cover file using random uuid
-    cover = os.path.join( CACHEDIR, uuid4().hex )
+    cover = os.path.join(CACHEDIR, uuid4().hex)
     try:
-        std = check_output( [MKVEXTRACT, file_path, 'attachments', f'1:{cover}'] )
+        std = check_output(
+            [MKVEXTRACT, file_path, 'attachments', f'1:{cover}'],
+        )
     except:
         return ''
 
     # Try to get file type from stdout/stderr
-    mime_type = re.findall( rb'MIME type image/(\w+),', std)
+    mime_type = re.findall(rb'MIME type image/(\w+),', std)
 
     # If found
     if len(mime_type) == 1:
-        ext = mime_type[0].decode()# Decode file type
-        new = f'{cover}.{ext}'# Define new file name
-        os.rename( cover, new )# Rename the file
-        return new# Return path to new file
+        ext = mime_type[0].decode()  # Decode file type
+        new = f'{cover}.{ext}'  # Define new file name
+        os.rename(cover, new)  # Rename the file
+        return new  # Return path to new file
 
-    os.remove( cover )
+    os.remove(cover)
     return ''
 
-def mkv_reader( file_path ):
+
+def mkv_reader(file_path):
     """
     Read metadata from MKV file and parse into 'internal' format
 
@@ -142,13 +158,13 @@ def mkv_reader( file_path ):
 
     """
 
-    log  = logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
     info = {}
     if MKVEXTRACT is None:
         return info
 
     try:
-        xml = check_output( [MKVEXTRACT, file_path, 'tags'] )
+        xml = check_output([MKVEXTRACT, file_path, 'tags'])
     except:
         return info
 
@@ -164,9 +180,9 @@ def mkv_reader( file_path ):
 
         # Iterate over all Simple tags
         for simple in tag.findall('Simple'):
-            key     = simple.find('Name').text# Get Name
-            val     = simple.find('String').text# Get string
-            mkv_key = (type_val, key)# Define MKV key
+            key = simple.find('Name').text  # Get Name
+            val = simple.find('String').text  # Get string
+            mkv_key = (type_val, key)  # Define MKV key
 
             # Try to get common (internal) key from MKV2COMMON dictionary
             key = MKV2COMMON.get(mkv_key, None)
@@ -176,6 +192,6 @@ def mkv_reader( file_path ):
                 log.debug('Invalid key : %s', mkv_key)
 
     # Add cover to info dictionary
-    info['cover'] = _mkv_extract_cover( file_path )
+    info['cover'] = _mkv_extract_cover(file_path)
 
     return info

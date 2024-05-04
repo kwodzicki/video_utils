@@ -10,10 +10,11 @@ from datetime import datetime
 from .api import BaseAPI
 from .writers import write_tags
 
-class BaseItem( BaseAPI ):
-    """Extends the BaseAPI class for use in Episdode, Movie, Person, etc classes"""
 
-    def __init__(self, *args, data = None, version = None, **kwargs):
+class BaseItem(BaseAPI):
+    """Extends the BaseAPI class for use in Episdode, Movie, Person, etc."""
+
+    def __init__(self, *args, data=None, version=None, **kwargs):
         """
         Initialize the class
 
@@ -22,21 +23,22 @@ class BaseItem( BaseAPI ):
 
         Keyword arguments:
             data (dict): Metadata to initialize class with
-            version (str): Release version such as 'Extended Edition'; only relevant for movies
+            version (str): Release version such as 'Extended Edition';
+                only relevant for movies
             **kwargs: arbitrary arguments
 
         """
 
         super().__init__(*args, **kwargs)
-        self.__log      = logging.getLogger(__name__)
-        self._data      = data if isinstance(data, dict) else {}
-        self._version   = version if isinstance(version, str) else ''
-        self._isMovie   = False
-        self._isSeries  = False
+        self.__log = logging.getLogger(__name__)
+        self._data = data if isinstance(data, dict) else {}
+        self._version = version if isinstance(version, str) else ''
+        self._isMovie = False
+        self._isSeries = False
         self._isEpisode = False
-        self._isPerson  = False
-        self._tmdb      = False
-        self.URL        = None
+        self._isPerson = False
+        self._tmdb = False
+        self.URL = None
 
         self.extra_type = None
         tmp = self._version.split('-')
@@ -75,10 +77,13 @@ class BaseItem( BaseAPI ):
 
     def __contains__(self, key):
         return key in self._data
+
     def __setitem__(self, key, item):
         self._data[key] = item
+
     def __getitem__(self, key):
         return self._data.get(key, None)
+
     def __getattr__(self, key):
         return self._data.get(key, None)
 
@@ -142,7 +147,7 @@ class BaseItem( BaseAPI ):
 
     def getExtra(self, *args):
         """
-        Method to get extra information from an api 
+        Method to get extra information from an api
 
         Arguments:
             *args (list): Keys for API call
@@ -164,13 +169,17 @@ class BaseItem( BaseAPI ):
         for key in args:
             if key in self._data:
                 continue
-            URL  = f'{self.URL}/{key}'
+            URL = f'{self.URL}/{key}'
             json = self._get_json(URL)
             if json:
                 extra[key] = json
         return extra
 
-    def _findExternalID( self, external, tag='external_ids' ):
+    def _findExternalID(
+        self,
+        external: str,
+        tag: str = 'external_ids',
+    ) -> str | None:
         """
         Find external tag
 
@@ -194,7 +203,7 @@ class BaseItem( BaseAPI ):
         self.__log.debug('No external ID found for : %s!', external)
         return None
 
-    def getID(self, external = None, **kwargs):
+    def getID(self, external: str | None = None, **kwargs) -> str | None:
         """
         Method to get ID of object, or external ID of object
 
@@ -202,7 +211,8 @@ class BaseItem( BaseAPI ):
             None
 
         Keyword arguments:
-            external (str): Set to external ID key. Will return None if not found
+            external (str): Set to external ID key.
+                Will return None if not found
             **kwargs: Various accepted, none used
 
         Returns:
@@ -213,22 +223,22 @@ class BaseItem( BaseAPI ):
         # If external keyword set
         if external:
             fmt = f'{external}{{}}'
-            idx = self._findExternalID( external )
+            idx = self._findExternalID(external)
         # Else, no external tag requested
         else:
             fmt = 'tmdb{}' if self._tmdb else 'tvdb{}'
             idx = self._data.get('id', None)
 
         if idx:
-            return fmt.format( idx )
+            return fmt.format(idx)
         return idx
 
-    def getIDPlex( self, **kwargs ):
+    def getIDPlex(self, **kwargs):
         """
-        Method to get ID of object or external ID of object in Plex standard format
+        Get ID of object or external ID of object in Plex standard format
 
-        The Plex format for the ID is "{source-ID}" where source is tmdb, tvdb, or
-        imdb and ID is the ID; imdb IDs begin with tt.
+        The Plex format for the ID is "{source-ID}" where source is
+        tmdb, tvdb, or imdb and ID is the ID; imdb IDs begin with tt.
 
         Arguments:
             None
@@ -241,7 +251,7 @@ class BaseItem( BaseAPI ):
 
         """
 
-        pid = self.getID( **kwargs )
+        pid = self.getID(**kwargs)
         if pid is not None:
             return '{' + pid[:4] + '-' + pid[4:] + '}'
         return None
@@ -286,7 +296,7 @@ class BaseItem( BaseAPI ):
         persons = []
         for person in self.crew:
             if person.job in ['Writer', 'Story', 'Screenplay']:
-                persons.append( f'{person.name} ({person.job})' )
+                persons.append(f'{person.name} ({person.job})')
         return persons
 
     def _getCast(self):
@@ -308,7 +318,7 @@ class BaseItem( BaseAPI ):
             return [i.name for i in self.cast]
         return ['']
 
-    def _getRating( self, **kwargs ):
+    def _getRating(self, **kwargs):
         """
         Method to iterate over release dates to extract rating
 
@@ -316,8 +326,10 @@ class BaseItem( BaseAPI ):
             None
 
         Keyword arguments:
-            country (str): The country of release to get rating from. Default is US.
-            **kwargs: Other arguments are accepted but ignored for compatability
+            country (str): The country of release to get rating from.
+                Default is US.
+            **kwargs: Other arguments are accepted but ignored for
+                compatability
 
         Returns:
             String containing rating
@@ -335,16 +347,16 @@ class BaseItem( BaseAPI ):
             for release in releases:
                 if release['type'] <= 3 and release['certification'] != '':
                     return release['certification']
-                #rating = release['certification']
+                # rating = release['certification']
         elif self.isEpisode:
             # Get rating from series
             return self.Series.rating
-          #rating = self.Series.rating
+        # rating = self.Series.rating
         return rating
 
     def _getGenre(self):
         """
-        Method to get list of genre(s) 
+        Method to get list of genre(s)
 
         Arguments:
             None
@@ -363,7 +375,7 @@ class BaseItem( BaseAPI ):
 
     def _getProdCompanies(self, **kwargs):
         """
-        Method to get list of production company(s) 
+        Method to get list of production company(s)
 
         Arguments:
             None
@@ -382,7 +394,7 @@ class BaseItem( BaseAPI ):
 
     def _getPlot(self, **kwargs):
         """
-        Get short and long plots 
+        Get short and long plots
 
         Arguments:
             None
@@ -403,7 +415,7 @@ class BaseItem( BaseAPI ):
                 l_plot = self.overview
         return s_plot, l_plot
 
-    def _getCover( self, **kwargs ):
+    def _getCover(self, **kwargs):
         """
         Method to get URL of poster
 
@@ -427,47 +439,59 @@ class BaseItem( BaseAPI ):
     def _episodeData(self, **kwargs):
 
         plots = self._getPlot()
-        year  = str(self.air_date.year) if isinstance(self.air_date, datetime) else ''
+        year = (
+            str(self.air_date.year)
+            if isinstance(self.air_date, datetime) else
+            ''
+        )
         return {
-            'year'       : year,
-            'title'      : self.title,
-            'seriesName' : self.Series.title,
-            'seasonNum'  : self.season_number, 
-            'episodeNum' : self.episode_number,
-            'sPlot'      : plots[0],
-            'lPlot'      : plots[1],
-            'cast'       : self._getCast(),
-            'prod'       : self._getProdCompanies(), 
-            'dir'        : self._getDirectors(), 
-            'wri'        : self._getWriters(),
-            'genre'      : self._getGenre(), 
-            'rating'     : self._getRating( **kwargs ),
-            'kind'       : 'episode',
-            'cover'      : self._getCover(),
-            'comment'    : self._data.get('comment', ''),
-            'version'    : self._version,
+            'year': year,
+            'title': self.title,
+            'seriesName': self.Series.title,
+            'seasonNum': self.season_number,
+            'episodeNum': self.episode_number,
+            'sPlot': plots[0],
+            'lPlot': plots[1],
+            'cast': self._getCast(),
+            'prod': self._getProdCompanies(),
+            'dir': self._getDirectors(),
+            'wri': self._getWriters(),
+            'genre': self._getGenre(),
+            'rating': self._getRating(**kwargs),
+            'kind': 'episode',
+            'cover': self._getCover(),
+            'comment': self._data.get('comment', ''),
+            'version': self._version,
         }
 
     def _movieData(self, **kwargs):
 
-        title = f'{self.title} - {self._version}' if self._version else self.title
         plots = self._getPlot()
-        year  = str(self.release_date.year) if isinstance(self.release_date, datetime) else ''
+        title = (
+            f'{self.title} - {self._version}'
+            if self._version else
+            self.title
+        )
+        year = (
+            str(self.release_date.year)
+            if isinstance(self.release_date, datetime) else
+            ''
+        )
         return {
-            'year'    : year, 
-            'title'   : title,
-            'sPlot'   : plots[0],
-            'lPlot'   : plots[1],
-            'cast'    : self._getCast(),
-            'prod'    : self._getProdCompanies(), 
-            'dir'     : self._getDirectors(), 
-            'wri'     : self._getWriters(),
-            'genre'   : self._getGenre(),
-            'rating'  : self._getRating( **kwargs ),
-            'kind'    : 'movie',
-            'cover'   : self._getCover(),
-            'comment' : self._data.get('comment', ''),
-            'version' : self._version,
+            'year': year,
+            'title': title,
+            'sPlot': plots[0],
+            'lPlot': plots[1],
+            'cast': self._getCast(),
+            'prod': self._getProdCompanies(),
+            'dir': self._getDirectors(),
+            'wri': self._getWriters(),
+            'genre': self._getGenre(),
+            'rating': self._getRating(**kwargs),
+            'kind': 'movie',
+            'cover': self._getCover(),
+            'comment': self._data.get('comment', ''),
+            'version': self._version,
         }
 
     def metadata(self, **kwargs):
@@ -491,7 +515,7 @@ class BaseItem( BaseAPI ):
             return self._movieData(**kwargs)
         return None
 
-    def write_tags( self, fpath, **kwargs ):
+    def write_tags(self, fpath, **kwargs):
         """"
         Method to write metadata to file
 
@@ -506,8 +530,8 @@ class BaseItem( BaseAPI ):
 
         """
 
-        data = self.metadata( **kwargs )
+        data = self.metadata(**kwargs)
         if data:
-            return write_tags( fpath, data, **kwargs )
+            return write_tags(fpath, data, **kwargs)
         self.__log.error('Failed to get metadata')
         return False

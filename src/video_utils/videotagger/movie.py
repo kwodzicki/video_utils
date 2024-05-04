@@ -11,17 +11,25 @@ from .parsers import parse_info
 from .utils import replace_chars
 
 EXTRA_LOOKUP = {
-    'behindthescenes' : 'Behind The Scenes',
-    'deleted'         : 'Deleted Scenes',
-    'featurette'      : 'Featurettes',
-    'interview'       : 'Interviews',
-    'scene'           : 'Scenes',
-    'short'           : 'Shorts',
-    'trailer'         : 'Trailers',
-    'other'           : 'Other',
+    'behindthescenes': 'Behind The Scenes',
+    'deleted': 'Deleted Scenes',
+    'featurette': 'Featurettes',
+    'interview': 'Interviews',
+    'scene': 'Scenes',
+    'short': 'Shorts',
+    'trailer': 'Trailers',
+    'other': 'Other',
 }
 
-def get_basename(title, year=None, version='', ID='', isExtra=False, **kwargs):
+
+def get_basename(
+    title: str,
+    year: int | None = None,
+    version: str = '',
+    ID: str = '',
+    isExtra: bool = False,
+    **kwargs,
+) -> str:
     """
     Helper function for getting basename
 
@@ -37,21 +45,21 @@ def get_basename(title, year=None, version='', ID='', isExtra=False, **kwargs):
         version (str): Movie version; e.g., Extended Edition, Unrated
         ID (str): Movie ID
         isExtra (bool) If set, then the title is an extra feature
-        **kwargs: Passed to the :meth:`video_utils.videotagger.utils.replace_chars` function
+        **kwargs: Passed to the
+            :meth:`video_utils.videotagger.utils.replace_chars` function
 
     Returns:
         str: Movie base name
 
     """
 
-
     log = logging.getLogger(__name__)
-    log.info( 'Getting basename' )
+    log.info('Getting basename')
 
     if isExtra:
-        return '-'.join( version.split('-')[:-1] )
+        return '-'.join(version.split('-')[:-1])
 
-    title, version, ID = replace_chars( title, version, ID, **kwargs )
+    title, version, ID = replace_chars(title, version, ID, **kwargs)
     if version != '':
         version = f"{{{version}}}"
 
@@ -59,7 +67,8 @@ def get_basename(title, year=None, version='', ID='', isExtra=False, **kwargs):
         return f'{title:.50} ({year}).{version}.{ID}'
     return f'{title:.50}.{version}.{ID}'
 
-class BaseMovie( BaseItem ):
+
+class BaseMovie(BaseItem):
     """
     Base object for movie information from TMDb or TVDb
 
@@ -103,12 +112,12 @@ class BaseMovie( BaseItem ):
         Example:
 
             >>> movie = Movie.TMDbMovie(435)
-            >>> print( movie.get_basename() )
+            >>> print(movie.get_basename())
             'The Day After Tomorrow (2004)..tmdb435'
 
             >>> movie = Movie.TMDbMovie(435)
-            >>> movie.setVersion( 'Extended Edition' )
-            >>> print( movie.get_basename() )
+            >>> movie.setVersion('Extended Edition')
+            >>> print(movie.get_basename())
             'The Day After Tomorrow (2004).Extended Edition.tmdb435'
 
         Arguments:
@@ -130,24 +139,24 @@ class BaseMovie( BaseItem ):
         return get_basename(
             title,
             year,
-            version = self._version,
-            ID      = self.getIDPlex(),
-            isExtra = self.isExtra,
+            version=self._version,
+            ID=self.getIDPlex(),
+            isExtra=self.isExtra,
             **kwargs,
         )
 
-    def get_dirname(self, root = ''):
+    def get_dirname(self, root=''):
         """
         Get directory structure in Plex convention
 
-        This method returns directory structure in Plex convetion for given movie
-        based on movie title and release year.
+        This method returns directory structure in Plex convetion for
+        given movie based on movie title and release year.
 
         Example:
 
             >>> movie = Movie.TMDbMovie(435)
-            >>> print( movie.get_dirname() )
-            'Movies/The Day After Tomorrow (2004)' 
+            >>> print(movie.get_dirname())
+            'Movies/The Day After Tomorrow (2004)'
 
         Arguments:
             None
@@ -160,58 +169,64 @@ class BaseMovie( BaseItem ):
 
         """
 
-        mdir = replace_chars( str(self) )
-        mid  = self.getIDPlex()
+        mdir = replace_chars(str(self))
+        mid = self.getIDPlex()
         if mid is not None:
             mdir = f"{mdir} {mid}"
-        mdir = os.path.join( root, 'Movies', mdir )
+        mdir = os.path.join(root, 'Movies', mdir)
         if self.isExtra:
-            mdir = os.path.join( mdir, EXTRA_LOOKUP[self.extra_type] )
+            mdir = os.path.join(mdir, EXTRA_LOOKUP[self.extra_type])
         return mdir
 
-class TMDbMovie( BaseMovie ):
+
+class TMDbMovie(BaseMovie):
     """Object for movie information from TMDb"""
 
     EXTRA = ['external_ids', 'credits', 'content_ratings', 'release_dates']
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._tmdb = True
 
         if not self._data:
             if len(args) == 0:
-                raise Exception( "Must input movie ID or used 'data' keyword" )
+                raise Exception("Must input movie ID or used 'data' keyword")
             movie_id = args[0]
             if isinstance(movie_id, str):
                 if 'tmdb' in movie_id:
                     movie_id = movie_id.replace('tmdb', '')
-            self.URL = self.TMDb_URLMovie.format( movie_id )
-            json     = self._get_json( self.URL, append_to_response = self.EXTRA )
+            self.URL = self.TMDb_URLMovie.format(movie_id)
+            json = self._get_json(self.URL, append_to_response=self.EXTRA)
             if json:
-                info = parse_info( json, imageURL = self.TMDb_URLImage )
+                info = parse_info(json, imageURL=self.TMDb_URLImage)
                 if info is not None:
-                    self._data.update( info )
+                    self._data.update(info)
         else:
-            self.URL = self.TMDb_URLMovie.format( self.id )
-            json = self.getExtra( *self.EXTRA )
+            self.URL = self.TMDb_URLMovie.format(self.id)
+            json = self.getExtra(*self.EXTRA)
             if json:
-                info = parse_info( json, imageURL = self.TMDb_URLImage )
+                info = parse_info(json, imageURL=self.TMDb_URLImage)
                 if info is not None:
-                    self._data.update( info )
+                    self._data.update(info)
 
-class TVDbMovie( BaseMovie ):
+
+class TVDbMovie(BaseMovie):
     """Object for movie information from TVDb"""
 
     EXTRA = ['external_ids', 'credits', 'content_ratings']
+
     def __init__(self, *args, **kwargs):
         """
         Initialize the class
 
         Arguments:
-            movie_id (str,int): TVDb movie ID. Can include 'tvdb' or just integer
+            movie_id (str,int): TVDb movie ID. Can include 'tvdb' or
+                just integer
             *args: Arbitrary arguments
 
         Keyword arguments:
-            data (dict): User-defined metadata; if None entered, will be downloaded
+            data (dict): User-defined metadata; if None entered,
+                will be downloaded
             **kwargs: Arbitrary arguments
 
         """
@@ -221,21 +236,21 @@ class TVDbMovie( BaseMovie ):
 
         if not self._data:
             if len(args) == 0:
-                raise Exception( "Must input movie ID or used 'data' keyword" )
+                raise Exception("Must input movie ID or used 'data' keyword")
             movie_id = args[0]
             if isinstance(movie_id, str):
                 if 'tvdb' in movie_id:
                     movie_id = movie_id.replace('tvdb', '')
-            self.URL = self.TVDb_URLMovie.format( movie_id )
-            json     = self._get_json( self.URL )
+            self.URL = self.TVDb_URLMovie.format(movie_id)
+            json = self._get_json(self.URL)
             if json:
-                info = parse_info( json )
+                info = parse_info(json)
                 if info is not None:
-                    self._data.update( info )
+                    self._data.update(info)
         else:
-            self.URL = self.TVDb_URLMovie.format( self.id )
-            json = self.getExtra( *self.EXTRA )
+            self.URL = self.TVDb_URLMovie.format(self.id)
+            json = self.getExtra(*self.EXTRA)
             if json:
-                info = parse_info( json )
+                info = parse_info(json)
                 if info is not None:
-                    self._data.update( info )
+                    self._data.update(info)

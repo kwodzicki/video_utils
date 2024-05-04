@@ -6,7 +6,8 @@ Classes for Series objects
 from .base_item import BaseItem
 from .parsers import parse_info
 
-class BaseSeries( BaseItem ):
+
+class BaseSeries(BaseItem):
     """
     Base class for TMDb and TVDb Series
 
@@ -30,20 +31,23 @@ class BaseSeries( BaseItem ):
             return f'{out} {pid}'
         return out
 
-class TMDbSeries( BaseSeries ):
+
+class TMDbSeries(BaseSeries):
     """
     For TMDb Series objects
 
     """
 
     EXTRA = ['external_ids', 'content_ratings']
+
     def __init__(self, *args, **kwargs):
         """
         Arguments:
-          seriesID  : The series ID from themoviedb.com, not need if data keyword is used
+            seriesID: The series ID from themoviedb.com,
+                not need if data keyword is used
 
         Keyword arguments:
-          data      : Series data returned by a search
+            data: Series data returned by a search
 
         """
 
@@ -51,65 +55,66 @@ class TMDbSeries( BaseSeries ):
         self._tmdb = True
 
         if self._data:
-            self.URL = self.TMDb_URLSeries.format( self.id )
-            json = self.getExtra( *self.EXTRA )
+            self.URL = self.TMDb_URLSeries.format(self.id)
+            json = self.getExtra(*self.EXTRA)
             if json:
-                self._data.update( json )
+                self._data.update(json)
             return
 
         if len(args) == 0:
-            raise Exception( "Must input series ID or use 'data' keyword" )
+            raise Exception("Must input series ID or use 'data' keyword")
         seriesID = args[0]
         if isinstance(seriesID, str):
             if 'tvdb' in seriesID:
                 raise Exception('Cannot pass TVDb ID to TMDb')
             if 'tmdb' in seriesID:
                 seriesID = seriesID.replace('tmdb', '')
-        self.URL = self.TMDb_URLSeries.format( seriesID )
-        json     = self._get_json( self.URL, append_to_response = self.EXTRA )
+        self.URL = self.TMDb_URLSeries.format(seriesID)
+        json = self._get_json(self.URL, append_to_response=self.EXTRA)
         if not json:
             return
 
-        info = parse_info( json, imageURL = self.TMDb_URLImage )
+        info = parse_info(json, imageURL=self.TMDb_URLImage)
         if info is not None:
-            self._data.update( info )
+            self._data.update(info)
 
 
-class TVDbSeries( BaseSeries ):
+class TVDbSeries(BaseSeries):
     """
     For TVDb Series objects
 
     """
 
     def __init__(self, *args, **kwargs):
-        """ 
+        """
         Arguments:
-          seriesID  : The series ID from themoviedb.com, not need if data keyword is used
+            seriesID : The series ID from themoviedb.com,
+                not need if data keyword is used
 
         Keyword arguments:
-          data      : Series data returned by a search
+            data: Series data returned by a search
 
         """
 
         super().__init__(*args, **kwargs)
-        self._tmdb  = False
-        self.KWARGS =  {'TVDb' : True, 'imageURL' : self.TVDb_URLImage}
+        self._tmdb = False
+        self.KWARGS = {'TVDb': True, 'imageURL': self.TVDb_URLImage}
         if not self._data:
             if len(args) == 0:
-                raise Exception( "Must input series ID or use 'data' keyword" )
+                raise Exception("Must input series ID or use 'data' keyword")
             seriesID = args[0]
             if isinstance(seriesID, str):
                 if 'tmdb' in seriesID:
                     raise Exception('Cannot pass TMDb ID to TVDb')
                 if 'tvdb' in seriesID:
                     seriesID = seriesID.replace('tvdb', '')
-            self.URL = self.TVDb_URLSeries.format( seriesID )
-            json     = self._get_json( self.URL, append_to_response = self.EXTRA )
+            self.URL = self.TVDb_URLSeries.format(seriesID)
+            json = self._get_json(self.URL, append_to_response=self.EXTRA)
             if json and ('data' in json):
-                info = parse_info( json['data'], **self.KWARGS)
+                info = parse_info(json['data'], **self.KWARGS)
                 if info is not None:
-                    self._data.update( info )
-        #else:
+                    self._data.update(info)
+        # else:
         #  self.URL = self.TVDb_URLSeries.format( self.id )
         #  json = self.getExtra( *self.EXTRA )
         #  if json:

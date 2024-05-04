@@ -13,19 +13,19 @@ from PIL import Image, ImageFont, ImageDraw
 
 from .. import DATADIR
 
-
-TTF      = os.path.join(DATADIR, 'Anton-Regular.ttf')
-RED      = (255,   0,   0)
-WHITE    = (240, 240, 240)
-BSCALE   = 0.05
-TSCALE   = 0.85
-SPACE    = ' '
+TTF = os.path.join(DATADIR, 'Anton-Regular.ttf')
+RED = (255, 0, 0)
+WHITE = (240, 240, 240)
+BSCALE = 0.05
+TSCALE = 0.85
+SPACE = ' '
 
 # Characters that are not allowed in file paths
-#BADCHARS = re.compile( '[#%{}\\\<\>\*\?/\$\!\:\@]' )
-BADCHARS = re.compile( r'[#%\\\<\>\*\?/\$\!\:\@]' )
+# BADCHARS = re.compile('[#%{}\\\<\>\*\?/\$\!\:\@]')
+BADCHARS = re.compile(r'[#%\\\<\>\*\?/\$\!\:\@]')
 
-def _replace( string, repl, **kwargs ):
+
+def _replace(string, repl, **kwargs):
     """
     'Private' function for replace characters in string
 
@@ -41,9 +41,10 @@ def _replace( string, repl, **kwargs ):
 
     """
 
-    return BADCHARS.sub( repl, string ).replace('&', 'and').strip()
+    return BADCHARS.sub(repl, string).replace('&', 'and').strip()
 
-def replace_chars( *args, repl = ' ', **kwargs ):
+
+def replace_chars(*args, repl: str = ' ', **kwargs) -> str | list[str]:
     """
     Replace invalid path characters; '&' replaced with 'and'
 
@@ -51,7 +52,8 @@ def replace_chars( *args, repl = ' ', **kwargs ):
         *args (str): String(s) to replace characters in
 
     Keyword arguments:
-        repl (str): String to replace bad characters with; default is space (' ')
+        repl (str): String to replace bad characters with;
+            default is space (' ')
         **kwargs
 
     Returns:
@@ -60,14 +62,16 @@ def replace_chars( *args, repl = ' ', **kwargs ):
     """
 
     if len(args) == 1:
-        return _replace( args[0], repl, **kwargs )
-    return [ _replace( arg, repl, **kwargs ) for arg in args ]
+        return _replace(args[0], repl, **kwargs)
+    return [_replace(arg, repl, **kwargs) for arg in args]
+
 
 def is_id(db_id):
     """Check to ensure the db_id is valid db_id"""
 
     # If tvdb or tmdb in the first
     return db_id[:4] == 'tvdb' or db_id[:4] == 'tmdb'
+
 
 def download(url):
     """
@@ -84,34 +88,35 @@ def download(url):
 
     """
 
-    log  = logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
     data = None
     log.debug('Attempting to open URL: %s', url)
     try:
-        resp = urlopen( url )
+        resp = urlopen(url)
     except Exception as error:
-        log.warning( 'Failed to open URL: %s', error )
+        log.warning('Failed to open URL: %s', error)
         return data
 
     log.debug('Attempting to download data')
     try:
         data = resp.read()
     except Exception as error:
-        log.warning( 'Failed to download data: %s', error )
+        log.warning('Failed to download data: %s', error)
 
     try:
         resp.close()
     except Exception as error:
-        log.debug('Failed to close URL: %s', error )
+        log.debug('Failed to close URL: %s', error)
 
     return data
 
-def get_font( text, bbox ):
+
+def get_font(text, bbox):
     """
     Determine font size for movie version
 
     This function determines the font size to use when adding movie version
-    information to a poster. The font size is determined by iteratively 
+    information to a poster. The font size is determined by iteratively
     increasing the font size until the text will no longer fit inside the
     specified box. The font size is the decremented slightly to ensure it
     fits. Space is also added between letters to ensure that the text
@@ -130,44 +135,45 @@ def get_font( text, bbox ):
 
     """
 
-    bbox      = list(bbox)
-    bbox[0]  *= TSCALE
-    bbox[1]  *= TSCALE
-    fontsize  = 1
-    font      = ImageFont.truetype(TTF, size = fontsize)
-    text_size = font.getsize( text )
+    bbox = list(bbox)
+    bbox[0] *= TSCALE
+    bbox[1] *= TSCALE
+    fontsize = 1
+    font = ImageFont.truetype(TTF, size=fontsize)
+    text_size = font.getsize(text)
 
     # While the text fits within the box
     while text_size[0] < bbox[0] and text_size[1] < bbox[1]:
         fontsize += 1
-        font      = ImageFont.truetype(TTF, size = fontsize)
-        text_size = font.getsize( text )
+        font = ImageFont.truetype(TTF, size=fontsize)
+        text_size = font.getsize(text)
 
     # Decrement font size by 2 to ensure will fit
     fontsize -= 2
-    font      = ImageFont.truetype(TTF, size = fontsize)
+    font = ImageFont.truetype(TTF, size=fontsize)
 
-    text_size = font.getsize( text )
+    text_size = font.getsize(text)
     text_list = list(text)
 
     # Set number of added spaces to zero
-    nspace    = 0
+    nspace = 0
 
     # While width of text fits within bbox
     while text_size[0] < bbox[0]:
         nspace += 1
         # Join text list using nspaces
-        text      = (SPACE * nspace).join( text_list )
+        text = (SPACE * nspace).join(text_list)
         # Get new text size
-        text_size = font.getsize( text )
+        text_size = font.getsize(text)
 
     # Decement number of spaces as too wide at first
     nspace -= 1
-    text    = (SPACE * nspace).join( text_list )
+    text = (SPACE * nspace).join(text_list)
 
     return text, font
 
-def add_text( fpath_data, text ):
+
+def add_text(fpath_data, text):
     """
     Add text to image object
 
@@ -188,37 +194,38 @@ def add_text( fpath_data, text ):
     # If input is a bytes instance
     if isinstance(fpath_data, bytes):
         file_obj = BytesIO()
-        file_obj.write( fpath_data )
+        file_obj.write(fpath_data)
         file_obj.seek(0)
     else:
         file_obj = fpath_data
 
     # Open the image
-    image = Image.open( file_obj )
+    image = Image.open(file_obj)
     # Initialize a drawer
-    draw  = ImageDraw.Draw( image )
+    draw = ImageDraw.Draw(image)
     # Width and height of box to draw text in
-    bbox  = (image.width, image.height * BSCALE)
+    bbox = (image.width, image.height * BSCALE)
 
     # Get text (may add spaces) and font to use
-    text, font = get_font( text, bbox )
+    text, font = get_font(text, bbox)
 
-    text_size = font.getsize( text )
+    text_size = font.getsize(text)
     # Compute x offset to center text
-    xoffset  = int( bbox[0] - text_size[0] ) // 2
-    yoffset  = 0
+    xoffset = int(bbox[0] - text_size[0]) // 2
+    yoffset = 0
 
     # Draw red box at top of cover
-    draw.rectangle( (0, bbox[1], bbox[0], 0), fill = RED )
+    draw.rectangle((0, bbox[1], bbox[0], 0), fill=RED)
     # Write text in box
-    draw.text( (xoffset, yoffset), text, font = font, fill = WHITE )
+    draw.text((xoffset, yoffset), text, font=font, fill=WHITE)
 
-    data  = BytesIO()# Initialize BytesIO
-    image.save( data, format = image.format )# Save data to BytesIO object
-    data.seek(0)# Seek to beginning of data
-    return data.read()# Return bytes
+    data = BytesIO()  # Initialize BytesIO
+    image.save(data, format=image.format)  # Save data to BytesIO object
+    data.seek(0)  # Seek to beginning of data
+    return data.read()  # Return bytes
 
-def download_cover( video_path, url, text = None ):
+
+def download_cover(video_path, url, text=None):
     """
     Wrapper function to download artwork and add version text
 
@@ -234,18 +241,18 @@ def download_cover( video_path, url, text = None ):
 
     """
 
-    data = download( url )
+    data = download(url)
     if data is None:
         return None, None
 
     # If text is string instance and NOT empty, add text to the image
     if isinstance(text, str) and text != '':
-        data = add_text( data, text )
+        data = add_text(data, text)
 
-    image_ext  = os.path.splitext( url        )[1]
-    image_path = os.path.splitext( video_path )[0] + image_ext
+    image_ext = os.path.splitext(url)[1]
+    image_path = os.path.splitext(video_path)[0] + image_ext
 
-    with open( image_path, 'wb' ) as fid:
-        fid.write( data )
+    with open(image_path, mode='wb') as fid:
+        fid.write(data)
 
     return image_path, data

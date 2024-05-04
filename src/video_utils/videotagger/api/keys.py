@@ -9,34 +9,46 @@ import time
 from ...config import CONFIG
 
 # Set location of cache file for tvdbtoken
-TVDbCACHE = os.path.join( os.path.expanduser('~'), '.tvdbToken' )
+TVDbCACHE = os.path.join(os.path.expanduser('~'), '.tvdbToken')
 # Set timeout for TVDb token to 23 hours
-TIMEOUT   = 23 * 60 * 60
+TIMEOUT = 23 * 60 * 60
 
-class Keys( ):
+
+class Keys:
     """
     Class to store API key info for TVDb and TMDb
 
     """
 
-    # Try to get TMDB_API_KEY from user environment; then try to get from CONFIG; then just use None
-    __TMDb_API_KEY    = os.environ.get('TMDB_API_KEY',   CONFIG.get('TMDB_API_KEY', None) )
-    # Try to get TMDB_API_TOKEN from environment; then just use None
-    __TMDb_API_TOKEN  = os.environ.get('TMDB_API_TOKEN', None)
-    # Try to get TVDB_API_KEY from user environment; then try to get from CONFIG; then just use None
-    __TVDb_API_KEY    = os.environ.get('TVDB_API_KEY',   CONFIG.get('TVDB_API_KEY', None) )
-    # Try to get TVDB_API_TOKEN from environment; then just use None
-    __TVDb_API_TOKEN  = os.environ.get('TVDB_API_TOKEN', None)
+    # Try to get TMDB_API_KEY from user environment;
+    # then try to get from CONFIG; then just use None
+    __TMDb_API_KEY = os.environ.get(
+        'TMDB_API_KEY',
+        CONFIG.get('TMDB_API_KEY', None),
+    )
 
-    __TVDb_USERNAME   = None
-    __TVDb_USERKEY    = None
-    __TVDb_TIME       = None
+    # Try to get TMDB_API_TOKEN from environment; then just use None
+    __TMDb_API_TOKEN = os.environ.get('TMDB_API_TOKEN', None)
+
+    # Try to get TVDB_API_KEY from user environment;
+    # then try to get from CONFIG; then just use None
+    __TVDb_API_KEY = os.environ.get(
+        'TVDB_API_KEY',
+        CONFIG.get('TVDB_API_KEY', None),
+    )
+
+    # Try to get TVDB_API_TOKEN from environment; then just use None
+    __TVDb_API_TOKEN = os.environ.get('TVDB_API_TOKEN', None)
+
+    __TVDb_USERNAME = None
+    __TVDb_USERKEY = None
+    __TVDb_TIME = None
 
     def __init__(self):
         """Initialize class"""
 
         # If the TVDb cache file exists
-        if not os.path.isfile( TVDbCACHE ):
+        if not os.path.isfile(TVDbCACHE):
             return
 
         # Open for reading
@@ -49,10 +61,10 @@ class Keys( ):
         # If current time minus token time is less than timeout
         if (time.time() - token_time) < TIMEOUT:
             self.__TVDb_API_TOKEN = token
-            self.__TVDb_TIME      = token_time
+            self.__TVDb_TIME = token_time
         else:
             self.__TVDb_API_TOKEN = None
-            self.__TVDb_TIME      = None
+            self.__TVDb_TIME = None
 
     ###############################################
     # The Movie Database
@@ -60,6 +72,7 @@ class Keys( ):
     def TMDb_API_KEY(self):
         """Return API key for TMDb"""
         return self.__TMDb_API_KEY
+
     @TMDb_API_KEY.setter
     def TMDb_API_KEY(self, val):
         """Set API key for TMDb"""
@@ -69,6 +82,7 @@ class Keys( ):
     def TMDb_API_TOKEN(self):
         """Return API token for TMDb"""
         return self.__TMDb_API_TOKEN
+
     @TMDb_API_TOKEN.setter
     def TMDb_API_TOKEN(self, val):
         """Set API token for TMDb"""
@@ -80,6 +94,7 @@ class Keys( ):
     def TVDb_API_KEY(self):
         """Return API key for TVDb"""
         return self.__TVDb_API_KEY
+
     @TVDb_API_KEY.setter
     def TVDb_API_KEY(self, val):
         """Set API key for TVDb"""
@@ -94,13 +109,14 @@ class Keys( ):
             if (time.time() - self.__TVDb_TIME) < TIMEOUT:
                 return self.__TVDb_API_TOKEN
         return None
+
     @TVDb_API_TOKEN.setter
     def TVDb_API_TOKEN(self, val):
         """Set API token for TVDb"""
         if val:
             self.__TVDb_TIME = time.time()
             with open(TVDbCACHE, mode='w', encoding='utf8') as fid:
-                fid.write( f'{val} {self.__TVDb_TIME}' )
+                fid.write(f'{val} {self.__TVDb_TIME}')
         else:
             self.__TVDb_TIME = None
         self.__TVDb_API_TOKEN = val
@@ -109,6 +125,7 @@ class Keys( ):
     def TVDb_USERNAME(self):
         """Return username for TVDb"""
         return self.__TVDb_USERNAME
+
     @TVDb_USERNAME.setter
     def TVDb_USERNAME(self, val):
         """Set username for TVDb"""
@@ -118,6 +135,7 @@ class Keys( ):
     def TVDb_USERKEY(self):
         """Return userkey for TVDb"""
         return self.__TVDb_USERKEY
+
     @TVDb_USERKEY.setter
     def TVDb_USERKEY(self, val):
         """Set userkey for TVDb"""

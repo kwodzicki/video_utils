@@ -5,7 +5,8 @@ Class for metadata about person
 
 from .base_item import BaseItem
 
-class Person( BaseItem ):
+
+class Person(BaseItem):
     """
     Class for person metadata
 
@@ -17,7 +18,7 @@ class Person( BaseItem ):
         super().__init__(*args, **kwargs)
         if not self._data:
             if len(args) == 0:
-                raise Exception( "Must input person ID  or use 'data' keyword")
+                raise Exception("Must input person ID  or use 'data' keyword")
 
         self._isPerson = True
 
