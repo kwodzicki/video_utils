@@ -11,7 +11,7 @@ import argparse
 
 import yaml
 
-from ..version import __version__
+from .. import __version__
 from ..utils import HALFTHREADS
 
 PKGNAME = __name__.split('.', maxsplit=1)[0]
