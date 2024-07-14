@@ -1160,7 +1160,7 @@ def split_on_chapter(in_file: str, n_chapters: int | list[int]) -> None:
         for i, chap in enumerate(chaps):
             if i == 0:  # First chapter
                 # Set chapter start offset to zero
-                chap.add_offfset(-start, 0)
+                chap.add_offset(-start, 0)
                 # Set chapter end offset to PREROLL greater than start to
                 # compensate for pre-roll
                 chap.add_offset(-start - preroll, 1)
