@@ -1147,8 +1147,8 @@ def split_on_chapter(in_file: str, n_chapters: int | list[int]) -> None:
     s_id = 0  # Set chater starting number
     while s_id < len(chapters):
         # Get number of chapters to process; i.e., width of video segment
-        e_id = (
-            s_id + n_chapters[num]
+        e_id = s_id + (
+            n_chapters[num]
             if isinstance(n_chapters, (tuple, list)) else
             n_chapters
         )
