@@ -243,49 +243,50 @@ class Chapter:
             self.end_time = end_time
 
     @property
-    def start(self):
+    def start(self) -> int:
         """Start time of chapter, in time base units"""
 
-        return self._data.get('start', 0)
+        return int(self._data.get('start', 0))
 
     @start.setter
-    def start(self, val):
+    def start(self, val: str | int):
+        val = int(val)
         self._data['start'] = val
         self._data['start_time'] = self.base2seconds(val)
 
     @property
-    def end(self):
+    def end(self) -> int:
         """End time of chapter, in time base units"""
 
-        return self._data.get('end', 0)
+        return int(self._data.get('end', 0))
 
     @end.setter
-    def end(self, val):
-
+    def end(self, val: str | int):
+        val = int(val)
         self._data['end'] = val
         self._data['end_time'] = self.base2seconds(val)
 
     @property
-    def start_time(self):
+    def start_time(self) -> float:
         """Start time of chapter in seconds"""
 
-        return self._data.get('start_time', 0)
+        return float(self._data.get('start_time', 0))
 
     @start_time.setter
-    def start_time(self, val):
-
+    def start_time(self, val: str | int | float):
+        val = float(val)
         self._data['start_time'] = val
         self._data['start'] = self.seconds2base(val)
 
     @property
-    def end_time(self):
+    def end_time(self) -> float:
         """End time of chapter in seconds"""
 
-        return self._data.get('end_time', 0)
+        return float(self._data.get('end_time', 0))
 
     @end_time.setter
-    def end_time(self, val):
-
+    def end_time(self, val: str | int | float):
+        val = float(val)
         self._data['end_time'] = val
         self._data['end'] = self.seconds2base(val)
 
