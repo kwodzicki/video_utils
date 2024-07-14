@@ -8,6 +8,12 @@ __doc__ = (
 )
 
 __version__ = get_version(__name__)
+
+from .config import screenFMT, DATADIR  # DATADIR imported for use else where
+from .utils import _handle_sigint, _handle_sigterm
+from .utils.check_cli import check_cli
+from .utils.subproc_pool import PopenPool
+
 # Set up the logger for the module
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -29,10 +35,5 @@ signal.signal(signal.SIGINT, _handle_sigint)
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
 POPENPOOL = PopenPool()
-
-from .config import screenFMT, DATADIR  # DATADIR imported for use else where
-from .utils import _handle_sigint, _handle_sigterm
-from .utils.check_cli import check_cli
-from .utils.subproc_pool import PopenPool
 
 del cli, screenFMT
