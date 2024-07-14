@@ -220,6 +220,18 @@ class Chapter:
         return f"<{self.title} : {self.start_time}s --> {self.end_time}s>"
 
     @property
+    def num(self) -> int:
+        return int(
+            self.time_base.split('/')[0]
+        )
+
+    @property
+    def den(self) -> int:
+        return int(
+            self.time_base.split('/')[1]
+        )
+
+    @property
     def time_base(self):
         """Time base for start/end values"""
 
@@ -231,7 +243,6 @@ class Chapter:
         # Set time_base to new value
         self._data['time_base'] = val
         # Get new numerator and denominator
-        self._num, self._den = map(int, val.split('/'))
         start_time = self.start_time
         # Set start_time to current start_time;
         # will trigger conversion of start
@@ -330,7 +341,7 @@ class Chapter:
             # Get numerator and denominator of new time_base
             num, den = map(int, time_base.split('/'))
             # Cross multiply original time_base with new time_base
-            factor = (self._num * den) / (self._den * num)
+            factor = (self.num * den) / (self.den * num)
             # Convert integer time to new base, return float
             return round(in_int * factor), in_float
         return in_int, in_float
@@ -348,12 +359,12 @@ class Chapter:
     def base2seconds(self, val):
         """Method that converts value in time_base units to seconds"""
 
-        return val * self._num / self._den
+        return val * self.num / self.den
 
     def seconds2base(self, val):
         """Method that converts value in seconds to time_base units"""
 
-        return round(val * self._den / self._num)
+        return round(val * self.den / self.num)
 
     def get_start(self, time_base=None):
         """Get chapter start time in time_base and seconds units"""
