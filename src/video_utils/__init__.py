@@ -2,11 +2,6 @@ import logging
 import signal
 from importlib.metadata import version as get_version
 
-from .config import screenFMT, DATADIR  # DATADIR imported for use else where
-from .utils import _handle_sigint, _handle_sigterm
-from .utils.check_cli import check_cli
-from .utils.subproc_pool import PopenPool
-
 __doc__ = (
     "Collection of utilities to manipulate video files; namely transcoding, "
     "subtitle extraction, audio aligning/downmixing, and metadata editing."
@@ -34,5 +29,10 @@ signal.signal(signal.SIGINT, _handle_sigint)
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
 POPENPOOL = PopenPool()
+
+from .config import screenFMT, DATADIR  # DATADIR imported for use else where
+from .utils import _handle_sigint, _handle_sigterm
+from .utils.check_cli import check_cli
+from .utils.subproc_pool import PopenPool
 
 del cli, screenFMT
