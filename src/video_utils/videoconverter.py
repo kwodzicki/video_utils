@@ -645,7 +645,6 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
                 self.text_info,
                 delete_soure=self.sub_delete_source,
                 cpulimit=self.cpulimit,
-                threads=self.threads,
             )
 
             self._created_files.extend(srt_files)
@@ -788,6 +787,12 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         else:
             fmt = ["-f", self.container]
 
+        threads = (
+            []
+            if self.threads is None else
+            ["-threads", str(self.threads)]
+        )
+
         return [
             "ffmpeg",
             "-nostdin",
@@ -796,7 +801,7 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
             *chapters,
             "-tune", "zerolatency",
             *fmt,
-            "-threads", str(self.threads),
+            *threads,
             "-strict", strict,
             "-max_muxing_queue_size", str(max_muxing_queue_size),
         ]

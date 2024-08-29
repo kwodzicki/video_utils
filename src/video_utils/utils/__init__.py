@@ -44,7 +44,7 @@ def isRunning(**kwargs):
     return (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set())
 
 
-def thread_check(val):
+def thread_check(val: int | None) -> int | None:
     """
     Check requested number of threads
 
@@ -53,12 +53,18 @@ def thread_check(val):
 
     """
 
+    if val is None:
+        return None
+
     if not isinstance(val, int):
         return MAXTHREADS
+
     if val < MINTHREADS:
         return MINTHREADS
+
     if val > MAXTHREADS:
         return MAXTHREADS
+
     return val
 
 
