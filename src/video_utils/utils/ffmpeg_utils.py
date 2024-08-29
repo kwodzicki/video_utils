@@ -601,7 +601,10 @@ def total_seconds(*args):
     ]
     # Convert list of numpy arrays to 2D numpy array, then compute sum of
     # seconds across second dimension
-    return np.array(times).sum(axis=1)
+    times = np.array(times).sum(axis=1)
+    if times.size == 1:
+        return float(times[0])
+    return times
 
 
 class FFmpegProgress:
