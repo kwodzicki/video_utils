@@ -224,8 +224,11 @@ class MediaInfo:
         if 'Audio' not in self.__mediainfo:
             self.__log.warning('No audio information!')
             return None
-        if language is not None and not isinstance(language, (list, tuple)):
-            language = (language,)
+
+        if isinstance(language, str):
+            language = [language]
+        elif isinstance(language, list):
+            language = language.copy()
 
         info = {
             '-map': [],
@@ -237,6 +240,29 @@ class MediaInfo:
         }
         track_id = '1'
         track_num = 0
+
+        # Run a check for audio track languages. Ran into case where movie
+        # only had non-English languages and so would not convert movie.
+        # So, here we will update
+        nmatch = 0
+        track_langs = []
+        for track in self.__mediainfo['Audio']:
+            lang3 = track.get('Language_String3', '')
+            track_langs.append(lang3)
+
+            # Count number of tracks match request language
+            nmatch += self._check_languages(language, lang3)
+
+        if nmatch == 0:
+            self.__log.warning(
+                "Failed to find any audio tracks matching requested "
+                "language(s): %s. Adding language of first audio track "
+                "to the search: %s",
+                language,
+                track_langs[0],
+            )
+            language.append(track_langs[0])
+
         for track in self.__mediainfo['Audio']:
             lang3 = track.get('Language_String3', '')
 
@@ -509,8 +535,10 @@ class MediaInfo:
         if 'Text' not in self.__mediainfo:
             self.__log.warning('No text information!')
             return None
-        if not isinstance(languages, (list, tuple)):
-            languages = (languages,)
+        if isinstance(languages, str):
+            languages = [languages]
+        else:
+            languages = languages.copy()
 
         mpegts = self.__mediainfo['General'][0]['Format'] == 'MPEG-TS'
 
