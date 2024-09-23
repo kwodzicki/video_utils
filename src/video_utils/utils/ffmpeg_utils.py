@@ -412,7 +412,7 @@ def cropdetect_cmd(
     infile: str,
     start_time: timedelta,
     seg_len: timedelta,
-    threads: int | None,
+    threads: int,
 ) -> list[str]:
     """
     Generate ffmpeg command list for crop detection
@@ -435,9 +435,13 @@ def cropdetect_cmd(
         raise Exception('start_time must be datetime.timedelta object')
     if not isinstance(seg_len, timedelta):
         raise Exception('seg_len must be datetime.timedelta object')
-
-    opts = ['-threads', str(threads)] if isinstance(threads, int) else []
-    opts = opts + [
+    if not isinstance(threads, int):
+        raise Exception('threads must be int')
+    # Return the list with command
+    return [
+        'ffmpeg',
+        '-nostats',
+        '-threads', str(threads),
         '-ss', str(start_time),
         '-i', infile,
         '-max_muxing_queue_size', '1024',
@@ -446,9 +450,6 @@ def cropdetect_cmd(
         '-f', 'null',
         '-',
     ]
-
-    # Return the list with command
-    return ['ffmpeg', '-nostats'] + opts
 
 
 def cropdetect(
@@ -477,6 +478,12 @@ def cropdetect(
     """
 
     log = logging.getLogger(__name__)
+
+    # Set default value for number of threads
+    threads = max(
+        threads if isinstance(threads, int) else POPENPOOL.threads,
+        1,
+    )
 
     # Counter for number of crop regions detected
     n_crop = 0
