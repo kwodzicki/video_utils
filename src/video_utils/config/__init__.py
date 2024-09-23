@@ -125,7 +125,7 @@ BASEPARSER = argparse.ArgumentParser(
 BASEPARSER.add_argument(
     "-t", "--threads",
     type=int,
-    default=HALFTHREADS,
+#    default=HALFTHREADS,
     help="Set number of CPUs to use.",
 )
 BASEPARSER.add_argument(

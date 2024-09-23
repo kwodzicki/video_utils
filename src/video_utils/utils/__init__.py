@@ -53,9 +53,6 @@ def thread_check(val: int | None) -> int | None:
 
     """
 
-    if val is None:
-        return None
-
     if not isinstance(val, int):
         return MAXTHREADS
 

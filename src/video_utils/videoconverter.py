@@ -115,7 +115,8 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         self.container = container
         self.srt = srt
         self.cpulimit = cpulimit if isinstance(cpulimit, int) else 75
-        self.threads = thread_check(threads)
+        self.threads = threads 
+
 
         self.subtitles = False
         if subtitle_extract.CLI is None:
@@ -184,6 +185,17 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         self._start_time = None
         self._created_files = None
         self.__file_handler = None
+
+    @property
+    def threads(self):
+        return self._threads
+
+    #threads.setter
+    def threads(self, val):
+        if val is None:
+            self._threads = None
+        else:
+            self._threads = thread_check(val)
 
     @property
     def outdir(self) -> str:
@@ -320,6 +332,7 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         # Generate ffmpeg command list
         ffmpeg_cmd = self._ffmpeg_command(self.hevc_file or outfile)
 
+        self.__log.debug("%s %s", ffmpeg_cmd, self.threads)
         # Initialize ffmpeg progress class
         prog = FFmpegProgress(nintervals=10)
         stderr = RotatingFile(
@@ -334,7 +347,8 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
                 stderr=stderr,
                 universal_newlines=True,
             )
-        except:
+        except Exception as err:
+            self.__log.exception("FFmpeg failed: %s", err)
             proc = None
         else:
             proc.wait()

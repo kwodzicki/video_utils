@@ -178,7 +178,9 @@ class PopenThread(Thread):
     def run(self):
         """Overload run method"""
 
-        PROCLOCK.acquire(threads=self._threads)
+        if self.threads is not None:
+            PROCLOCK.acquire(threads=self.threads)
+
         # Set _proc_started event after lock is acquired
         self._proc_started.set()
         kwargs = self._kwargs.copy()
@@ -237,7 +239,8 @@ class PopenThread(Thread):
         except:
             pass
 
-        PROCLOCK.release(threads=self._threads)
+        if self.threads is not None:
+            PROCLOCK.release(threads=self.threads)
 
     def __cpulimit(self):
         """
@@ -255,6 +258,10 @@ class PopenThread(Thread):
         """
 
         if not (self._proc and CPULIMIT and self._cpulimit):
+            return None
+
+        if self.threads is None:
+            self.__log.warning("Thread not set, cannot limit CPU")
             return None
 
         limit = self.threads * self._cpulimit
