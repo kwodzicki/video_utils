@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import time
+from subprocess import Popen
 from datetime import datetime
 from collections.abc import Generator
 
@@ -320,6 +321,7 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         # Generate ffmpeg command list
         ffmpeg_cmd = self._ffmpeg_command(self.hevc_file or outfile)
 
+        self.__log.info(' '.join(ffmpeg_cmd))
         # Initialize ffmpeg progress class
         prog = FFmpegProgress(nintervals=10)
         stderr = RotatingFile(

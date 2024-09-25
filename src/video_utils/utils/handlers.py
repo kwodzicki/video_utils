@@ -206,6 +206,7 @@ class RotatingFile(Thread):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
+
         self.rw = None  # Initialize read/write pipe as None
         self.callback = kwargs.pop('callback', None)
         for key, val in ROTATING_FORMAT.items():
@@ -223,6 +224,7 @@ class RotatingFile(Thread):
 
     def __enter__(self, *args, **kwargs):
         self.start()
+        return self
 
     def __exit__(self, *args, **kwargs):
         self.close()

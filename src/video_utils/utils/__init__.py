@@ -53,9 +53,6 @@ def thread_check(val: int | None) -> int | None:
 
     """
 
-    if val is None:
-        return None
-
     if not isinstance(val, int):
         return MAXTHREADS
 
@@ -121,6 +118,7 @@ class NLock:
     __threads = 0
 
     def __init__(self, threads=None):
+        self.log = logging.getLogger(__name__)
         self.__lock1 = Lock()
         self.__lock2 = Lock()
         self.threads = threads
@@ -131,6 +129,11 @@ class NLock:
 
         return self.__n
 
+    @n.setter
+    def n(self, val):
+
+        self.__set_n(val)
+
     @property
     def threads(self):
         """Number of thread acquires allowed"""
@@ -139,7 +142,18 @@ class NLock:
 
     @threads.setter
     def threads(self, val):
-        self.__threads = thread_check(val)
+
+        self.__set_threads(val)
+
+    @classmethod
+    def __set_threads(cls, val):
+
+        cls.__threads = thread_check(val)
+
+    @classmethod
+    def __set_n(cls, val):
+
+        cls.__n = val
 
     def __enter__(self, *args, **kwargs):
         self.acquire(*args, **kwargs)
@@ -182,16 +196,27 @@ class NLock:
             threads = 1
         threads = max(threads, 1)
 
+        self.log.debug(
+            "Acquiring '%d' threads from lock; %d of %d already acquired",
+            threads,
+            self.n,
+            self.threads,
+        )
+
         # Increment number of locks to grab
         with self.__lock1:
-            self.__n += threads
-            check = self.__n >= self.__threads
+            self.n += threads
+            check = self.n >= self.threads
 
+        self.log.debug("Check value is '%s', attempting to grab lock2", check)
         # If check is true and fail to acqurie the lock
         if check and not self.__lock2.acquire(*args, **kwargs):
             with self.__lock1:
-                self.__n -= threads  # Decement n grabs
+                self.n -= threads  # Decement n grabs
+            self.log.debug("Failed to acquire lock2")
             return False
+
+        self.log.debug("Acquired lock2")
         return True
 
     def release(self, threads=None):
@@ -218,8 +243,16 @@ class NLock:
                 threads = 1
             threads = max(threads, 1)
 
+            self.log.debug(
+                "Releasing %d threads from lock; %d of %d already acquired",
+                threads,
+                self.n,
+                self.threads,
+            )
+
             # Decrement __n by threads
-            self.__n -= threads
+            self.n -= threads
             # If lock2 is locked
             if self.__lock2.locked():
+                self.log.debug("Releasing lock 2")
                 self.__lock2.release()

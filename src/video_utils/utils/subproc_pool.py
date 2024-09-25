@@ -301,14 +301,18 @@ class PopenPool(Thread):
 
         kwargs['daemon'] = kwargs.pop('daemon', True)
         super().__init__(*args, **kwargs)
+
         self.__log = logging.getLogger(__name__)
         self.__closed = Event()
         if not isinstance(queueDepth, int):
             queueDepth = 50
+
         self.__thread_queue = Queue(maxsize=queueDepth)
         self.threads = threads
         self.cpulimit = cpulimit
+
         self.start()
+
         atexit.register(self.close)
 
     @property
@@ -319,8 +323,13 @@ class PopenPool(Thread):
 
     @threads.setter
     def threads(self, val):
-        self.__threads = thread_check(val)
-        PROCLOCK.threads = self.__threads
+        self.__set_threads(val)
+
+    @classmethod
+    def __set_threads(cls, val):
+
+        cls.__threads = thread_check(val)
+        PROCLOCK.threads = cls.__threads
 
     @property
     def cpulimit(self):
@@ -404,6 +413,7 @@ class PopenPool(Thread):
 
         if self.__closed.is_set():
             raise Exception('Cannot add process to closed pool')
+
         kwargs['cpulimit'] = self.cpulimit
         proc = PopenThread(*args, **kwargs)
         self.__thread_queue.put(proc)
