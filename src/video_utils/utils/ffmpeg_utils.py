@@ -585,7 +585,7 @@ def cropdetect(
     return 'crop=' + ':'.join(crop)
 
 
-def total_seconds(*args):
+def total_seconds(*args) -> list:
     """
     Convert time strings to the total number of seconds represented by the time
 
@@ -608,10 +608,7 @@ def total_seconds(*args):
     ]
     # Convert list of numpy arrays to 2D numpy array, then compute sum of
     # seconds across second dimension
-    times = np.array(times).sum(axis=1)
-    if times.size == 1:
-        return float(times[0])
-    return times
+    return np.array(times).sum(axis=1).tolist()
 
 
 class FFmpegProgress:

@@ -196,27 +196,17 @@ class NLock:
             threads = 1
         threads = max(threads, 1)
 
-        self.log.debug(
-            "Acquiring '%d' threads from lock; %d of %d already acquired",
-            threads,
-            self.n,
-            self.threads,
-        )
-
         # Increment number of locks to grab
         with self.__lock1:
             self.n += threads
             check = self.n >= self.threads
 
-        self.log.debug("Check value is '%s', attempting to grab lock2", check)
         # If check is true and fail to acqurie the lock
         if check and not self.__lock2.acquire(*args, **kwargs):
             with self.__lock1:
                 self.n -= threads  # Decement n grabs
-            self.log.debug("Failed to acquire lock2")
             return False
 
-        self.log.debug("Acquired lock2")
         return True
 
     def release(self, threads=None):
@@ -243,16 +233,8 @@ class NLock:
                 threads = 1
             threads = max(threads, 1)
 
-            self.log.debug(
-                "Releasing %d threads from lock; %d of %d already acquired",
-                threads,
-                self.n,
-                self.threads,
-            )
-
             # Decrement __n by threads
             self.n -= threads
             # If lock2 is locked
             if self.__lock2.locked():
-                self.log.debug("Releasing lock 2")
                 self.__lock2.release()
