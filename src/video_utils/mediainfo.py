@@ -622,9 +622,14 @@ def aspect_adjust(video_data: dict) -> str:
 
     """
 
-    dar = video_data.get('DisplayAspectRatio', None)
-    odar = video_data.get('OriginalDisplayAspectRatio', None)
-    if (dar is None) or (odar is None) or (dar == odar):
+    if 'DisplayAspectRatio' not in video_data:
+        return ''
+    if 'OriginalDisplayAspectRatio' not in video_data:
+        return ''
+    if (
+        video_data['DisplayAspectRatio']
+        == video_data['OriginalDisplayAspectRatio']
+    ):
         return ''
 
     xpix, ypix = video_data['DisplayAspectRatio_String'].split(':')
