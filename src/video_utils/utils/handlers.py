@@ -88,6 +88,9 @@ class EMailHandler(logging.Handler):
     def emit(self, record):
         """Overload emit to send email"""
 
+        if not isinstance(record, str):
+            return
+
         with self.lock:
             if len(self._logs) > self._max:
                 self._logs.pop(0)

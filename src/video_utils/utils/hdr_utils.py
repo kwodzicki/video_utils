@@ -9,6 +9,8 @@ import logging
 import os
 from subprocess import Popen, STDOUT, DEVNULL
 
+from .ffmpeg_utils import extract_hevc
+
 RUST_CARGO = os.path.join(
     os.path.expanduser('~'),
     ".cargo",
@@ -96,7 +98,11 @@ def dovi_inject(hevc_file, dolby_vision_file):
     return hevc_file
 
 
-def dovi_extract(hevc_file):
+def dovi_extract(
+    src_file: str,
+    out_file: str | None = None,
+    ext: str = ".bin",
+) -> str | None:
     """
     Run 'dovi_tool' for Dolby Vision data
 
@@ -116,12 +122,9 @@ def dovi_extract(hevc_file):
         log.error("dovi_tool NOT installed!")
         return None
 
-    if hevc_file is None:
-        return None
-
-    log.info("Extracting Dolby Vision data from : %s", hevc_file)
-    fname, _ = os.path.splitext(hevc_file)
-    out_file = fname + ".bin"
+    out_file, _ = os.path.splitext(out_file or src_file)
+    if not out_file.endswith(ext):
+        out_file += ext
 
     cmd = [
         DOVI_TOOL,
@@ -129,14 +132,23 @@ def dovi_extract(hevc_file):
         '-m', '2',
         'extract-rpu',
         '-o', out_file,
-        hevc_file,
+        '-',
     ]
-    proc = Popen(cmd, stdout=DEVNULL, stderr=STDOUT)
-    if proc.wait() != 0:
-        log.warning("Failed to extract Dolby Vision data : %s", hevc_file)
-        return None
 
-    return out_file
+    log.info("Extracting Dolby Vision data: %s --> %s", src_file, out_file)
+    extract = extract_hevc(src_file)
+    proc = Popen(cmd, stdin=extract.stdout, stdout=DEVNULL, stderr=STDOUT)
+    extract.stdout.close()
+
+    if proc.wait() != 0:
+        log.warning("Failed to extract Dolby Vision data!")
+        return None
+    _ = proc.communicate()
+
+    if check_file(out_file):
+        return out_file
+    log.warning("Issue with Dolby Vision metadata file!")
+    return None
 
 
 def hdr10plus_inject(hevc_file, hdr10plus_file):
@@ -186,7 +198,11 @@ def hdr10plus_inject(hevc_file, hdr10plus_file):
     return hevc_file
 
 
-def hdr10plus_extract(hevc_file):
+def hdr10plus_extract(
+    src_file: str,
+    out_file: str | None = None,
+    ext: str = ".json",
+) -> str | None:
     """
     Run 'hdr10plus_tool' for Dolby Vision data
 
@@ -206,26 +222,33 @@ def hdr10plus_extract(hevc_file):
         log.error("hdr10plus_tool NOT installed!")
         return None
 
-    if hevc_file is None:
-        return None
-
-    log.info("Extracting HDR10+ data from : %s", hevc_file)
-    fname, _ = os.path.splitext(hevc_file)
-    out_file = fname + ".json"
+    out_file, _ = os.path.splitext(out_file or src_file)
+    if not out_file.endswith(ext):
+        out_file += ext
 
     cmd = [
         HDR10PLUS_TOOL,
         "extract",
         "-o", out_file,
-        hevc_file,
+        "-",
     ]
 
-    proc = Popen(cmd, stdout=DEVNULL, stderr=STDOUT)
+    log.info("Extracting HDR10+ data: %s --> %s", src_file, out_file)
+    extract = extract_hevc(src_file)
+
+    proc = Popen(cmd, stdin=extract.stdout, stdout=DEVNULL, stderr=STDOUT)
+    extract.stdout.close()
+
     if proc.wait() != 0:
-        log.warning("Failed to extract HDR10+ data : %s", hevc_file)
+        log.warning("Failed to extract HDR10+ data!")
         return None
 
-    return out_file
+    _ = proc.communicate()
+
+    if check_file(out_file):
+        return out_file
+    log.warning("Issue with HDR10+ metadata file!")
+    return None
 
 
 def check_file(fpath):
