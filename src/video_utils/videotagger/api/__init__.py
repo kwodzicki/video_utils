@@ -5,8 +5,10 @@ Base API class for TVDb and TMDb
 
 import logging
 import json
+from urllib.parse import urlencode
 
 import requests
+import tvdb_v4_official as tvdb_api
 
 from .keys import Keys
 from .utils import convert_date
@@ -28,14 +30,12 @@ class BaseAPI:
     TMDb_URLPerson = f'{TMDb_URLBase}/person/{{}}'
     TMDb_URLImage = 'https://image.tmdb.org/t/p/original/{}'
 
-    TVDb_URLBase = 'https://api.thetvdb.com'
-    TVDb_URLLogin = f'{TVDb_URLBase}/login'
-    TVDb_URLSearch = f'{TVDb_URLBase}/search/series'
+    TVDb_URLBase = tvdb_api.Url().base_url.rstrip('/')
+    TVDb_URLSearch = f'{TVDb_URLBase}/search'
     TVDb_URLMovie = f'{TVDb_URLBase}/movies/{{}}'
     TVDb_URLSeries = f'{TVDb_URLBase}/series/{{}}'
     TVDb_URLEpisode = '{}/episodes/{}'
-    TVDb_URLImage = 'https://artworks.thetvdb.com/banners/{}'
-    __TVDb_Headers = {'Content-Type': 'application/json'}
+    TVDb_URLImage = f'{TVDb_URLBase}/artwork/{{}}'
 
     TIMEOUT = 600.0
 
@@ -50,70 +50,23 @@ class BaseAPI:
         """
 
         self.__log = logging.getLogger(__name__)
+        self._tvdb = None
 
     @property
-    def TVDb_Headers(self):
-        """Return TVDb headers"""
+    def tvdb(self):
+        if self._tvdb is not None:
+            return self._tvdb
 
-        self._tvdb_login()
-        return self.__TVDb_Headers
-
-    def _tvdb_login(self):
-        """
-        Method to login to (get api token) from TVDb
-
-        Arguments:
-          None
-
-        Keyword arguements:
-          None
-
-        Returns:
-          None: Sets attributes and creates token file in user home dir
-
-        """
-
-        # If api token is valid
-        if KEYS.TVDb_API_TOKEN:
-            self.__log.log(5, 'Using existing TVDb token')
-            self.__TVDb_Headers['Authorization'] = (
-                f'Bearer {KEYS.TVDb_API_TOKEN}'
+        try:
+            self._tvdb = tvdb_api.TVDB(
+                getattr(KEYS, 'TVDb_API_KEY', ''),
+                pin=getattr(KEYS, 'TVDb_API_PIN', ''),
             )
-            return True
+        except Exception as err:
+            self.__log.error("Failed to log into TVDb: %s", err)
+            return None
 
-        self.__TVDb_Headers.pop('Authorization', None)
-        KEYS.TVDb_API_TOKEN = None
-        if KEYS.TVDb_API_KEY:
-            self.__log.log(5, 'Getting new TVDb token')
-            data = {"apikey": KEYS.TVDb_API_KEY}
-            # If the username and userkey are set (not recommended)
-            if KEYS.TVDb_USERNAME and KEYS.TVDb_USERKEY:
-                data.update(
-                    {
-                        "username": KEYS.TVDb_USERNAME,
-                        "userkey": KEYS.TVDb_USERKEY,
-                    }
-                )
-
-            resp = requests.post(
-                self.TVDb_URLLogin,
-                data=json.dumps(data),
-                headers=self.__TVDb_Headers,
-                timeout=self.TIMEOUT,
-            )
-
-            if resp.status_code == 200:
-                KEYS.TVDb_API_TOKEN = resp.json()['token']
-                self.__TVDb_Headers['Authorization'] = (
-                    f'Bearer {KEYS.TVDb_API_TOKEN}'
-                )
-                return True
-
-            self.__log.error('Error getting TVDb login token!')
-        else:
-            raise Exception('No TVDb API key defined!')
-
-        return False
+        return self._tvdb
 
     def _get_request(self, url, **params):
         """
@@ -130,35 +83,44 @@ class BaseAPI:
 
         """
 
-        resp = None
-        kwargs = {'params': params}
         if self.TMDb_URLBase in url:
-            if 'api_key' not in kwargs['params']:
-                if KEYS.TMDb_API_KEY:
-                    kwargs['params']['api_key'] = KEYS.TMDb_API_KEY
-                else:
-                    raise Exception('TMDb API Key is not set!')
-        elif self.TVDb_URLBase in url:
-            kwargs['headers'] = self.TVDb_Headers
-        else:
-            raise Exception('Invalid URL!')
+            return self._get_request_tmdb(url, params)
+
+        if self.TVDb_URLBase in url:
+            return self._get_request_tvdb(url, params)
+
+        raise Exception('Invalid URL!')
+
+    def _get_request_tmdb(self, url, params):
+
+        kwargs = {'params': params}
+        if 'api_key' not in kwargs['params']:
+            if not KEYS.TMDb_API_KEY:
+                raise Exception('TMDb API Key is not set!')
+            kwargs['params']['api_key'] = KEYS.TMDb_API_KEY
 
         try:
             resp = requests.get(url, timeout=self.TIMEOUT, **kwargs)
         except Exception as error:
             self.__log.warning('Request failed: %s', error)
-        else:
-            if not resp.ok:
-                kwargs.pop('headers', None)
-                self.__log.warning(
-                    'Request is not okay: %s; %s; %s',
-                    url,
-                    kwargs,
-                    resp,
-                )
-                resp = self._close_request(resp)
+            return None
 
-        return resp
+        if resp.ok:
+            return resp
+
+        kwargs.pop('headers', None)
+        self.__log.warning(
+            'Request is not okay: %s; %s; %s',
+            url,
+            kwargs,
+            resp,
+        )
+        return self._close_request(resp)
+
+    def _get_request_tvdb(self, url, params):
+
+        url = url + "?" + urlencode(params)
+        return self.tvdb.request.make_request(url)
 
     def _close_request(self, resp):
         """
@@ -195,7 +157,6 @@ class BaseAPI:
 
         """
 
-        json_data = None
         # Key to check
         key = 'append_to_response'
         if key in kwargs:
@@ -204,10 +165,18 @@ class BaseAPI:
                 kwargs[key] = ','.join(kwargs[key])
 
         resp = self._get_request(url, **kwargs)
-        if resp:
+        if resp is None:
+            return None
+
+        if isinstance(resp, (list, dict)):
+            json_data = resp
+        else:
             try:
                 json_data = resp.json()
             except Exception as error:
                 self.__log.error('Failed to get JSON data : %s', error)
-            resp = self._close_request(resp)
+                return None
+            finally:
+                resp = self._close_request(resp)
+
         return convert_date(json_data)

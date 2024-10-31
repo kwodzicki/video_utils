@@ -36,7 +36,7 @@ def convert_date(info: dict) -> dict:
                 # Set value of info[key] to result of recursive call
                 info[key] = convert_date(val)
             # Else, if 'date' or 'Aired' in key
-            elif ('date' in key) or ('Aired' in key):
+            elif ('date' in key) or ('time' in key):
                 try:
                     info[key] = datetime.strptime(val, DATEFMT)
                 except:

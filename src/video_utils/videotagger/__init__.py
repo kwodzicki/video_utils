@@ -131,7 +131,8 @@ class TVDb(BaseAPI):
 
     def search(
         self,
-        title=None,
+        title: str | None = None,
+        type: str | None = None,
         episode=None,
         seasonEp=None,
         year=None,
@@ -149,23 +150,30 @@ class TVDb(BaseAPI):
             return []
 
         self.__log.debug("Searching TVDb")
-        params = {'name': title}
+        params = {
+            'query': title,
+            'type': type or 'series',
+        }
         if page:
             params['page'] = page
 
         json = self._get_json(self.TVDb_URLSearch, **params)
-        if (not isinstance(json, dict)) or ('data' not in json):
-            return []
+        if len(json) == 0:
+            return json
 
         # Take first nresults
         best_ratio = 0.0
         series = None
-        for item in json['data'][:nresults]:
+        for item in json[:nresults]:
             time.sleep(0.5)  # Sleep for request limit
-            if 'seriesName' not in item:
+            if 'name' not in item:
                 continue
 
-            item = _series.TVDbSeries(item['id'], **kwargs)
+            item = _series.TVDbSeries(
+                int(item['tvdb_id']),
+                **kwargs,
+            )
+            return item
             # Check item season info against user requested season number
             if isinstance(item, _series.TVDbSeries) and seasonEp is not None:
                 if not item.season:
@@ -211,6 +219,10 @@ class TVDb(BaseAPI):
         if not isinstance(series, _series.TVDbSeries):
             return []
 
+        # If not season/episode to search for, just return series match
+        if seasonEp is None:
+            return series
+
         if isinstance(dvdOrder, bool):
             # If bool type, then user set, so use their option
             tmp = _episode.TVDbEpisode(
@@ -222,7 +234,6 @@ class TVDb(BaseAPI):
             return [tmp]
 
         # We want to get DVD and Aired order and compare episode names
-
         aired = _episode.TVDbEpisode(
             series,
             *seasonEp,
