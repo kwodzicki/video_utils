@@ -92,7 +92,7 @@ class PopenThread(Thread):
         self.__log = logging.getLogger(__name__)
         self._cpulimit = kwargs.pop('cpulimit', None)
         threads = kwargs.pop('threads', None)
-        self._threads = thread_check(threads)
+        self._threads, *_ = thread_check(threads)
         self._args = args
         self._kwargs = kwargs
         self._returncode = None
@@ -178,8 +178,7 @@ class PopenThread(Thread):
     def run(self):
         """Overload run method"""
 
-        if self.threads is not None:
-            PROCLOCK.acquire(threads=self.threads)
+        PROCLOCK.acquire(threads=self.threads)
 
         # Set _proc_started event after lock is acquired
         self._proc_started.set()
@@ -239,8 +238,7 @@ class PopenThread(Thread):
         except:
             pass
 
-        if self.threads is not None:
-            PROCLOCK.release(threads=self.threads)
+        PROCLOCK.release(threads=self.threads)
 
     def __cpulimit(self):
         """
@@ -335,7 +333,9 @@ class PopenPool(Thread):
     @classmethod
     def __set_threads(cls, val):
 
-        cls.__threads = thread_check(val)
+        val, maxt = thread_check(val)
+        val = maxt if val is None else val
+        cls.__threads = val
         PROCLOCK.threads = cls.__threads
 
     @property

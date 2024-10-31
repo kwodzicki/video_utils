@@ -10,7 +10,7 @@ import logging
 from threading import Lock, Event
 from multiprocessing import cpu_count
 
-MAXTHREADS = cpu_count()
+MAXTHREADS = max(1, cpu_count() - 1)  # Max threads in one less than total
 MINTHREADS = 1
 
 HALFTHREADS = max(MAXTHREADS // 2, 1)
@@ -44,25 +44,23 @@ def isRunning(**kwargs):
     return (not _sigintEvent.is_set()) and (not _sigtermEvent.is_set())
 
 
-def thread_check(val: int | None) -> int | None:
+def thread_check(val: int | None) -> tuple[int | None]:
     """
     Check requested number of threads
 
     Check that requested number of threads is integer type and is
     within allowable range
 
+    Returns:
+        tuple: First value is clipped number of threads to use for a proccess
+            and second number is maximum number of threads
+
     """
 
     if not isinstance(val, int):
-        return MAXTHREADS
+        return None, MAXTHREADS
 
-    if val < MINTHREADS:
-        return MINTHREADS
-
-    if val > MAXTHREADS:
-        return MAXTHREADS
-
-    return val
+    return min(MAXTHREADS, max(MINTHREADS, val)), MAXTHREADS
 
 
 class NLock:
@@ -148,7 +146,8 @@ class NLock:
     @classmethod
     def __set_threads(cls, val):
 
-        cls.__threads = thread_check(val)
+        val, maxt = thread_check(val)
+        cls.__threads = maxt if val is None else val
 
     @classmethod
     def __set_n(cls, val):
@@ -193,7 +192,8 @@ class NLock:
 
         threads = kwargs.pop('threads', None)
         if not isinstance(threads, int):
-            threads = 1
+            return True
+
         threads = max(threads, 1)
 
         # Increment number of locks to grab
@@ -233,8 +233,12 @@ class NLock:
                 threads = 1
             threads = max(threads, 1)
 
-            # Decrement __n by threads
-            self.n -= threads
+            if self.n < threads:
+                self.n = 0
+            else:
+                # Decrement __n by threads
+                self.n -= threads
+
             # If lock2 is locked
             if self.__lock2.locked():
                 self.__lock2.release()

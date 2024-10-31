@@ -455,7 +455,8 @@ class MediaInfo:
 
         """
 
-        x265_opts = ["pools=none", f"crf={crf}"]
+        # x265_opts = ["pools=none", f"crf={crf}"]
+        x265_opts = [f"crf={crf}"]
         hdr_opts = get_hdr_opts(self.infile)
         if hdr_opts is None:
             return ["-x265-params", ":".join(x265_opts)]

@@ -412,7 +412,7 @@ def cropdetect_cmd(
     infile: str,
     start_time: timedelta,
     seg_len: timedelta,
-    threads: int,
+    threads: int | None,
 ) -> list[str]:
     """
     Generate ffmpeg command list for crop detection
@@ -435,13 +435,14 @@ def cropdetect_cmd(
         raise Exception('start_time must be datetime.timedelta object')
     if not isinstance(seg_len, timedelta):
         raise Exception('seg_len must be datetime.timedelta object')
-    if not isinstance(threads, int):
-        raise Exception('threads must be int')
+
     # Return the list with command
-    return [
-        'ffmpeg',
-        '-nostats',
-        '-threads', str(threads),
+    cmd = ['ffmpeg', '-nostats']
+
+    if isinstance(threads, int):
+        cmd = cmd + ['-threads', str(threads)]
+
+    return cmd + [
         '-ss', str(start_time),
         '-i', infile,
         '-max_muxing_queue_size', '1024',
@@ -478,12 +479,6 @@ def cropdetect(
     """
 
     log = logging.getLogger(__name__)
-
-    # Set default value for number of threads
-    threads = max(
-        threads if isinstance(threads, int) else POPENPOOL.threads,
-        1,
-    )
 
     # Counter for number of crop regions detected
     n_crop = 0
@@ -682,26 +677,26 @@ class FFmpegProgress:
         # If the file duration has NOT been set yet
         if self.dur is None:
             # Try to find the file duration pattern in the line
-            tmp = DURPAT.findall(line)
-            if len(tmp) == 1:
+            matches = DURPAT.findall(line)
+            if len(matches) == 1:
                 # Compute the total number of seconds in the file,
                 # take element zero as returns list
-                self.dur = total_seconds(tmp[0])[0]
+                self.dur = total_seconds(matches[0])[0]
         # Else, if the amount of time between the last logging and now is
         # greater or equal to the interval
         elif (time.time() - self.time1) >= self.interval:
             # Update the time at which we are logging
             self.time1 = time.time()
             # Look for progress time in the line
-            tmp = PROGPAT.findall(line)
+            matches = PROGPAT.findall(line)
             # If progress NOT found; or multiple found, return
-            if len(tmp) != 1:
+            if len(matches) == 0:
                 return
             # Compute the elapsed time
             elapsed = self.time1 - self.time0
             # Compute total number of seconds comverted so far, take element
             # zero as returns list
-            prog = total_seconds(tmp[0])[0]
+            prog = total_seconds(matches[-1])[0]
             # Ratio of real-time seconds per seconds of video processed
             ratio = elapsed / prog
             # Multiply ratio by the number of seconds of video left to convert
@@ -768,26 +763,26 @@ def progress(
     while line != '':
         if dur is None:
             # Try to find the file duration pattern in the line
-            tmp = DURPAT.findall(line)
+            matches = DURPAT.findall(line)
             # If the pattern is found
-            if len(tmp) == 1:
+            if len(matches) == 1:
                 # Compute the total number of seconds in the file, take
                 # element zero as returns list
-                dur = total_seconds(tmp[0])[0]
+                dur = total_seconds(matches[0])[0]
         # Else, if the amount of time between the last logging and now is
         # greater or equal to the interval
         elif (time.time() - time1) >= interval:
             # Update the time at which we are logging
             time1 = time.time()
             # Look for progress time in the line
-            tmp = PROGPAT.findall(line)
+            matches = PROGPAT.findall(line)
             # If progress time found
-            if len(tmp) == 1:
+            if len(matches) > 0:
                 # Compute the elapsed time
                 elapsed = time1 - time0
                 # Compute total number of seconds comverted so far, take
                 # element zero as returns list
-                prog = total_seconds(tmp[0])[0]
+                prog = total_seconds(matches[-1])[0]
                 # Ratio of real-time seconds per seconds of video processed
                 ratio = elapsed / prog
                 # Multiply ratio by number of seconds of video left to convert
@@ -1021,15 +1016,29 @@ def get_content_light_level_metadata(side_data):
     return None
 
 
-def extract_hevc(in_file, out_file):
+def extract_hevc(
+    in_file,
+    out_file: str | None = None,
+) -> str | Popen:
     """
     Extract HEVC stream from file
 
+    Arguments:
+        in_file (str): Input file to extract stream from
+
+    Keyword arguments:
+        out_file (str): File to write stream to. If no file specified, then
+            a Popen object is returned with stdout=subprocess.PIPE
+
+    Returns:
+        str, Popen: Based on the out_file keyword argument, either the path
+            to the output file or a Popen object is returned.
+
     """
 
-    out_file = f"{out_file}.hevc"
     cmd = [
         "ffmpeg",
+        "-nostdin",
         "-i", in_file,
         "-v", "error",
         "-stats",
@@ -1037,15 +1046,26 @@ def extract_hevc(in_file, out_file):
         "-an", "-sn", "-dn",
         "-bsf:v", "hevc_mp4toannexb",
         "-f", "hevc",
-        out_file,
     ]
 
-    proc = run(cmd, stderr=DEVNULL, check=False)
+    # If no out_file specified, then initialize and return Popen object
+    if out_file is None:
+        proc = Popen(
+            cmd + ['-'],
+            stdout=PIPE,
+            stderr=DEVNULL,
+        )
+        proc.source = in_file
+        return proc
+
+    # out_file was specified, so run command
+    proc = run(cmd + [out_file], stderr=DEVNULL, check=False)
     if proc.returncode == 0:
         return out_file
 
     if os.path.isfile(out_file):
         os.remove(out_file)
+
     return None
 
 

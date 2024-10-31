@@ -22,7 +22,7 @@ from .comremove import ComRemove
 from .utils import _sigintEvent, _sigtermEvent, isRunning, thread_check
 from .utils import hdr_utils
 from .utils.handlers import RotatingFile
-from .utils.ffmpeg_utils import cropdetect, extract_hevc, FFmpegProgress
+from .utils.ffmpeg_utils import cropdetect, FFmpegProgress
 
 from .subtitles import opensubtitles
 from .subtitles import ccextract
@@ -56,21 +56,21 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
     """
 
     def __init__(
-            self,
-            in_place: bool = False,
-            transcode_log: str | None = None,
-            comskip_log: str | None = None,
-            lang: str | list[str] | None = None,
-            threads: int | None = None,
-            container: str = 'mp4',
-            cpulimit: int | None = None,
-            x265: bool = False,
-            remove: bool = False,
-            comdetect: bool = False,
-            subtitles: bool = False,
-            srt: bool = False,
-            sub_delete_source: bool = False,
-            **kwargs,
+        self,
+        in_place: bool = False,
+        transcode_log: str | None = None,
+        comskip_log: str | None = None,
+        lang: str | list[str] | None = None,
+        threads: int | None = None,
+        container: str = 'mp4',
+        cpulimit: int | None = None,
+        x265: bool = False,
+        remove: bool = False,
+        comdetect: bool = False,
+        subtitles: bool = False,
+        srt: bool = False,
+        sub_delete_source: bool = False,
+        **kwargs,
     ):
         """
         Keyword arguments:
@@ -115,8 +115,7 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         self.container = container
         self.srt = srt
         self.cpulimit = cpulimit if isinstance(cpulimit, int) else 75
-        self.threads = threads 
-
+        self.threads = threads
 
         self.subtitles = False
         if subtitle_extract.CLI is None:
@@ -190,12 +189,9 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
     def threads(self):
         return self._threads
 
-    #threads.setter
+    @threads.setter
     def threads(self, val):
-        if val is None:
-            self._threads = None
-        else:
-            self._threads = thread_check(val)
+        self._threads, *_ = thread_check(val)
 
     @property
     def outdir(self) -> str:
@@ -332,7 +328,6 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         # Generate ffmpeg command list
         ffmpeg_cmd = self._ffmpeg_command(self.hevc_file or outfile)
 
-        self.__log.debug("%s %s", ffmpeg_cmd, self.threads)
         # Initialize ffmpeg progress class
         prog = FFmpegProgress(nintervals=10)
         stderr = RotatingFile(
@@ -392,7 +387,7 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         # If the transcode failed
         if self.transcode_status != 0:
             # If the application is NOT running
-            if not self.isRunning():
+            if not isRunning():
                 return outfile
 
             # If made here, then app is sitll running, so other issue
@@ -462,21 +457,23 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
             self.others_file = None
             self.dolby_vision_file = None
             self.hdr10plus_file = None
-
             return
 
         # Use self.outfile as has not extension yet
         self.__log.info(
             "Attempting to get HDR metadata; extracting HEVC stream",
         )
-        self.hevc_file = extract_hevc(self.infile, self.outfile)
-
-        if self.hevc_file is None:
-            return
+        self.hevc_file = f"{self.outfile}.hevc"
 
         # Could check the is_dolby_vision and is_hdr10plus properties here...
-        self.dolby_vision_file = hdr_utils.dovi_extract(self.hevc_file)
-        self.hdr10plus_file = hdr_utils.hdr10plus_extract(self.hevc_file)
+        self.dolby_vision_file = hdr_utils.dovi_extract(
+            self.infile,
+            self.outfile,
+        )
+        self.hdr10plus_file = hdr_utils.hdr10plus_extract(
+            self.infile,
+            self.outfile,
+        )
 
         if self.dolby_vision_file is None and self.hdr10plus_file is None:
             return
