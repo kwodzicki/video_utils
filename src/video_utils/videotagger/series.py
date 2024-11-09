@@ -107,7 +107,7 @@ class TVDbSeries(BaseSeries):
 
         seriesID = args[0]
         if isinstance(seriesID, str):
-            if not seriesID.startswith('tmdb'):
+            if not seriesID.startswith('tvdb'):
                 raise Exception("TVDb series ID must start with 'tvdb'")
             seriesID = seriesID.replace('tvdb', '')
 
