@@ -13,6 +13,8 @@ import tvdb_v4_official as tvdb_api
 from .keys import Keys
 from .utils import convert_date
 
+IMAGE_KEYS = ['_path', 'poster', 'banner', 'fanart', 'filename', 'image']
+
 # Timeout for requests; in seconds
 KEYS = Keys()
 

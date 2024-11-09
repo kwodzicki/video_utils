@@ -223,7 +223,7 @@ class TVDbEpisode(BaseEpisode):
 
         super().__init__(*args, **kwargs)
         self.__log = logging.getLogger(__name__)
-        extra_kws = {
+        self.KWARGS = {
             'TVDb': True,
             'imageURL': self.TVDb_URLImage,
         }
@@ -243,14 +243,14 @@ class TVDbEpisode(BaseEpisode):
         )
 
         dvdOrder = kwargs.get('dvdOrder', False)
-        self.URL = self.TVDb_URLEpisode.format(self.Series.URL, 'query')
         json = None
         if dvdOrder:
             # Search using supplied season/episode as dvd season/episode
+            URL = self.TVDb_URLEpisode.format(self.Series.URL, 'dvd')
             json = self._get_json(
-                self.URL,
-                dvdSeason=args[1],
-                dvdEpisode=args[2],
+                URL,
+                season=args[1],
+                episodeNumber=args[2],
             )
             if json is None:
                 self.__log.warning(
@@ -260,32 +260,61 @@ class TVDbEpisode(BaseEpisode):
 
         if json is None:
             dvdOrder = False
+            URL = self.TVDb_URLEpisode.format(self.Series.URL, 'official')
             json = self._get_json(
-                self.URL,
-                airedSeason=args[1],
-                airedEpisode=args[2],
+                URL,
+                season=args[1],
+                episodeNumber=args[2],
             )
 
-        if (json is None) or ('data' not in json):
+        if json is None:
             return
 
-        # Set ref to first element of data list
-        ref = json['data'][0]
-        # If more than one result in data list
-        if len(json['data']) > 1:
-            ref = {key: to_list(val) for key, val in ref.items()}
+        ep_info = json.get('episodes', [])
+        if len(ep_info) == 0:
+            self.__log.error("No episode found!")
+            return
+        if len(ep_info) > 1:
+            self.__log.error("More than one (1) episode found!")
+            return
 
-            for extra in json['data'][1:]:
-                for key in ref.keys():
-                    extra_val = extra.get(key, None)
-                    if extra_val is None:
-                        continue
-                    ref[key] += to_list(extra_val)
-        json = ref
+        ep_id = ep_info[0].get('id', None)
+        if ep_id is None:
+            self.__log.error("Episode ID is not defined!")
+            return
 
-        actors = self._get_json(self.Series.URL + '/actors')
-        if actors is not None and 'errors' not in actors:
-            json['credits'] = {'cast': actors['data']}
-        info = parse_info(json, dvdOrder=dvdOrder, **extra_kws)
-        if info is not None:
-            self._data.update(info)
+        self.URL = self.TVDb_URLEpisode.format(self.TVDb_URLBase, ep_id)
+        json = self._get_json(
+            f"{self.URL}/extended",
+            season=args[1],
+            episodeNumber=args[2],
+        )
+
+        if json is None:
+            self.__log.error("Failed to get episode information")
+            return
+
+        info = parse_info(json, **self.KWARGS)
+        if info is None:
+            return
+
+        self._data.update(info)
+
+        # # If more than one result in data list
+        # if len(json['data']) > 1:
+        #     ref = {key: to_list(val) for key, val in ref.items()}
+
+        #     for extra in json['data'][1:]:
+        #         for key in ref.keys():
+        #             extra_val = extra.get(key, None)
+        #             if extra_val is None:
+        #                 continue
+        #             ref[key] += to_list(extra_val)
+        # json = ref
+
+        # actors = self._get_json(self.Series.URL + '/actors')
+        # if actors is not None and 'errors' not in actors:
+        #     json['credits'] = {'cast': actors['data']}
+        # info = parse_info(json, dvdOrder=dvdOrder, **extra_kws)
+        # if info is not None:
+        #     self._data.update(info)

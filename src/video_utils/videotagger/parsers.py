@@ -5,6 +5,8 @@ Parsers for metadata from TVDb and TMDb
 
 import logging
 import re
+
+from .api import IMAGE_KEYS
 from .person import Person
 
 # Dictionary for converting episode ordering (aired or DVD) to standard format
@@ -96,43 +98,31 @@ def tvdb2tmdb(info):
             return None
     # info[key] = PARENTH.sub('', info[key])
 
-    if 'imdbId' in info:
-        info['external_ids'] = {'imdb_id': info.pop('imdbId')}
+    # Convert external IDs
+    external_ids = {}
+    for remote_id in info.pop('remoteIds', []):
+        idx = remote_id.get('id')
+        source = remote_id.get('sourceName', '')
+        if source == 'IMDB':
+            external_ids['imdb_id'] = idx
+        elif source == 'TheMovieDB.com':
+            external_ids['tmdb_id'] = idx
+    info['external_ids'] = external_ids
 
-    # work on credits
-    credits_info = info.pop('credits', {})
-    crew = []
-    job = 'Director'
-    key = 'director'
-    if key in info:
-        crew.append(
-            {'name': info.pop(key), 'job': job}
-        )
+    # Convert credits
+    info = characters_to_credits(info)
 
-    key = 'directors'
-    for name in info.pop(key, []):
-        crew.append(
-            {'name': name, 'job': job}
-        )
+    # Rename companines
+    info['production_companies'] = info.pop('companies', [])
 
-    job = 'Writer'
-    key = 'writers'
-    for name in info.pop(key, []):
-        crew.append(
-            {'name': name, 'job': job}
-        )
+    # Rename aired date
+    air_date = info.pop('firstAired', None)
+    if air_date:
+        info['air_date'] = air_date
 
-    if crew:
-        credits_info['crew'] = crew
-
-    guests = info.pop('guestStars', None)
-    if guests:
-        credits_info['guest_stars'] = [
-            {'name': guest} for guest in guests
-        ]
-
-    if credits_info:
-        info['credits'] = credits_info
+    # Convert season/episode numbers
+    info['season_number'] = info.pop('seasonNumber', None)
+    info['episode_number'] = info.pop('number', None)
 
     keys = ['seriesId', 'season_number', 'episode_number']
     for key in keys:
@@ -194,6 +184,14 @@ def parse_releases(info, **kwargs):
             for result in results:
                 releases[result['iso_3166_1']] = result['release_dates']
             info['release_dates'] = releases
+        return info
+
+    for rating in info.pop('contentRatings', []):
+        rating = rating.get('name', '')
+        if rating != '':
+            info['rating'] = rating
+            return info
+
     return info
 
 
@@ -202,12 +200,57 @@ def image_paths(info, **kwargs):
 
     image_url = kwargs.get('imageURL', None)
     if image_url:
-        image_keys = ['_path', 'poster', 'banner', 'fanart', 'filename']
         for key, val in info.items():
-            if any(image in key for image in image_keys):
+            if any(image in key for image in IMAGE_KEYS):
                 if isinstance(val, (list, tuple)):
                     val = val[0]
-                info[key] = image_url.format(val)
+                if not isinstance(val, str) or not val.startswith('http'):
+                    val = image_url.format(val)
+                info[key] = val
+    return info
+
+
+def characters_to_credits(info: dict) -> dict:
+    """
+    Convert characters to credits dict
+
+    TVDb v4 API uses the 'characters' tag to store information for all
+    cast and crew for a series (or episode). This method acts to convert
+    that into the 'credits' dict as expected from the v3 API and TMDb for
+    consistency.
+
+    """
+
+    chars = info.pop('characters', None)
+    if chars is None:
+        return {**info, 'credits': {}}
+
+    crew = []
+    cast = []
+    guests = []
+    for char in chars:
+        ptype = char.pop('peopleType', '').upper()
+        name = char.pop('personName', '')
+        if name == '':
+            continue
+
+        char['name'] = name
+        if ptype == 'ACTOR':
+            cast.append(char)
+        elif ptype == 'GUEST STAR':
+            guests.append(char)
+        elif ptype == 'WRITER':
+            crew.append({**char, 'job': 'Writer'})
+        elif ptype == 'DIRECTOR':
+            crew.append({**char, 'job': 'Director'})
+        elif 'PRODUCER' in ptype:
+            crew.append({**char, 'job': 'Producer'})
+
+    info['credits'] = {
+        'cast': cast,
+        'crew': crew,
+        'guest_stars': guests,
+    }
     return info
 
 

@@ -7,7 +7,7 @@ import logging
 
 from datetime import datetime
 
-from .api import BaseAPI
+from .api import BaseAPI, IMAGE_KEYS
 from .writers import write_tags
 
 
@@ -299,6 +299,37 @@ class BaseItem(BaseAPI):
                 persons.append(f'{person.name} ({person.job})')
         return persons
 
+    def _generalGetter(self, key: str) -> list:
+        """
+        General getter for some information
+
+        Looks for Series object and also in 'base' object to get key
+        Arguments:
+            key (str): Name of attribute to get
+
+        Keyword arguments:
+            None
+
+        Returns:
+            List of srings containing cast members
+
+        """
+
+        tmp = []
+        if self.Series is not None:
+            if self.Series[key] is not None:
+                tmp.extend(
+                    [i['name'] for i in self.Series[key]]
+                )
+
+        if self[key] is not None:
+            tmp.extend([i['name'] for i in self[key]])
+
+        if len(tmp) == 0:
+            return ['']
+
+        return tmp
+
     def _getCast(self):
         """
         Method to get list of cast members
@@ -314,9 +345,41 @@ class BaseItem(BaseAPI):
 
         """
 
-        if self.cast is not None:
-            return [i.name for i in self.cast]
-        return ['']
+        return self._generalGetter('cast')
+
+    def _getGenre(self):
+        """
+        Method to get list of genre(s)
+
+        Arguments:
+            None
+
+        Keyword arguments:
+            None
+
+        Returns:
+            List of strings containing genre(s)
+
+        """
+
+        return self._generalGetter('genres')
+
+    def _getProdCompanies(self, **kwargs):
+        """
+        Method to get list of production company(s)
+
+        Arguments:
+            None
+
+        Keyword arguments:
+            None
+
+        Returns:
+            List of strings containing production company(s)
+
+        """
+
+        return list(set(self._generalGetter('production_companies')))
 
     def _getRating(self, **kwargs):
         """
@@ -353,44 +416,6 @@ class BaseItem(BaseAPI):
             return self.Series.rating
         # rating = self.Series.rating
         return rating
-
-    def _getGenre(self):
-        """
-        Method to get list of genre(s)
-
-        Arguments:
-            None
-
-        Keyword arguments:
-            None
-
-        Returns:
-            List of strings containing genre(s)
-
-        """
-
-        if self.genres is not None:
-            return [i['name'] for i in self.genres]
-        return ['']
-
-    def _getProdCompanies(self, **kwargs):
-        """
-        Method to get list of production company(s)
-
-        Arguments:
-            None
-
-        Keyword arguments:
-            None
-
-        Returns:
-            List of strings containing production company(s)
-
-        """
-
-        if self.production_companies is not None:
-            return [i['name'] for i in self.production_companies]
-        return ['']
 
     def _getPlot(self, **kwargs):
         """
@@ -430,20 +455,20 @@ class BaseItem(BaseAPI):
 
         """
 
-        if self.filename is not None:
-            return self.filename
-        if self.poster_path is not None:
-            return self.poster_path
+        for key in IMAGE_KEYS:
+            if self[key] is not None:
+                return self[key]
         return ''
 
     def _episodeData(self, **kwargs):
 
         plots = self._getPlot()
-        year = (
-            str(self.air_date.year)
-            if isinstance(self.air_date, datetime) else
-            ''
-        )
+        air_date = self.air_date
+        if air_date is None:
+            air_date = self.Series.air_date
+
+        year = str(air_date.year) if isinstance(air_date, datetime) else ''
+
         return {
             'year': year,
             'title': self.title,

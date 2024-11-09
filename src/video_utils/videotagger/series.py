@@ -99,7 +99,7 @@ class TVDbSeries(BaseSeries):
         self._tmdb = False
         self.KWARGS = {'TVDb': True, 'imageURL': self.TVDb_URLImage}
 
-        if self._data is not None:
+        if len(self._data) != 0:
             return
 
         if len(args) == 0:
@@ -111,8 +111,8 @@ class TVDbSeries(BaseSeries):
                 raise Exception("TVDb series ID must start with 'tvdb'")
             seriesID = seriesID.replace('tvdb', '')
 
-        self.URL = self.TVDb_URLSeries.format(seriesID) + '/extended'
-        json = self._get_json(self.URL, short=True)
+        self.URL = self.TVDb_URLSeries.format(seriesID)
+        json = self._get_json(f"{self.URL}/extended", short=False)
         if not isinstance(json, dict):
             return
 
@@ -120,10 +120,30 @@ class TVDbSeries(BaseSeries):
         if info is None:
             return
 
-        self._data.update(info)
+        self._data.update(
+            self.sort_series(info)
+        )
 
-        # else:
-        #  self.URL = self.TVDb_URLSeries.format( self.id )
-        #  json = self.getExtra( *self.EXTRA )
-        #  if json:
-        #    self._data.update( json )
+    @staticmethod
+    def sort_series(info: dict, key: str = 'seasons') -> dict:
+
+        if key not in info:
+            return info
+
+        nseasons = 0
+        seasons = {}
+        for ss in info[key]:
+            ss_type = ss.get('type', {}).get('name', '')
+            if ss_type not in seasons:
+                seasons[ss_type] = [ss]
+            else:
+                seasons[ss_type].append(ss)
+
+        for ss in seasons.values():
+            if len(ss) > nseasons:
+                nseasons = len(ss)
+
+        seasons['max'] = nseasons
+        info[key] = seasons
+
+        return info

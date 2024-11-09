@@ -132,7 +132,7 @@ class TVDb(BaseAPI):
     def search(
         self,
         title: str | None = None,
-        type: str | None = None,
+        kind: str | None = None,
         episode=None,
         seasonEp=None,
         year=None,
@@ -152,13 +152,14 @@ class TVDb(BaseAPI):
         self.__log.debug("Searching TVDb")
         params = {
             'query': title,
-            'type': type or 'series',
+            'type': kind or 'series',
         }
         if page:
             params['page'] = page
 
         json = self._get_json(self.TVDb_URLSearch, **params)
         if len(json) == 0:
+            self.__log.error("No JSON data returned by search")
             return json
 
         # Take first nresults
@@ -173,17 +174,16 @@ class TVDb(BaseAPI):
                 int(item['tvdb_id']),
                 **kwargs,
             )
-            return item
             # Check item season info against user requested season number
             if isinstance(item, _series.TVDbSeries) and seasonEp is not None:
-                if not item.season:
+                if not item.seasons:
                     self.__log.debug(
                         'No season info in series %s, but requested season %d',
                         item,
                         seasonEp[0],
                     )
                     continue
-                if seasonEp[0] > int(item.season):
+                if seasonEp[0] > item.seasons.get('max', 0):
                     self.__log.debug(
                         'Series "%s" has too few seasons: %s vs. %d requested',
                         item,
@@ -224,6 +224,7 @@ class TVDb(BaseAPI):
             return series
 
         if isinstance(dvdOrder, bool):
+            self.__log.debug("User requested 'dvdOrder=%s'", dvdOrder)
             # If bool type, then user set, so use their option
             tmp = _episode.TVDbEpisode(
                 series,
@@ -233,6 +234,7 @@ class TVDb(BaseAPI):
             )
             return [tmp]
 
+        self.__log.debug("Comparing aired and DVD order")
         # We want to get DVD and Aired order and compare episode names
         aired = _episode.TVDbEpisode(
             series,
@@ -246,6 +248,7 @@ class TVDb(BaseAPI):
             dvdOrder=True,
             **kwargs,
         )
+
         if aired == dvd:
             return [aired]
 
