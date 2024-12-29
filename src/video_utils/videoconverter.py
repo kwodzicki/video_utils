@@ -810,7 +810,6 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
             "-y",
             "-i", self.infile,
             *chapters,
-            "-tune", "zerolatency",
             *fmt,
             *threads,
             "-strict", strict,

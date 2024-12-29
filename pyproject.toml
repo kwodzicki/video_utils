@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "video_utils"
-version = "3.9.1"
+version = "3.9.2"
 description = "Package for transcoding video files to h264/h265 codec"
 readme = "README.md"
 authors = [
