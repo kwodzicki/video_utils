@@ -57,7 +57,18 @@ def pgs_to_srt(out_file, text_info, delete_source=False, **kwargs):
     parse = PgsParser(sup_file, text_info.get('lang3', 'und'))
     opts = Options()
     pgs = Pgs(parse.media_path, opts, b'', '')
-    pgs._items = list(parse.gen_pgs_subtitle_items())
+
+    # Try to convert to list
+    try:
+        pgs._items = list(parse.gen_pgs_subtitle_items())
+    except Exception as err:
+        log.exception(
+            "Failed to get list of PGS items; leaving PGS because "
+            "conversion to SRT failed: %s",
+            err,
+        )
+        return 2, ''
+
     if len(pgs._items) == 0:
         log.warning("No subtitles found in PGS file, removing : %s", sup_file)
         rmfile(sup_file, srt_file)

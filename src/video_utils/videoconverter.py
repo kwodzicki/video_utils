@@ -464,6 +464,7 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
             "Attempting to get HDR metadata; extracting HEVC stream",
         )
         self.hevc_file = f"{self.outfile}.hevc"
+        self.others_file = f"{self.outfile}.mka"
 
         # Could check the is_dolby_vision and is_hdr10plus properties here...
         self.dolby_vision_file = hdr_utils.dovi_extract(
@@ -484,8 +485,6 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
             dolby_vision_file=self.dolby_vision_file,
             hdr10plus_file=self.hdr10plus_file,
         )
-
-        self.others_file = f"{self.outfile}.mka"
 
     def file_info(
         self,
