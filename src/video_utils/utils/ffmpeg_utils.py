@@ -1120,7 +1120,12 @@ def partial_extract(
     return proc.returncode == 0
 
 
-def split_on_chapter(in_file: str, n_chapters: int | list[int]) -> None:
+def split_on_chapter(
+    in_file: str,
+    n_chapters: int | list[int],
+    preroll: int | float | None = None,
+    postroll: int | float | None = None,
+) -> None:
     """
     Split a video file based on chapters.
 
@@ -1145,6 +1150,9 @@ def split_on_chapter(in_file: str, n_chapters: int | list[int]) -> None:
     chapters = get_chapters(in_file)
     if not chapters:
         return
+
+    _preroll = preroll or PREROLL
+    _postroll = postroll or POSTROLL
 
     # If n_chapters is iterable
     if isinstance(n_chapters, (tuple, list)):
@@ -1173,9 +1181,9 @@ def split_on_chapter(in_file: str, n_chapters: int | list[int]) -> None:
             n_chapters
         )
         # Set local preroll
-        preroll = PREROLL if s_id > 0 else 0.0
+        preroll = _preroll if s_id > 0 else 0.0
         # Set local postroll
-        postroll = POSTROLL if e_id < len(chapters) else 0.0
+        postroll = _postroll if e_id < len(chapters) else 0.0
         # Subset chapters
         chaps = chapters[s_id:e_id]
         # Get chapter start time
