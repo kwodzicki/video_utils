@@ -138,6 +138,17 @@ BASEPARSER.add_argument(
     ),
 )
 BASEPARSER.add_argument(
+    '--crop',
+    action='store_true',
+    help=(
+        "Set to enable cropping of black bars from video. "
+        "We try to guess the crop area by looking at a few slices of the "
+        "video to determine how much to crop. If the crop region is too "
+        "small, or none found, then on crop is performed. Otherwise, crop "
+        "video during covert."
+    )
+)
+BASEPARSER.add_argument(
     "--lang",
     type=str,
     default='eng',

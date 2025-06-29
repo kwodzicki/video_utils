@@ -211,6 +211,7 @@ def cli():
             transcode_log=get_transcode_log(parser.prog),
             comskip_log=get_comskip_log(parser.prog),
             recursive=args.recursive,
+            crop=args.crop,
         )
     except:
         log.exception('Something went wrong! Watchdog failed to start')
