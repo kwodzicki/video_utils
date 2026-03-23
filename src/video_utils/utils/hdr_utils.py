@@ -7,11 +7,12 @@ Use the dovi_tool and/or hdr10plus_tool to extract HDR information.
 
 import logging
 import os
-from subprocess import Popen, STDOUT, PIPE, DEVNULL
+from subprocess import Popen, STDOUT, DEVNULL
 
 from .ffmpeg_utils import extract_hevc
+from .fanout import FanOutProcess
 
-BLOCK = 4096
+BLOCK = 2**20  # Set block size to 1 Mebibyte
 
 RUST_CARGO = os.path.join(
     os.path.expanduser('~'),
@@ -125,29 +126,32 @@ def extract_hdr(
             dovi_out_file,
         )
         log.debug('Running command: %s', dovi_cmd)
-        objs['Dolby Vision'] = {
-            'proc': Popen(dovi_cmd, stdin=PIPE, stdout=DEVNULL, stderr=STDOUT),
+        proc = FanOutProcess('Dolby Vision', dovi_cmd)
+        proc.start()
+        objs[proc.name] = {
+            'proc': proc,
             'out_file': dovi_out_file,
         }
     if hdr10plus_tool:
         log.info("Extracting HDR10+ data: %s --> %s", src_file, hdr_out_file)
         log.debug('Running command: %s', hdr_cmd)
-        objs['HDR10+'] = {
-            'proc': Popen(hdr_cmd, stdin=PIPE, stdout=DEVNULL, stderr=STDOUT),
+        proc = FanOutProcess('HDR10+', hdr_cmd)
+        proc.start()
+        objs[proc.name] = {
+            'proc': proc,
             'out_file': hdr_out_file,
         }
 
     data = extract.stdout.read(BLOCK)  # Read chunk from extract command
     while data != b"":  # While not metpy
         for info in objs.values():  # Iterate over HDR extractors
-            info['proc'].stdin.write(data)  # Write and flush data
-            info['proc'].stdin.flush()
+            info['proc'].send(data)  # Write and flush data
         data = extract.stdout.read(BLOCK)  # Read another bloack
 
     extract.stdout.close()
 
     for key, info in objs.items():
-        info['proc'].stdin.close()
+        info['proc'].stop()
 
         if info['proc'].wait() != 0:
             log.warning("Failed to extract %s data!", key)
