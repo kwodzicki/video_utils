@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "video_utils"
-version = "3.13.0"
+version = "3.13.1"
 description = "Package for transcoding video files to h264/h265 codec"
 readme = "README.md"
 authors = [
@@ -30,7 +30,7 @@ requires-python = ">=3.9"
 dependencies = [
     "mutagen",
     "soundfile",
-    "pillow", 
+    "pillow>=10.0.0", 
     "numpy",
     "scipy",
     "requests",
