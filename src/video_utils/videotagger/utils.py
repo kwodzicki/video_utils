@@ -140,19 +140,19 @@ def get_font(text, bbox):
     bbox[1] *= TSCALE
     fontsize = 1
     font = ImageFont.truetype(TTF, size=fontsize)
-    text_size = font.getsize(text)
+    _, _, *text_size = font.getbbox(text)
 
     # While the text fits within the box
     while text_size[0] < bbox[0] and text_size[1] < bbox[1]:
         fontsize += 1
         font = ImageFont.truetype(TTF, size=fontsize)
-        text_size = font.getsize(text)
+        _, _, *text_size = font.getbbox(text)
 
     # Decrement font size by 2 to ensure will fit
     fontsize -= 2
     font = ImageFont.truetype(TTF, size=fontsize)
 
-    text_size = font.getsize(text)
+    _, _, *text_size = font.getbbox(text)
     text_list = list(text)
 
     # Set number of added spaces to zero
@@ -164,7 +164,7 @@ def get_font(text, bbox):
         # Join text list using nspaces
         text = (SPACE * nspace).join(text_list)
         # Get new text size
-        text_size = font.getsize(text)
+        _, _, *text_size = font.getbbox(text)
 
     # Decement number of spaces as too wide at first
     nspace -= 1
@@ -209,13 +209,13 @@ def add_text(fpath_data, text):
     # Get text (may add spaces) and font to use
     text, font = get_font(text, bbox)
 
-    text_size = font.getsize(text)
+    _, _, *text_size = font.getbbox(text)
     # Compute x offset to center text
     xoffset = int(bbox[0] - text_size[0]) // 2
     yoffset = 0
 
     # Draw red box at top of cover
-    draw.rectangle((0, bbox[1], bbox[0], 0), fill=RED)
+    draw.rectangle((0, 0, *bbox), fill=RED)
     # Write text in box
     draw.text((xoffset, yoffset), text, font=font, fill=WHITE)
 

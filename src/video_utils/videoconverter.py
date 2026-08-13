@@ -70,6 +70,7 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         subtitles: bool = False,
         srt: bool = False,
         sub_delete_source: bool = False,
+        crop: bool = False,
         **kwargs,
     ):
         """
@@ -116,6 +117,7 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         self.srt = srt
         self.cpulimit = cpulimit if isinstance(cpulimit, int) else 75
         self.threads = threads
+        self.crop = crop
 
         self.subtitles = False
         if subtitle_extract.CLI is None:
@@ -402,13 +404,30 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
         self.__log.info("Transcode SUCCESSFUL!")
 
         if self.hevc_file:
-            self.hevc_file = hdr_utils.ingect_hdr(
+            self.hevc_file = hdr_utils.inject_hdr(
                 self.hevc_file,
                 self.dolby_vision_file,
                 self.hdr10plus_file,
             )
 
-            cmd = ["mkvmerge", "-o", outfile, self.hevc_file, self.others_file]
+            # Base command for merge
+            cmd = ["mkvmerge", "-o", outfile, self.hevc_file]
+
+            # If there were 2 video streams in the input file, then we
+            # assume is Dolby Vision FEL data and just copy that second track
+            # into the output.
+            if self.video_info.get('nstream', 1) == 2:
+                cmd += [
+                    '--video-tracks', '1',
+                    '--no-audio',
+                    '--no-subtitles',
+                    '--no-buttons',
+                    '--no-chapters',
+                    '--no-attachments',
+                    self.infile,
+                ]
+            cmd.append(self.others_file)
+
             proc = POPENPOOL.popen_async(cmd)
             proc.wait()
 
@@ -464,15 +483,13 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
             "Attempting to get HDR metadata; extracting HEVC stream",
         )
         self.hevc_file = f"{self.outfile}.hevc"
+        self.others_file = f"{self.outfile}.mka"
 
         # Could check the is_dolby_vision and is_hdr10plus properties here...
-        self.dolby_vision_file = hdr_utils.dovi_extract(
+        self.dolby_vision_file, self.hdr10plus_file = hdr_utils.extract_hdr(
             self.infile,
             self.outfile,
-        )
-        self.hdr10plus_file = hdr_utils.hdr10plus_extract(
-            self.infile,
-            self.outfile,
+            crop=self.crop,
         )
 
         if self.dolby_vision_file is None and self.hdr10plus_file is None:
@@ -484,8 +501,6 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
             dolby_vision_file=self.dolby_vision_file,
             hdr10plus_file=self.hdr10plus_file,
         )
-
-        self.others_file = f"{self.outfile}.mka"
 
     def file_info(
         self,
@@ -682,7 +697,10 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
                     err,
                 )
 
-    def _ffmpeg_command(self, video_file: str) -> list[str]:
+    def _ffmpeg_command(
+        self,
+        video_file: str,
+    ) -> list[str]:
         """
         A method to generate full ffmpeg command list
 
@@ -699,12 +717,16 @@ class VideoConverter(ComRemove, MediaInfo, opensubtitles.OpenSubtitles):
 
         cmd = self._ffmpeg_base()
 
-        # Attempt to detect cropping
-        crop_vals = cropdetect(
-            self.infile,
-            self.video_size,
-            threads=self.threads,
-        )
+        if self.crop:
+            # Attempt to detect cropping
+            crop_vals = cropdetect(
+                self.infile,
+                self.video_size,
+                threads=self.threads,
+            )
+        else:
+            crop_vals = None
+
         video_keys = self._video_keys()
         audio_keys = self._audio_keys()
         # Booleans for if all av options have been parsed

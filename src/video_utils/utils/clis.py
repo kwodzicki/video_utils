@@ -122,9 +122,30 @@ def split_on_chapter():
             'numbers of variable number of chapters in each segment'
         ),
     )
+    parser.add_argument(
+        '--preroll',
+        type=float,
+        help=(
+            "Pre-roll before split to pad by. Note that negative values "
+            "indicate time BEFORE chapter start and positive AFTER chapter."
+        ),
+    )
+    parser.add_argument(
+        '--postroll',
+        type=float,
+        help=(
+            "Post-roll at end of split to pad by. Note that negative values "
+            "indicate time BEFORE end and positive AFTER end."
+        ),
+    )
 
     args = parser.parse_args()
     if len(args.chapters) == 1:
         args.chapters = args.chapters[0]
 
-    ffmpeg_utils_.split_on_chapter(args.file, args.chapters)
+    ffmpeg_utils_.split_on_chapter(
+        args.file,
+        args.chapters,
+        preroll=args.preroll,
+        postroll=args.postroll,
+    )

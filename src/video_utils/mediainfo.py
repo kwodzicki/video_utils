@@ -371,9 +371,6 @@ class MediaInfo:
         if 'Video' not in self.__mediainfo:
             self.__log.warning('No video information!')
             return None
-        if len(self.__mediainfo['Video']) > 1:
-            self.__log.error('More than one (1) video stream...Stopping!')
-            return None
 
         encoder = ''
         video_data = self.__mediainfo['Video'][0]
@@ -387,6 +384,7 @@ class MediaInfo:
 
         info = {
             'order': ('-map', '-filter', '-opts'),
+            'nstream': len(self.__mediainfo['Video']),
         }
         for tag in info['order']:
             info[tag] = []
@@ -395,6 +393,18 @@ class MediaInfo:
 
         # Set resolution and rate factor based on video height
         resolution, crf = set_resolution(video_data['Height'])
+
+        if resolution <= 1080 and info['nstream'] > 1:
+            self.__log.error(
+                'More than one (1) video stream in HD or lower...Stopping!',
+            )
+            return None
+
+        if resolution > 1080 and info['nstream'] > 2:
+            self.__log.error(
+                'More than two (2) video stream in UHD...Stopping!',
+            )
+            return None
 
         if resolution <= 1080 and not x265:
             encoder = 'x264'
@@ -479,6 +489,7 @@ class MediaInfo:
         )
 
         if dolby_vision_file:
+            dolby_vision_file = dolby_vision_file.replace("'", r"\'")
             x265_opts.extend(
                 [
                     "dolby-vision-profile=8.1",
@@ -486,6 +497,7 @@ class MediaInfo:
                 ]
             )
         if hdr10plus_file:
+            hdr10plus_file = hdr10plus_file.replace("'", r"\'")
             x265_opts.extend(
                 ["dhdr10-opt=1", f"dhdr10-info={hdr10plus_file}"]
             )

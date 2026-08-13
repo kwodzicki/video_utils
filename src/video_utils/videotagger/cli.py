@@ -38,14 +38,15 @@ def tag_file(args):
         seasonEp=args.season_episode,
         dvdOrder=args.dvdOrder,
     )
-    metadata.addComment(
-        f'Metadata written with {pkg_name} version {__version__}.'
-    )
     try:
+        metadata.addComment(
+            f'Metadata written with {pkg_name} version {__version__}.'
+        )
         metadata.write_tags(args.path)
     except:
         log.critical('Failed to write tags')
         return False
+
     if args.rename:
         mediainfo = MediaInfo(args.path)
         video = mediainfo.get_video_info()

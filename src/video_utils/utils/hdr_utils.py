@@ -10,6 +10,9 @@ import os
 from subprocess import Popen, STDOUT, DEVNULL
 
 from .ffmpeg_utils import extract_hevc
+from .fanout import FanOutProcess
+
+BLOCK = 2**20  # Set block size to 1 Mebibyte
 
 RUST_CARGO = os.path.join(
     os.path.expanduser('~'),
@@ -26,11 +29,11 @@ HDR10PLUS_TOOL = os.path.join(
 )
 
 
-def ingect_hdr(hevc_file, dolby_vision_file, hdr10plus_file):
+def inject_hdr(hevc_file, dolby_vision_file, hdr10plus_file):
     """
     Ingect Dolby Vision/HDR10 data
 
-    Given an HEVC encoded video file ingect Dolby Vision
+    Given an HEVC encoded video file inject Dolby Vision
     and or HDR10+ metadata into the file.
 
     Arguments:
@@ -49,6 +52,119 @@ def ingect_hdr(hevc_file, dolby_vision_file, hdr10plus_file):
     hevc_file = hdr10plus_inject(hevc_file, hdr10plus_file)
 
     return hevc_file
+
+
+def extract_hdr(
+    src_file: str,
+    out_file: str | None = None,
+    crop: bool = False,
+) -> str | None:
+    """
+    Attempt to extract Dolby Vision and HDR10+ data
+
+    This function will pull out an hevc_mp4toannexb formatted video from
+    an mkv file and pipe the data into both the dovi_tool and hdr10plus_tool.
+
+    Arguments:
+        src_file (str) : Path to mkv file to extract/convert stream from
+            to then feed into the HDR tools
+        out_file (str): Output file for reencoded file; used to create HDR
+            metadata names
+
+    Keyword arguments:
+        crop (bool): If set, will use the --crop flag in the dovi_tool.
+
+    Returns:
+        tuple: path the dovi and hdr files, respectively. If no issues, then
+            will be string, else will be None
+
+    """
+
+    log = logging.getLogger(__name__)
+
+    dovi_tool = DOVI_TOOL
+    if not os.path.isfile(DOVI_TOOL):
+        log.error("dovi_tool NOT installed!")
+        dovi_tool = None
+
+    hdr10plus_tool = HDR10PLUS_TOOL
+    if not os.path.isfile(HDR10PLUS_TOOL):
+        log.error("hdr10plus_tool NOT installed!")
+        hdr10plus_tool = None
+
+    if dovi_tool is None and hdr10plus_tool is None:
+        return None, None
+
+    out_file, _ = os.path.splitext(out_file or src_file)
+    dovi_out_file = out_file + '.bin'
+    hdr_out_file = out_file + '.json'
+
+    if dovi_tool:
+        dovi_cmd = [dovi_tool, '--mode', '2']
+        if crop:
+            dovi_cmd.append('--crop')
+        dovi_cmd += [
+            'extract-rpu',
+            '-o', dovi_out_file,
+            '-',
+        ]
+
+    if hdr10plus_tool:
+        hdr_cmd = [
+            hdr10plus_tool,
+            "extract",
+            "-o", hdr_out_file,
+            "-",
+        ]
+
+    extract = extract_hevc(src_file)
+    objs = {}
+    if dovi_tool:
+        log.info(
+            "Extracting Dolby Vision data: %s --> %s",
+            src_file,
+            dovi_out_file,
+        )
+        log.debug('Running command: %s', dovi_cmd)
+        proc = FanOutProcess('Dolby Vision', dovi_cmd)
+        proc.start()
+        objs[proc.name] = {
+            'proc': proc,
+            'out_file': dovi_out_file,
+        }
+    if hdr10plus_tool:
+        log.info("Extracting HDR10+ data: %s --> %s", src_file, hdr_out_file)
+        log.debug('Running command: %s', hdr_cmd)
+        proc = FanOutProcess('HDR10+', hdr_cmd)
+        proc.start()
+        objs[proc.name] = {
+            'proc': proc,
+            'out_file': hdr_out_file,
+        }
+
+    data = extract.stdout.read(BLOCK)  # Read chunk from extract command
+    while data != b"":  # While not metpy
+        for info in objs.values():  # Iterate over HDR extractors
+            info['proc'].send(data)  # Write and flush data
+        data = extract.stdout.read(BLOCK)  # Read another bloack
+
+    extract.stdout.close()
+
+    for key, info in objs.items():
+        info['proc'].stop()
+
+        if info['proc'].wait() != 0:
+            log.warning("Failed to extract %s data!", key)
+            info['out_file'] = None
+
+        if not check_file(info['out_file']):
+            log.warning("Issue with %s metadata file!", key)
+            info['out_file'] = None
+
+    return (
+        objs.get('Dolby Vision', {}).get('out_file', None),
+        objs.get('HDR10+', {}).get('out_file', None),
+    )
 
 
 def dovi_inject(hevc_file, dolby_vision_file):
@@ -85,6 +201,7 @@ def dovi_inject(hevc_file, dolby_vision_file):
         "-o", out_file,
     ]
 
+    log.debug('Running command: %s', cmd)
     proc = Popen(cmd, stdout=DEVNULL, stderr=STDOUT)
     if proc.wait() == 0:
         # command finished successfully!
@@ -102,6 +219,7 @@ def dovi_extract(
     src_file: str,
     out_file: str | None = None,
     ext: str = ".bin",
+    crop: bool = False,
 ) -> str | None:
     """
     Run 'dovi_tool' for Dolby Vision data
@@ -126,10 +244,10 @@ def dovi_extract(
     if not out_file.endswith(ext):
         out_file += ext
 
-    cmd = [
-        DOVI_TOOL,
-        '-c',
-        '-m', '2',
+    cmd = [DOVI_TOOL, '--mode', '2']
+    if crop:
+        cmd.append('--crop')
+    cmd += [
         'extract-rpu',
         '-o', out_file,
         '-',
@@ -137,6 +255,8 @@ def dovi_extract(
 
     log.info("Extracting Dolby Vision data: %s --> %s", src_file, out_file)
     extract = extract_hevc(src_file)
+
+    log.debug('Running command: %s', cmd)
     proc = Popen(cmd, stdin=extract.stdout, stdout=DEVNULL, stderr=STDOUT)
     extract.stdout.close()
 
@@ -185,6 +305,7 @@ def hdr10plus_inject(hevc_file, hdr10plus_file):
         "-o", out_file,
     ]
 
+    log.debug('Running command: %s', cmd)
     proc = Popen(cmd, stdout=DEVNULL, stderr=STDOUT)
     if proc.wait() == 0:
         # command finished successfully!
@@ -202,6 +323,7 @@ def hdr10plus_extract(
     src_file: str,
     out_file: str | None = None,
     ext: str = ".json",
+    **kwargs,
 ) -> str | None:
     """
     Run 'hdr10plus_tool' for Dolby Vision data
@@ -236,6 +358,7 @@ def hdr10plus_extract(
     log.info("Extracting HDR10+ data: %s --> %s", src_file, out_file)
     extract = extract_hevc(src_file)
 
+    log.debug('Running command: %s', cmd)
     proc = Popen(cmd, stdin=extract.stdout, stdout=DEVNULL, stderr=STDOUT)
     extract.stdout.close()
 
